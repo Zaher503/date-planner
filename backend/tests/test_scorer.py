@@ -49,3 +49,13 @@ def test_house_number_match_counts_as_name():
     c.provider = "address"
     c.extra["house_match"] = True
     assert score(c, hint, HOME).score >= AUTO_ACCEPT
+
+
+def test_weak_name_never_auto_accepts():
+    c = score(cand("Pizza Bella", 34.10, -118.33, osm_value="restaurant"),
+              ItemHint("place", "K Bella Pizza", category="restaurant"), HOME)
+    assert c.score < AUTO_ACCEPT
+
+
+def test_museum_suffix_is_generic():
+    assert name_similarity("The Broad", "The Broad Museum") >= 0.9

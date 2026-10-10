@@ -24,7 +24,10 @@ OSM_CATEGORY = {
 # Words that say what kind of place it is, not which one
 GENERIC = {"the", "a", "an", "of", "and", "at", "on", "in", "by", "la", "los", "angeles", "dtla", "downtown",
            "bar", "restaurant", "cafe", "coffee", "rooftop", "lounge", "club", "kitchen", "grill", "house",
-           "co", "company", "inc", "llc", "shop", "eatery", "ca", "california"}
+           "co", "company", "inc", "llc", "shop", "eatery", "ca", "california", "museum", "gallery",
+           "theater", "theatre", "hotel", "center", "centre", "hall", "venue"}
+# Without an exact address or pin, auto-accepting needs at least this name match
+STRONG_NAME = 0.8
 FAR_KM = 200.0
 
 
@@ -105,6 +108,10 @@ def score(c: Candidate, hint: ItemHint, home: tuple[float, float]) -> Candidate:
         if num and re.match(rf"\s*{num.group(1)}\b", c.address_text):
             s += 0.1
             why["address"] = 1
+
+    located = bool(why.get("address")) or c.extra.get("house_match") or why.get("from_pin_km", 99) < 0.15
+    if sim < STRONG_NAME and not located:
+        s = min(s, AUTO_ACCEPT - 0.05)  # e.g. "K Bella Pizza" vs "Pizza Bella": ask, don't guess
 
     if d_home > FAR_KM and not (hint.lat is not None and why.get("from_pin_km", 99) < 1):
         s = min(s, 0.45)  # a namesake in another state
