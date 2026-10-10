@@ -18,6 +18,10 @@ from app.resolve.scorer import name_similarity
 DEFAULT = Path(__file__).resolve().parent.parent / "tests" / "golden.json"
 
 
+def _flat(s: str) -> str:
+    return "".join(ch for ch in s.lower() if ch.isalnum())
+
+
 def hints_for(db, case: dict):
     job = SimpleNamespace(id=-1)  # stage updates touch no row
     if "text" in case:
@@ -65,7 +69,7 @@ def main(path: Path) -> None:
                 match = None
                 for h, r in pins:
                     if name_similarity(exp["name"], h.name) >= 0.6 or name_similarity(exp["name"], r.best.name) >= 0.6 \
-                            or exp["name"].lower() in (h.name + " " + r.best.name).lower():
+                            or _flat(exp["name"]) in _flat(h.name + r.best.name):
                         match = (h, r)
                         break
                 if not match:
