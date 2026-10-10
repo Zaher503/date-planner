@@ -1,5 +1,6 @@
-# PostGIS plus pgvector. The postgres base image already has the PGDG apt repo.
-FROM postgis/postgis:17-3.5
+# pgvector's official image plus PostGIS from the PGDG apt repo it already has.
+# (postgis/postgis:17-3.5 is Debian bullseye, which PGDG no longer serves.)
+FROM pgvector/pgvector:pg17
 RUN apt-get update \
- && apt-get install -y --no-install-recommends postgresql-17-pgvector \
+ && apt-get install -y --no-install-recommends postgresql-17-postgis-3 \
  && rm -rf /var/lib/apt/lists/*
