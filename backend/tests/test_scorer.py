@@ -59,3 +59,15 @@ def test_weak_name_never_auto_accepts():
 
 def test_museum_suffix_is_generic():
     assert name_similarity("The Broad", "The Broad Museum") >= 0.9
+
+
+def test_repeated_words_counted_once():
+    assert name_similarity("La Cha Cha Cha", "Cha Cha Lounge") < 0.8
+
+
+def test_same_street():
+    from app.resolve.resolver import _same_street
+    assert _same_street("515 W 7th St", "West 7th Street")
+    assert _same_street("1650 Schrader Blvd, Los Angeles", "Schrader Boulevard")
+    assert not _same_street("1700 Lexington Rd", "3rd Street")
+    assert not _same_street("812 E 3rd St", "Glendale Boulevard")

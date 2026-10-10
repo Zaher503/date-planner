@@ -58,6 +58,22 @@ def _house(address: str) -> str | None:
     return m.group(1).lower() if m else None
 
 
+STREET_WORDS = {"st", "street", "ave", "avenue", "blvd", "boulevard", "rd", "road", "dr", "drive", "way", "pl",
+                "place", "ln", "lane", "ct", "court", "pkwy", "parkway", "hwy", "highway", "n", "s", "e", "w",
+                "north", "south", "east", "west", "the"}
+
+
+def _street_key(s: str | None) -> set[str]:
+    words = re.findall(r"[a-z0-9]+", (s or "").lower())
+    return {w for w in words if w not in STREET_WORDS and not w.isdigit()}
+
+
+def _same_street(stated: str, found: str | None) -> bool:
+    """'515 W 7th St' vs 'West 7th Street': same street. '1700 Lexington Rd' vs '3rd Street': not."""
+    want = _street_key(re.sub(r"^\s*\d+[A-Za-z]?\s+", "", stated.split(",")[0]))
+    return not want or bool(want & _street_key(found))
+
+
 def _address_variants(address: str, area: str | None) -> list[str]:
     """The address as given, then with the city swapped for Los Angeles (postal city names
     like 'Beverly Hills' often differ from the real one), then with the area."""
@@ -95,12 +111,13 @@ def _geocode_address(db: Session | None, address: str, home: tuple[float, float]
             if not c.address_text or c.kind == "area":
                 continue
             c.provider, c.kind = "address", "address"
-            if house and (c.housenumber or "").lower() == house:
+            if house and (c.housenumber or "").lower() == house and _same_street(address, c.street):
                 matches.append(c)
             street_only = street_only or c
     if house and not matches:
         for q in variants[:2]:
-            matches = [c for c in cands.nominatim_address(db, q) if (c.housenumber or "").lower() == house]
+            matches = [c for c in cands.nominatim_address(db, q)
+                       if (c.housenumber or "").lower() == house and _same_street(address, c.street)]
             if matches:
                 break
     if matches:
@@ -162,6 +179,7 @@ def _resolve_inside(db: Session | None, hint: ItemHint, home: tuple[float, float
 def resolve(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> Resolution:
     found: list[Candidate] = []
     method = "name"
+    addr_point: tuple[float, float] | None = None
 
     if hint.inside and not hint.address and hint.lat is None:
         own = resolve(db, ItemHint(kind=hint.kind, name=hint.name, area=hint.area, category=hint.category,
@@ -181,6 +199,8 @@ def resolve(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> Re
     elif hint.address:
         method = "address"
         addr = _geocode_address(db, hint.address, home, hint.area)
+        if addr and addr.extra.get("house_match"):
+            addr_point = (addr.lat, addr.lon)
         if addr:
             poi = _poi_near(db, hint.name, addr.lat, addr.lon) if hint.name else None
             if poi:
@@ -194,7 +214,14 @@ def resolve(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> Re
             found += cands.photon_search(db, q, *home, limit=8)
 
     found = _dedupe(found)
-    ranked = sorted((score(c, hint, home) for c in found), key=lambda c: c.score, reverse=True)
+    ranked = [score(c, hint, home) for c in found]
+    if addr_point is not None:
+        # A stated address that geocoded exactly outranks a same-named place across town
+        for c in ranked:
+            if km(addr_point[0], addr_point[1], c.lat, c.lon) > 0.3:
+                c.score = round(max(0.0, c.score - 0.3), 3)
+                c.why["far_from_stated_address"] = 1
+    ranked.sort(key=lambda c: c.score, reverse=True)
 
     if hint.name and (not ranked or ranked[0].score < AUTO_ACCEPT):
         web = [score(c, hint, home) for c in _from_website(db, hint, home)]

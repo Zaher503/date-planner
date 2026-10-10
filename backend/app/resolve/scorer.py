@@ -43,11 +43,19 @@ def _core(tokens: list[str]) -> list[str]:
 
 
 def _cover(xs: list[str], ys: list[str]) -> float:
-    """Share of tokens in xs found in ys (close spelling, or inside a run-together word)."""
+    """Share of tokens in xs found in ys (close spelling, or inside a run-together word).
+    Each token in ys can be used once: 'cha cha cha' is not covered by 'cha cha'."""
     if not xs:
         return 0.0
-    joined = "".join(ys)
-    hits = sum(1 for x in xs if any(fuzz.ratio(x, y) >= 88 for y in ys) or (len(x) >= 4 and x in joined))
+    pool = list(ys)
+    hits = 0
+    for x in xs:
+        j = next((i for i, y in enumerate(pool) if fuzz.ratio(x, y) >= 88), None)
+        if j is not None:
+            pool.pop(j)
+            hits += 1
+        elif len(x) >= 4 and x in "".join(pool):
+            hits += 1
     return hits / len(xs)
 
 
