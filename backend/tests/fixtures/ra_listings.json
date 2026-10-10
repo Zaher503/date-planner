@@ -1,0 +1,336 @@
+{
+ "data": {
+  "eventListings": {
+   "data": [
+    {
+     "id": "12457752",
+     "listingDate": "2026-10-10T00:00:00.000",
+     "event": {
+      "id": "2457752",
+      "title": "[CANCELLED] Marques Wyatt B2B Doc Martin - Imagine Luv presents: A Celebration of House Music",
+      "date": "2026-10-10T00:00:00.000",
+      "startTime": "2026-10-10T13:00:00.000",
+      "endTime": "2026-10-10T21:00:00.000",
+      "cost": "20",
+      "flyerFront": null,
+      "isTicketed": true,
+      "attending": 335,
+      "minimumAge": 21,
+      "images": [
+       {
+        "filename": "https://images.ra.co/5ec2196935f2455b8b54dbdb49516887a139c0c1.png",
+        "type": "FLYERFRONT"
+       }
+      ],
+      "genres": [
+       {
+        "name": "Tech House"
+       },
+       {
+        "name": "Deep House"
+       }
+      ],
+      "venue": {
+       "id": "272497",
+       "name": "California Plaza",
+       "address": "340 S Grand Ave, Los Angeles, CA 90071, USA",
+       "contentUrl": "/clubs/272497",
+       "tba": false,
+       "location": {
+        "latitude": 34.05,
+        "longitude": -118.25
+       },
+       "area": {
+        "ianaTimeZone": "America/Los_Angeles"
+       }
+      },
+      "area": {
+       "ianaTimeZone": "America/Los_Angeles"
+      }
+     }
+    },
+    {
+     "id": "12509966",
+     "listingDate": "2026-10-10T00:00:00.000",
+     "event": {
+      "id": "2509966",
+      "title": "Scummy Bears & Darksiderz present Bear Sinister III feat. VAMPA",
+      "date": "2026-10-10T00:00:00.000",
+      "startTime": "2026-10-10T22:00:00.000",
+      "endTime": "2026-10-11T02:00:00.000",
+      "cost": "$20",
+      "flyerFront": null,
+      "isTicketed": false,
+      "attending": 2,
+      "minimumAge": 21,
+      "images": [
+       {
+        "filename": "https://images.ra.co/64bee1ea3c640bd4cf094d3b62db82123e8c42c1.png",
+        "type": "FLYERFRONT"
+       }
+      ],
+      "genres": [
+       {
+        "name": "Techno"
+       },
+       {
+        "name": "Dubstep"
+       }
+      ],
+      "venue": {
+       "id": "5957",
+       "name": "Boardner's by La Belle",
+       "address": "1652 N. Cherokee Ave, Hollywood, CA 90028",
+       "contentUrl": "/clubs/5957",
+       "tba": false,
+       "location": {
+        "latitude": 34.101153,
+        "longitude": -118.334933
+       },
+       "area": {
+        "ianaTimeZone": "America/Los_Angeles"
+       }
+      },
+      "area": {
+       "ianaTimeZone": "America/Los_Angeles"
+      }
+     }
+    },
+    {
+     "id": "12510218",
+     "listingDate": "2026-10-10T00:00:00.000",
+     "event": {
+      "id": "2510218",
+      "title": "WORK presents: DVS1 [4 Hour Set], Mary Yuzovskaya, & Pleasures",
+      "date": "2026-10-10T00:00:00.000",
+      "startTime": "2026-10-10T23:00:00.000",
+      "endTime": "2026-10-11T07:00:00.000",
+      "cost": "25-45",
+      "flyerFront": null,
+      "isTicketed": true,
+      "attending": 597,
+      "minimumAge": 21,
+      "images": [
+       {
+        "filename": "https://images.ra.co/fec08a228cffef2f8f182cc78c83940701c4ccd1.png",
+        "type": "FLYERFRONT"
+       },
+       {
+        "filename": "https://images.ra.co/464114de555047b2931535af19670cbda4b49f7b.jpg",
+        "type": "FLYERBACK"
+       }
+      ],
+      "genres": [
+       {
+        "name": "Techno"
+       }
+      ],
+      "venue": {
+       "id": "193995",
+       "name": "TBA - Los Angeles",
+       "address": "",
+       "contentUrl": null,
+       "tba": true,
+       "location": {
+        "latitude": 0,
+        "longitude": 0
+       },
+       "area": {
+        "ianaTimeZone": "America/Los_Angeles"
+       }
+      },
+      "area": {
+       "ianaTimeZone": "America/Los_Angeles"
+      }
+     }
+    },
+    {
+     "id": "12520138",
+     "listingDate": "2026-10-10T00:00:00.000",
+     "event": {
+      "id": "2520138",
+      "title": "SET with Woo York [Live]",
+      "date": "2026-10-10T00:00:00.000",
+      "startTime": "2026-10-10T22:00:00.000",
+      "endTime": "2026-10-11T03:00:00.000",
+      "cost": "$25-$50",
+      "flyerFront": null,
+      "isTicketed": true,
+      "attending": 34,
+      "minimumAge": 21,
+      "images": [
+       {
+        "filename": "https://images.ra.co/0ebd351ac701ebfcd76e8f0db92bc82851269941.jpg",
+        "type": "FLYERFRONT"
+       }
+      ],
+      "genres": [
+       {
+        "name": "Techno"
+       },
+       {
+        "name": "Deep House"
+       }
+      ],
+      "venue": {
+       "id": "298028",
+       "name": "Community Berlin",
+       "address": "11819 Sherman Way, North Hollywood, CA, 91605, USA",
+       "contentUrl": "/clubs/298028",
+       "tba": false,
+       "location": {
+        "latitude": 34.2,
+        "longitude": -118.39
+       },
+       "area": {
+        "ianaTimeZone": "America/Los_Angeles"
+       }
+      },
+      "area": {
+       "ianaTimeZone": "America/Los_Angeles"
+      }
+     }
+    },
+    {
+     "id": "12551366",
+     "listingDate": "2026-10-10T00:00:00.000",
+     "event": {
+      "id": "2551366",
+      "title": "Midnight Society",
+      "date": "2026-10-10T00:00:00.000",
+      "startTime": "2026-10-10T22:00:00.000",
+      "endTime": "2026-10-11T02:00:00.000",
+      "cost": "",
+      "flyerFront": null,
+      "isTicketed": true,
+      "attending": 4,
+      "minimumAge": 21,
+      "images": [
+       {
+        "filename": "https://images.ra.co/1716aaeca10eb6d04619b7c57f143b79007a2cac.png",
+        "type": "FLYERFRONT"
+       }
+      ],
+      "genres": [
+       {
+        "name": "Progressive House"
+       },
+       {
+        "name": "Deep House"
+       }
+      ],
+      "venue": {
+       "id": "290410",
+       "name": "Matriarch LA",
+       "address": "3680 Wilshire Blvd #503, Los Angeles, CA 90010",
+       "contentUrl": "/clubs/290410",
+       "tba": false,
+       "location": {
+        "latitude": 0,
+        "longitude": 0
+       },
+       "area": {
+        "ianaTimeZone": "America/Los_Angeles"
+       }
+      },
+      "area": {
+       "ianaTimeZone": "America/Los_Angeles"
+      }
+     }
+    },
+    {
+     "id": "12557937",
+     "listingDate": "2026-10-10T00:00:00.000",
+     "event": {
+      "id": "2557937",
+      "title": "NITEHARTS DAY 2",
+      "date": "2026-10-10T00:00:00.000",
+      "startTime": "2026-10-10T15:00:00.000",
+      "endTime": "2026-10-10T23:00:00.000",
+      "cost": "",
+      "flyerFront": null,
+      "isTicketed": false,
+      "attending": 0,
+      "minimumAge": null,
+      "images": [
+       {
+        "filename": "https://images.ra.co/b026a48ac67c6444d21544202eb9348e77a1a688.jpg",
+        "type": "FLYERFRONT"
+       },
+       {
+        "filename": "https://images.ra.co/96ccd4a8e7b6ad54ae70ae47b740c6c2273997c4.jpg",
+        "type": "FLYERBACK"
+       }
+      ],
+      "genres": [],
+      "venue": {
+       "id": "304845",
+       "name": "Snapdragon Stadium",
+       "address": "2101 Stadium Way San Diego, CA 92108",
+       "contentUrl": "/clubs/304845",
+       "tba": false,
+       "location": {
+        "latitude": 0,
+        "longitude": 0
+       },
+       "area": {
+        "ianaTimeZone": "America/Los_Angeles"
+       }
+      },
+      "area": {
+       "ianaTimeZone": "America/Los_Angeles"
+      }
+     }
+    },
+    {
+     "id": "12537847",
+     "listingDate": "2026-10-11T00:00:00.000",
+     "event": {
+      "id": "2537847",
+      "title": "Sunday Sessions LA (Vinyl Only)",
+      "date": "2026-10-11T00:00:00.000",
+      "startTime": "2026-10-11T17:00:00.000",
+      "endTime": "2026-10-11T23:00:00.000",
+      "cost": "0-35",
+      "flyerFront": null,
+      "isTicketed": true,
+      "attending": 111,
+      "minimumAge": 21,
+      "images": [
+       {
+        "filename": "https://images.ra.co/65bf83f9472ebf0f1b852d5495b801984c95cbf0.png",
+        "type": "FLYERFRONT"
+       }
+      ],
+      "genres": [
+       {
+        "name": "House"
+       },
+       {
+        "name": "Deep House"
+       }
+      ],
+      "venue": {
+       "id": "150858",
+       "name": "Apotheke",
+       "address": "1746 N Spring St, Los Angeles, CA 90012",
+       "contentUrl": "/clubs/150858",
+       "tba": false,
+       "location": {
+        "latitude": 34.069926,
+        "longitude": -118.22582
+       },
+       "area": {
+        "ianaTimeZone": "America/Los_Angeles"
+       }
+      },
+      "area": {
+       "ianaTimeZone": "America/Los_Angeles"
+      }
+     }
+    }
+   ],
+   "totalResults": 7
+  }
+ }
+}
