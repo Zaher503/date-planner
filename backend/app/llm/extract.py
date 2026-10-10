@@ -78,11 +78,21 @@ def _tags(raw: list[str]) -> list[str]:
     return out[:6]
 
 
+NULLISH = {"", "null", "none", "n/a", "na", "unknown", "tbd", "tba"}
+
+
+def _s(v) -> str | None:
+    v = (v or "").strip() if isinstance(v, str) else None
+    return None if v is None or v.lower() in NULLISH else v
+
+
 def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
-    name = (raw.get("name") or "").strip()
-    area = (raw.get("area") or "").strip() or None
+    name = _s(raw.get("name")) or ""
+    area = _s(raw.get("area"))
     if not name and not area:
         return None
+    for key in ("event_title", "address", "description", "recurrence", "price_text"):
+        raw[key] = _s(raw.get(key))
     hint = ItemHint(
         kind=raw.get("kind") or "place",
         name=name or area,
@@ -98,7 +108,8 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
         tz=tz,
         provider="llm",
     )
-    if not raw.get("specific", True):
+    # The model's own "specific" flag is unreliable; judge it from the name
+    if not name or (area and name.lower() == area.lower()):
         hint.flags.append("not a specific venue")
 
     # Numbers must come from the text
@@ -109,7 +120,10 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
             hint.flags.append(f"removed unverified {key.replace('_', ' ')}")
             v = None
         setattr(hint, key, float(v) if v is not None else None)
+    # Free only when the text says so; "not free" only when it states a price
     if hint.is_free and "free" not in text.lower():
+        hint.is_free = None
+    if hint.is_free is False and hint.price_min is None and hint.price_max is None and "$" not in text:
         hint.is_free = None
 
     start_d, end_d = _date(raw.get("start_date")), _date(raw.get("end_date"))

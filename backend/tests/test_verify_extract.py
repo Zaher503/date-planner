@@ -62,3 +62,10 @@ def test_to_hint_activity_without_venue():
     h = to_hint(raw(name="", area="Venice", specific=False, category="activity"), "bike by the beach in Venice", LA)
     assert h.name == "Venice" and "not a specific venue" in h.flags
     assert to_hint(raw(name="", area=None), "x", LA) is None
+    assert to_hint(raw(name="null", area="none"), "x", LA) is None
+
+
+def test_to_hint_ignores_model_specific_flag_for_named_venue():
+    h = to_hint(raw(name="El Matador Beach", specific=False, is_free=False), "10. El Matador Beach", LA)
+    assert "not a specific venue" not in h.flags
+    assert h.is_free is None  # no price in the text, so unknown
