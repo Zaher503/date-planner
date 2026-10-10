@@ -22,6 +22,12 @@ def handler(name: str):
     return wrap
 
 
+@handler("ingest")
+def ingest(db: Session, job: Job) -> dict:
+    from app.ingest.pipeline import run
+    return run(db, job)
+
+
 @handler("refresh_home")
 def refresh_home(db: Session, job: Job) -> dict:
     """Map center and discovery origin follow HA zone.home unless set by hand."""

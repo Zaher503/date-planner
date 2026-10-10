@@ -66,7 +66,8 @@ def add_item(db: Session, body: AddIn, user: User | None) -> AddOut:
     db.flush()
     job = None
     if kind != "instagram":
-        job = jobs.enqueue(db, "ingest", {"source_id": str(src.id)}, source_id=src.id,
+        # Ingest jobs run one at a time in the GPU lane (most of them call the local model)
+        job = jobs.enqueue(db, "ingest", {"source_id": str(src.id)}, source_id=src.id, needs_gpu=True,
                            submitted_by=user.id if user else None)
     db.commit()
     return AddOut(status="queued" if job else "stub", source_id=str(src.id),

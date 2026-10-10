@@ -156,6 +156,34 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
     return hint
 
 
+CLASSIFY_SYSTEM = """For each numbered place or event, choose its category and 2 to 6 lowercase tags
+(cuisine, vibe, activity, setting). No hashtags, no city names. Use only what the text supports."""
+
+CLASSIFY_SCHEMA = {
+    "type": "object",
+    "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {
+        "index": {"type": "integer"},
+        "category": {"type": "string", "enum": list(CATEGORIES)},
+        "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 6},
+    }, "required": ["index", "category", "tags"]}}},
+    "required": ["items"],
+}
+
+
+def classify(hints: list[ItemHint], context: str = "") -> None:
+    """Fill category and tags on structured items (JSON-LD has neither), in one call."""
+    todo = [(i, h) for i, h in enumerate(hints) if not h.category or not h.tags]
+    if not todo:
+        return
+    lines = [f"{i}. {h.event_title or ''} at {h.name}: {(h.description or '')[:300]}" for i, h in todo]
+    out = chat_json(CLASSIFY_SYSTEM, (context[:1500] + "\n\n" if context else "") + "\n".join(lines), CLASSIFY_SCHEMA)
+    for row in out.get("items", []):
+        i = row.get("index")
+        if isinstance(i, int) and 0 <= i < len(hints):
+            hints[i].category = hints[i].category or row.get("category")
+            hints[i].tags = hints[i].tags or _tags(row.get("tags"))
+
+
 def extract(text: str, *, posted: date | None = None, today: date | None = None,
             region: str = "Los Angeles / Southern California", tz: str = "America/Los_Angeles") -> tuple[bool, list[ItemHint]]:
     today = today or date.today()

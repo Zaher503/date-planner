@@ -34,7 +34,7 @@ def run_one(db: Session, job: Job) -> None:
     except Exception as e:  # a job must never take the lane down
         db.rollback()
         log.error("job %s %s failed: %s\n%s", job.id, job.type, e, traceback.format_exc())
-        jobs.fail(db, job, f"{type(e).__name__}: {e}")
+        jobs.fail(db, job, f"{type(e).__name__}: {e}", retry=not getattr(e, "permanent", False))
     else:
         jobs.finish(db, job, result)
         log.info("job %s %s done", job.id, job.type)

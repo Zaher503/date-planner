@@ -4,7 +4,6 @@ Every GPU step runs inside gpu_lock(): a host-wide flock (/srv/gpu/gpu.lock moun
 /locks), and, until the other two apps take the same lock, a wait while either of them
 reports work in progress.
 """
-import fcntl
 import logging
 import os
 import time
@@ -13,6 +12,11 @@ from contextlib import contextmanager
 import httpx
 
 from app.config import get_settings
+
+try:
+    import fcntl
+except ImportError:  # Windows dev machine; the worker runs on Linux
+    fcntl = None
 
 log = logging.getLogger(__name__)
 
