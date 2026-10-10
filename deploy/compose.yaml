@@ -1,9 +1,17 @@
 name: dates
 
+# Explicit upstream DNS: Docker's embedded DNS went stale after a host network change
+# (SearXNG got SERVFAIL until recreated; Recipe Box's Ollama had the same problem).
+x-dns: &dns
+  dns:
+    - 192.168.0.70
+    - 1.1.1.1
+
 x-app: &app
   image: dates-app:local
   restart: unless-stopped
   env_file: .env
+  <<: *dns
   volumes:
     - /srv/dateplanner:/data
   depends_on:
@@ -93,6 +101,7 @@ services:
 
   # Private metasearch for venue websites
   searxng:
+    <<: *dns
     image: searxng/searxng:latest
     restart: unless-stopped
     environment:
