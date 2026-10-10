@@ -73,7 +73,7 @@ def main(path: Path) -> None:
                     continue
                 h, r = match
                 d = km(exp["near"][0], exp["near"][1], r.best.lat, r.best.lon)
-                ok = d <= tol_km
+                ok = d <= exp.get("tolerance_m", tol_km * 1000) / 1000
                 found_total += ok
                 if not r.needs_review:
                     auto_ok += ok
