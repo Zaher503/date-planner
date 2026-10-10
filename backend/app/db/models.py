@@ -145,6 +145,7 @@ class Event(TimestampMixin, Base):
     duration_estimated: Mapped[bool] = mapped_column(Boolean, server_default="false")
     all_day: Mapped[bool] = mapped_column(Boolean, server_default="false")
     rrule: Mapped[str | None] = mapped_column(Text)  # RFC 5545, anchored at starts_at
+    recurrence_text: Mapped[str | None] = mapped_column(Text)  # as written ("every Sunday")
     tz: Mapped[str] = mapped_column(Text, server_default="America/Los_Angeles")
     price_min: Mapped[float | None] = mapped_column(Numeric(10, 2))
     price_max: Mapped[float | None] = mapped_column(Numeric(10, 2))
