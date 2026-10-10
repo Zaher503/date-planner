@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.api import add
+from app.api import add, health
 from app.api.auth import current_user
 from app.db.models import AppSettings, User
 from app.db.session import SessionLocal, get_db
@@ -22,6 +22,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="Date Planner", lifespan=lifespan, docs_url=None, redoc_url=None)
 app.include_router(add.router)
+app.include_router(health.router)
 
 
 @app.get("/healthz")
