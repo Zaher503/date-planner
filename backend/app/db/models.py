@@ -201,10 +201,28 @@ class Source(Base):
     status: Mapped[str] = mapped_column(Text, server_default="pending")
     error: Mapped[str | None] = mapped_column(Text)
     submitted_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
-    place_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("places.id", ondelete="SET NULL"), index=True)
-    event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id", ondelete="SET NULL"), index=True)
     fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class ItemSource(Base):
+    """Which items a source mentions. A list video links to several places."""
+    __tablename__ = "item_sources"
+    __table_args__ = (
+        CheckConstraint("num_nonnulls(place_id, event_id) = 1", name="one_item"),
+        Index("uq_item_sources_place", "source_id", "place_id", unique=True,
+              postgresql_where=text("place_id IS NOT NULL")),
+        Index("uq_item_sources_event", "source_id", "event_id", unique=True,
+              postgresql_where=text("event_id IS NOT NULL")),
+        Index("ix_item_sources_place", "place_id"),
+        Index("ix_item_sources_event", "event_id"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
+    place_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("places.id", ondelete="CASCADE"))
+    event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
+    position: Mapped[int] = mapped_column(SmallInteger, server_default="0")  # order in a list video
+    confidence: Mapped[float | None] = mapped_column(Float)
 
 
 class Media(Base):
@@ -224,7 +242,10 @@ class Candidate(Base):
     __tablename__ = "candidates"
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"), index=True)
-    provider: Mapped[str] = mapped_column(Text)  # photon, overpass, website, maps_link
+    # The place these are alternatives for (the review picker swaps it)
+    place_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("places.id", ondelete="CASCADE"), index=True)
+    item_index: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    provider: Mapped[str] = mapped_column(Text)  # photon, address, website, maps_link
     name: Mapped[str] = mapped_column(Text)
     geom = mapped_column(Geography("POINT", srid=4326, spatial_index=False))
     address_text: Mapped[str | None] = mapped_column(Text)
