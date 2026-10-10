@@ -59,36 +59,55 @@ def _house(address: str) -> str | None:
 
 
 def _address_variants(address: str, area: str | None) -> list[str]:
+    """The address as given, then with the city swapped for Los Angeles (postal city names
+    like 'Beverly Hills' often differ from the real one), then with the area."""
     a = address.strip().rstrip(",")
+    street = a.split(",")[0].strip()
+    out = []
     if re.search(r"\b(CA|California)\b|\b9\d{4}\b", a) or a.count(",") >= 2:
-        return [a]
-    out = [f"{a}, Los Angeles, CA"]
-    if area and not re.search(r"\b(downtown|dtla|la)\b", area, re.I):
-        out.insert(0, f"{a}, {area}, CA")
-    return out
+        out.append(a)
+    if area and not re.search(r"\b(downtown|dtla|la|los angeles)\b", area, re.I):
+        out.append(f"{street}, {area}, CA")
+    out.append(f"{street}, Los Angeles, CA")
+    return list(dict.fromkeys(out))
+
+
+def _anchor(db: Session | None, area: str | None, home: tuple[float, float]) -> tuple[float, float]:
+    """Where to break ties between same-numbered addresses: the stated area, else home."""
+    if area and not re.search(r"^\s*(la|los angeles|socal)\s*$", area, re.I):
+        for c in cands.photon_search(db, area, *home, limit=3, bias=0.5):
+            if c.kind == "area" and km(home[0], home[1], c.lat, c.lon) < 150:
+                return c.lat, c.lon
+    return home
 
 
 def _geocode_address(db: Session | None, address: str, home: tuple[float, float],
                      area: str | None = None) -> Candidate | None:
     """Street address -> point. Exact house number from the local geocoder, else public
-    Nominatim (which interpolates US house numbers), else the street alone (flagged)."""
+    Nominatim (which interpolates US house numbers), else the street alone (flagged).
+    When the same address exists in several cities, the one nearest the area wins."""
     house = _house(address)
+    variants = _address_variants(address, area)
+    matches: list[Candidate] = []
     street_only = None
-    for q in _address_variants(address, area):
+    for q in variants:
         for c in cands.photon_search(db, q, *home, limit=5, bias=0.2):
             if not c.address_text or c.kind == "area":
                 continue
             c.provider, c.kind = "address", "address"
             if house and (c.housenumber or "").lower() == house:
-                c.extra["house_match"] = True
-                return c
+                matches.append(c)
             street_only = street_only or c
-    if house:
-        for q in _address_variants(address, area)[:1]:
-            c = cands.nominatim_address(db, q)
-            if c and (c.housenumber or "").lower() == house:
-                c.extra["house_match"] = True
-                return c
+    if house and not matches:
+        for q in variants[:2]:
+            matches = [c for c in cands.nominatim_address(db, q) if (c.housenumber or "").lower() == house]
+            if matches:
+                break
+    if matches:
+        lat, lon = _anchor(db, area, home)
+        best = min(matches, key=lambda c: km(lat, lon, c.lat, c.lon))
+        best.extra["house_match"] = True
+        return best
     if street_only:
         street_only.extra["street_only"] = True
     return street_only
@@ -120,7 +139,7 @@ def _from_website(db: Session | None, hint: ItemHint, home: tuple[float, float])
                                          "phone": item.phone, "price_level": item.price_level}.items() if v}
             found.append(c)
             break
-    for addr in cands.snippet_addresses(results):
+    for addr in cands.snippet_addresses(results, hint.name):
         c = _geocode_address(db, addr, home, hint.area)
         if c and not c.extra.get("street_only"):
             c.provider, c.name = "snippet", hint.name

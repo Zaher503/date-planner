@@ -127,11 +127,12 @@ _nominatim_lock = threading.Lock()
 _nominatim_last = 0.0
 
 
-def nominatim_address(db: Session | None, address: str) -> Candidate | None:
-    """Public Nominatim for one street address the local geocoder could not place exactly.
-    Policy: interactive use only, at most 1 request per second, cached, identified."""
+def nominatim_address(db: Session | None, address: str) -> list[Candidate]:
+    """Public Nominatim for a street address the local geocoder could not place exactly.
+    Policy: interactive use only, at most 1 request per second, cached, identified.
+    Returns up to 5 matches: the same address exists in several LA-area cities."""
     global _nominatim_last
-    params = {"q": address, "format": "jsonv2", "addressdetails": 1, "limit": 1, "countrycodes": "us"}
+    params = {"q": address, "format": "jsonv2", "addressdetails": 1, "limit": 5, "countrycodes": "us"}
     with _nominatim_lock:
         wait = 1.1 - (time.monotonic() - _nominatim_last)
         if wait > 0:
@@ -140,20 +141,21 @@ def nominatim_address(db: Session | None, address: str) -> Candidate | None:
             with _client() as c:
                 data = cached_json(db, c, NOMINATIM, params, timedelta(days=90))
         except (httpx.HTTPError, ValueError):
-            return None
+            return []
         finally:
             _nominatim_last = time.monotonic()
-    if not data:
-        return None
-    r, a = data[0], data[0].get("address", {})
-    street = a.get("road")
-    parts = [" ".join(x for x in (a.get("house_number"), street) if x),
-             a.get("city") or a.get("town") or a.get("suburb"),
-             " ".join(x for x in (a.get("state"), a.get("postcode")) if x)]
-    return Candidate(provider="address", name="", lat=float(r["lat"]), lon=float(r["lon"]),
-                     address_text=", ".join(p for p in parts if p) or r.get("display_name"),
-                     kind="address", housenumber=a.get("house_number"), street=street,
-                     city=a.get("city") or a.get("town"))
+    out = []
+    for r in data or []:
+        a = r.get("address", {})
+        street = a.get("road")
+        parts = [" ".join(x for x in (a.get("house_number"), street) if x),
+                 a.get("city") or a.get("town") or a.get("suburb"),
+                 " ".join(x for x in (a.get("state"), a.get("postcode")) if x)]
+        out.append(Candidate(provider="address", name="", lat=float(r["lat"]), lon=float(r["lon"]),
+                             address_text=", ".join(p for p in parts if p) or r.get("display_name"),
+                             kind="address", housenumber=a.get("house_number"), street=street,
+                             city=a.get("city") or a.get("town")))
+    return out
 
 
 AGGREGATORS = re.compile(
@@ -181,10 +183,16 @@ def official_sites(results: list[dict]) -> list[str]:
     return [r["url"] for r in results if r.get("url") and not AGGREGATORS.search(r["url"])][:2]
 
 
-def snippet_addresses(results: list[dict]) -> list[str]:
+def snippet_addresses(results: list[dict], name: str) -> list[str]:
+    """Street addresses in search results that mention the venue by name."""
+    words = [w for w in re.findall(r"[a-z0-9]+", name.lower()) if len(w) > 2] or [name.lower()]
     out: list[str] = []
     for r in results:
-        for m in US_ADDRESS.findall(f"{r.get('title', '')} {r.get('content', '')}"):
+        blob = f"{r.get('title', '')} {r.get('content', '')}"
+        flat = re.sub(r"[^a-z0-9]+", "", blob.lower())
+        if not all(w in flat for w in words):
+            continue
+        for m in US_ADDRESS.findall(blob):
             m = re.sub(r"\s+", " ", m).strip(" ,")
             if m not in out:
                 out.append(m)
