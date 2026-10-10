@@ -17,7 +17,12 @@
       {"name": "Melrose Trading Post", "near": [34.083719, -118.360962]},
       {"name": "Venice West", "near": [33.996345, -118.457915]},
       {"name": "TreePeople", "near": [34.12796, -118.406476], "tolerance_m": 800, "note": "a large park"}]},
-    {"url": "https://www.tiktok.com/@drewmtillman/video/7499962807966895391", "list": true, "expect": []},
+    {"url": "https://www.tiktok.com/@drewmtillman/video/7499962807966895391", "list": true, "note": "addresses as given in the caption", "expect": [
+      {"name": "Videre", "near": [34.08305, -118.418509]},
+      {"name": "Casa Madera", "near": [34.094603, -118.374242]},
+      {"name": "Coco Club", "near": [34.101068, -118.332176]},
+      {"name": "Mother Tongue", "near": [34.088486, -118.343707]},
+      {"name": "La Cha Cha Cha", "near": [34.045733, -118.235864]}]},
     {"url": "https://www.tiktok.com/@forkingaround_tv/video/7586028098005634317", "list": true, "expect": []},
     {"url": "https://www.google.com/maps/place/Griffith+Observatory/@34.1184,-118.3004,17z/data=!3m1!4b1!8m2!3d34.1184341!4d-118.3003935", "expect": [{"name": "Griffith Observatory", "near": [34.1184341, -118.3003935]}]},
     {"url": "https://maps.apple.com/?q=Bestia&ll=34.0337,-118.2292", "expect": [{"name": "Bestia", "near": [34.033706, -118.229208]}]},
