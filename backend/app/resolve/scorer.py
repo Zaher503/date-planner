@@ -21,32 +21,58 @@ OSM_CATEGORY = {
     "music_venue": "live_music", "attraction": "activity", "theme_park": "activity", "zoo": "activity",
     "aquarium": "activity", "spa": "spa", "mall": "shopping", "nature_reserve": "outdoors",
 }
-FILLER = re.compile(r"\b(the|la|los angeles|bar|restaurant|cafe|rooftop|lounge|club|dtla|downtown)\b")
+# Words that say what kind of place it is, not which one
+GENERIC = {"the", "a", "an", "of", "and", "at", "on", "in", "by", "la", "los", "angeles", "dtla", "downtown",
+           "bar", "restaurant", "cafe", "coffee", "rooftop", "lounge", "club", "kitchen", "grill", "house",
+           "co", "company", "inc", "llc", "shop", "eatery", "ca", "california"}
+FAR_KM = 200.0
 
 
 def norm(s: str | None) -> str:
     s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
-    s = re.sub(r"[^a-z0-9& ]+", " ", s)
+    s = s.replace("&", " and ")
+    s = re.sub(r"[^a-z0-9 ]+", " ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
-def name_similarity(a: str | None, b: str | None) -> float:
-    a, b = norm(a), norm(b)
-    if not a or not b:
+def _core(tokens: list[str]) -> list[str]:
+    return [t for t in tokens if t not in GENERIC] or tokens
+
+
+def _cover(xs: list[str], ys: list[str]) -> float:
+    """Share of tokens in xs found in ys (close spelling, or inside a run-together word)."""
+    if not xs:
         return 0.0
-    full = max(fuzz.token_set_ratio(a, b), fuzz.WRatio(a, b)) / 100
-    core_a, core_b = FILLER.sub("", a).strip(), FILLER.sub("", b).strip()
-    # "Perch Rooftop Bar" vs "Perch": the distinctive word matches exactly
-    if core_a and core_b and (core_a == core_b or core_a in core_b.split() or core_b in core_a.split()):
-        full = max(full, 0.92)
-    return full
+    joined = "".join(ys)
+    hits = sum(1 for x in xs if any(fuzz.ratio(x, y) >= 88 for y in ys) or (len(x) >= 4 and x in joined))
+    return hits / len(xs)
+
+
+def name_similarity(a: str | None, b: str | None) -> float:
+    """Strict: every distinctive word on both sides has to match.
+    'Perch Rooftop Bar' ~ 'Perch' high; 'Melrose Trading Post' ~ 'Trading Post' and 'Zaya' ~ 'Zara' low."""
+    na, nb = norm(a), norm(b)
+    if not na or not nb:
+        return 0.0
+    if na.replace(" ", "") == nb.replace(" ", ""):
+        return 1.0
+    ca, cb = _core(na.split()), _core(nb.split())
+    tok = min(_cover(ca, cb), _cover(cb, ca))
+    seq = fuzz.token_sort_ratio(na, nb) / 100
+    sim = 0.65 * tok + 0.35 * seq
+    # Short distinctive names must match exactly ("Zaya" is not "Zara")
+    ja, jb = "".join(ca), "".join(cb)
+    if min(len(ja), len(jb)) <= 5 and ja != jb and not (ja in jb.split() or jb in ja.split()):
+        sim = min(sim, 0.5)
+    return round(sim, 3)
 
 
 def score(c: Candidate, hint: ItemHint, home: tuple[float, float]) -> Candidate:
     why: dict[str, float] = {}
     sim = name_similarity(hint.name, c.name)
-    if c.provider in ("address", "pin") and not c.name:
-        sim = 0.6  # a bare address has no name to compare
+    if c.provider == "address":
+        # A stated street address that geocoded to the exact house number is as good as a name
+        sim = 0.95 if c.extra.get("house_match") else 0.6
     why["name"] = round(sim, 2)
 
     d_home = km(home[0], home[1], c.lat, c.lon)
@@ -68,16 +94,20 @@ def score(c: Candidate, hint: ItemHint, home: tuple[float, float]) -> Candidate:
     if cat and hint.category:
         s += 0.05 if cat == hint.category else -0.03
 
+    vague = "not a specific venue" in hint.flags
     if c.kind == "poi":
-        s += 0.1
+        s += 0.0 if vague else 0.1
     elif c.kind == "area":
-        s -= 0.15 if "not a specific venue" not in hint.flags else -0.05
+        s += 0.15 if vague else -0.15
 
     if hint.address and c.address_text:
         num = re.match(r"\s*(\d+)", hint.address)
         if num and re.match(rf"\s*{num.group(1)}\b", c.address_text):
             s += 0.1
             why["address"] = 1
+
+    if d_home > FAR_KM and not (hint.lat is not None and why.get("from_pin_km", 99) < 1):
+        s = min(s, 0.45)  # a namesake in another state
 
     c.score = round(max(0.0, min(1.0, s)), 3)
     c.why = why

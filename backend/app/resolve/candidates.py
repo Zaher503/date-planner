@@ -1,6 +1,8 @@
 """Candidate places from the local geocoder, OpenStreetMap and venue websites."""
 import math
 import re
+import threading
+import time
 from dataclasses import dataclass, field
 from datetime import timedelta
 
@@ -30,6 +32,8 @@ class Candidate:
     osm_value: str | None = None
     city: str | None = None
     kind: str = "poi"  # poi, address, area
+    housenumber: str | None = None
+    street: str | None = None
     extra: dict = field(default_factory=dict)  # website, opening_hours, phone ... from enrichment
     score: float = 0.0
     why: dict = field(default_factory=dict)
@@ -73,7 +77,8 @@ def from_photon(feature: dict) -> Candidate:
     return Candidate(provider="photon", name=p.get("name") or street or "", lat=lat, lon=lon,
                      address_text=_address(p), osm_type=p.get("osm_type"), osm_id=p.get("osm_id"),
                      osm_key=p.get("osm_key"), osm_value=p.get("osm_value"),
-                     city=p.get("city") or p.get("district") or p.get("county"), kind=kind)
+                     city=p.get("city") or p.get("district") or p.get("county"), kind=kind,
+                     housenumber=p.get("housenumber"), street=p.get("street"))
 
 
 def photon_search(db: Session | None, q: str, lat: float, lon: float, *, limit: int = 8,
@@ -103,16 +108,52 @@ def overpass_tags(db: Session | None, osm_type: str, osm_id: int) -> dict:
 
 
 def enrich(db: Session | None, cand: Candidate) -> Candidate:
-    if cand.osm_type and cand.osm_id and not cand.extra:
+    # Only real places: an address match's OSM id is a building, not the venue
+    if cand.kind == "poi" and cand.osm_type and cand.osm_id and not cand.extra.get("enriched"):
         t = overpass_tags(db, cand.osm_type, cand.osm_id)
-        cand.extra = {k: v for k, v in {
+        found = {k: v for k, v in {
             "website": t.get("website") or t.get("contact:website") or t.get("url"),
             "phone": t.get("phone") or t.get("contact:phone"),
             "opening_hours": t.get("opening_hours"),
             "cuisine": t.get("cuisine"),
             "instagram": t.get("contact:instagram"),
         }.items() if v}
+        cand.extra = {**found, **cand.extra, "enriched": True}
     return cand
+
+
+NOMINATIM = "https://nominatim.openstreetmap.org/search"
+_nominatim_lock = threading.Lock()
+_nominatim_last = 0.0
+
+
+def nominatim_address(db: Session | None, address: str) -> Candidate | None:
+    """Public Nominatim for one street address the local geocoder could not place exactly.
+    Policy: interactive use only, at most 1 request per second, cached, identified."""
+    global _nominatim_last
+    params = {"q": address, "format": "jsonv2", "addressdetails": 1, "limit": 1, "countrycodes": "us"}
+    with _nominatim_lock:
+        wait = 1.1 - (time.monotonic() - _nominatim_last)
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            with _client() as c:
+                data = cached_json(db, c, NOMINATIM, params, timedelta(days=90))
+        except (httpx.HTTPError, ValueError):
+            return None
+        finally:
+            _nominatim_last = time.monotonic()
+    if not data:
+        return None
+    r, a = data[0], data[0].get("address", {})
+    street = a.get("road")
+    parts = [" ".join(x for x in (a.get("house_number"), street) if x),
+             a.get("city") or a.get("town") or a.get("suburb"),
+             " ".join(x for x in (a.get("state"), a.get("postcode")) if x)]
+    return Candidate(provider="address", name="", lat=float(r["lat"]), lon=float(r["lon"]),
+                     address_text=", ".join(p for p in parts if p) or r.get("display_name"),
+                     kind="address", housenumber=a.get("house_number"), street=street,
+                     city=a.get("city") or a.get("town"))
 
 
 AGGREGATORS = re.compile(

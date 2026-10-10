@@ -4,6 +4,7 @@ Order of evidence: an exact pin (maps link, JSON-LD geo), then a stated street a
 then a name search near home, then the venue's own website found through SearXNG.
 """
 import logging
+import re
 from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
@@ -52,12 +53,45 @@ def _poi_near(db: Session | None, name: str, lat: float, lon: float) -> Candidat
     return None
 
 
-def _geocode_address(db: Session | None, address: str, home: tuple[float, float]) -> Candidate | None:
-    for c in cands.photon_search(db, address, *home, limit=3, bias=0.2):
-        if c.kind in ("address", "poi") and c.address_text:
+def _house(address: str) -> str | None:
+    m = re.match(r"\s*(\d+[A-Za-z]?)\b", address)
+    return m.group(1).lower() if m else None
+
+
+def _address_variants(address: str, area: str | None) -> list[str]:
+    a = address.strip().rstrip(",")
+    if re.search(r"\b(CA|California)\b|\b9\d{4}\b", a) or a.count(",") >= 2:
+        return [a]
+    out = [f"{a}, Los Angeles, CA"]
+    if area and not re.search(r"\b(downtown|dtla|la)\b", area, re.I):
+        out.insert(0, f"{a}, {area}, CA")
+    return out
+
+
+def _geocode_address(db: Session | None, address: str, home: tuple[float, float],
+                     area: str | None = None) -> Candidate | None:
+    """Street address -> point. Exact house number from the local geocoder, else public
+    Nominatim (which interpolates US house numbers), else the street alone (flagged)."""
+    house = _house(address)
+    street_only = None
+    for q in _address_variants(address, area):
+        for c in cands.photon_search(db, q, *home, limit=5, bias=0.2):
+            if not c.address_text or c.kind == "area":
+                continue
             c.provider, c.kind = "address", "address"
-            return c
-    return None
+            if house and (c.housenumber or "").lower() == house:
+                c.extra["house_match"] = True
+                return c
+            street_only = street_only or c
+    if house:
+        for q in _address_variants(address, area)[:1]:
+            c = cands.nominatim_address(db, q)
+            if c and (c.housenumber or "").lower() == house:
+                c.extra["house_match"] = True
+                return c
+    if street_only:
+        street_only.extra["street_only"] = True
+    return street_only
 
 
 def _from_website(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> list[Candidate]:
@@ -78,8 +112,8 @@ def _from_website(db: Session | None, hint: ItemHint, home: tuple[float, float])
                 c = Candidate(provider="website", name=item.name, lat=item.lat, lon=item.lon,
                               address_text=item.address, kind="poi")
             else:
-                c = _geocode_address(db, item.address, home)
-                if not c:
+                c = _geocode_address(db, item.address, home, hint.area)
+                if not c or c.extra.get("street_only"):
                     continue
                 c.provider, c.name, c.kind = "website", item.name, "poi"
             c.extra = {k: v for k, v in {"website": final, "opening_hours": item.opening_hours,
@@ -87,8 +121,8 @@ def _from_website(db: Session | None, hint: ItemHint, home: tuple[float, float])
             found.append(c)
             break
     for addr in cands.snippet_addresses(results):
-        c = _geocode_address(db, addr, home)
-        if c:
+        c = _geocode_address(db, addr, home, hint.area)
+        if c and not c.extra.get("street_only"):
             c.provider, c.name = "snippet", hint.name
             found.append(c)
     return found
@@ -105,7 +139,7 @@ def resolve(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> Re
                                       address_text=hint.address, kind="poi"))
     elif hint.address:
         method = "address"
-        addr = _geocode_address(db, f"{hint.address}" if "," in hint.address else f"{hint.address}, {hint.area or REGION}", home)
+        addr = _geocode_address(db, hint.address, home, hint.area)
         if addr:
             poi = _poi_near(db, hint.name, addr.lat, addr.lon) if hint.name else None
             if poi:
