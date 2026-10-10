@@ -1,25 +1,88 @@
 # Date Planner
 
-Send it a TikTok, an event page, a Google/Apple Maps link, plain text or a screenshot. It works out the place or event (name, address, price, dates, duration) and pins it on a shared map. Every 3 days it looks for nearby events that match your interests and puts them in a Suggested inbox.
+Send it a TikTok, an event page, a Google/Apple Maps link or plain text. It works out the place or event (name, address, price, dates, duration) and pins it on a map shared by Zaher and Katherine. Later phases add a map UI, video transcription for videos without captions, and a discovery job that looks for nearby events matching their interests every 3 days.
 
-Runs on the Zephyrus as a Docker Compose stack, served at https://dates.zkocr.com behind Authentik. All AI is local (Ollama + Whisper on the RTX 3070). No paid services.
+Runs on the Zephyrus as a Docker Compose stack, all AI local (Ollama gemma4:e4b on the RTX 3070, shared with Recipe Box). No paid services. The full design and the phase list are in [docs/PLAN.md](docs/PLAN.md).
+
+## Status
+
+| Phase | State |
+|---|---|
+| 1 Foundation (stack, schema, API skeleton, deploy) | Done |
+| 2 Geo infra (Photon, OSRM car/foot, SearXNG, SoCal map tiles) | Done |
+| 3 Ingestion fast path (TikTok, maps links, web pages, text; resolver; review API) | Done |
+| 4 Map UI (SvelteKit + MapLibre) | **Next** |
+| 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Not started |
+| 6 Caddy + Authentik at dates.zkocr.com, iPhone Shortcut | Not started |
+| 7 Interests + discovery (Ticketmaster adapter built, waiting for a free key) | Started |
+| 8 Date-night planner + calendar | Not started |
+| 9 Lifecycle, backups, Homarr tile | Not started |
+
+Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expected places): 28/28 correct, 0 wrong auto-accepts.
+
+## How a link becomes a pin
+
+1. `POST /api/add` (key) or `/api/ui/add` (Authentik) stores a Source and queues an `ingest` job. Duplicate links (ignoring tracking parameters) return `exists`.
+2. The worker reads the link without downloading video:
+   - **TikTok:** the public page's JSON gives the caption, on-screen text stickers (list videos put every item there), the location tag, @mentions, TikTok's search suggestions and TikTok's own auto-caption transcript. oEmbed adds the thumbnail.
+   - **Maps links:** name, address and coordinates are parsed from the (expanded) URL.
+   - **Web pages:** schema.org JSON-LD (Event, LocalBusiness); otherwise the page text.
+   - **Free text:** straight to the model.
+3. The local model extracts items into a strict JSON schema. Prices, dates, times and street addresses that are not in the text are dropped (no invented numbers).
+4. The resolver finds each place: exact pin, then stated street address (local Photon, then public Nominatim for house numbers), then a name search near home, then the venue's own website or search snippets via SearXNG. Venues inside other venues are pinned at their host.
+5. Confident matches are pinned; unsure ones are pinned with `needs_review` and up to 5 alternatives. Places from several sources merge into one; user edits (`user_overrides`) are never overwritten.
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `backend/app/` | FastAPI app and worker (same image) |
+| `backend/app/main.py` | FastAPI app (routers in `app/api/`: `add`, `health`, `review`, `auth`) |
+| `backend/app/worker.py`, `tasks.py`, `jobs.py` | Worker: Postgres job queue (SKIP LOCKED), one GPU lane + two CPU lanes, APScheduler |
+| `backend/app/ingest/` | `urls` (normalize/classify), `tiktok`, `maps_links`, `event_page`, `pipeline` (the ingest job), `store` (upsert/merge) |
+| `backend/app/llm/` | `ollama` client, `extract` (prompt + schema), `verify` (no invented numbers) |
+| `backend/app/resolve/` | `candidates` (Photon, Overpass, Nominatim, SearXNG), `scorer`, `resolver` |
+| `backend/app/discover/` | Adapter framework, Ticketmaster adapter, dry-run CLI |
+| `backend/app/gpu.py` | GPU lock shared with Recipe Box and the Transcriber |
+| `backend/app/eval.py` | Golden-set accuracy check (writes nothing) |
 | `backend/migrations/` | Alembic migrations |
-| `backend/tests/` | pytest, offline fixtures only |
-| `frontend/` | SvelteKit + MapLibre UI, built to static files served by the API |
-| `deploy/` | `compose.yaml`, Dockerfiles, SearXNG config, Caddy snippet, `.env.example` |
-| `scripts/` | deploy, tiles/OSRM/Photon setup, backup pull |
-| `docs/` | Shortcut setup and operations |
+| `backend/tests/` | pytest, offline fixtures (real TikTok/page responses, trimmed) |
+| `deploy/` | `compose.yaml`, Dockerfiles, SearXNG settings, `.env.example` |
+| `scripts/` | `deploy.sh`, `init-env.sh`, `photon_import.sh`, `fetch_tiles.sh`, `build_osrm.sh` |
+| `docs/` | `PLAN.md` (design + phases), `OPERATIONS.md` (running it) |
+| `frontend/` | Empty until Phase 4 |
 
-## Deploy
+## Everyday commands
 
 ```bash
 scripts/deploy.sh
 ```
 
-Ships the committed `HEAD` to `~/dateplanner` on the Zephyrus and runs `docker compose up -d --build`. See `docs/OPERATIONS.md`.
+Ships the committed `HEAD` to `~/dateplanner/src` on the Zephyrus and runs `docker compose up -d --build` (uncommitted changes are not deployed). `scripts/deploy.sh worker` rebuilds one service.
+
+```bash
+cd backend && .venv/Scripts/python -m pytest -q tests
+```
+
+Unit tests (offline). Create the venv once with `python -m venv .venv` and `pip install -r requirements.txt pytest`.
+
+```bash
+ssh zephyrus 'cd ~/dateplanner/src/deploy && docker compose exec -T worker python -m app.eval'
+```
+
+Golden-set accuracy. Run it after any change to extraction or resolving.
+
+```bash
+ssh zephyrus 'cd ~/dateplanner/src/deploy && docker compose exec -T worker python -m app.discover.run --dry-run'
+```
+
+Discovery dry run (Ticketmaster skips itself until `TICKETMASTER_KEY` is set in `~/dateplanner/.env`).
+
+Adding a link by hand (the key is `DATES_KEY` in `~/.claude/secrets/homelab.env`):
+
+```bash
+curl -X POST http://192.168.0.172:8820/api/add -H "X-Dates-Key: $DATES_KEY" -H "Content-Type: application/json" -d '{"url":"https://www.tiktok.com/@user/video/123","user":"zaher"}'
+```
+
+The API trusts the `X-Authentik-Username` header only from the NAS (192.168.0.70). To call identity-protected routes before Phase 6, go through the NAS (`ssh` to it and `curl -H 'X-Authentik-Username: zaher' http://192.168.0.172:8820/api/review`) or set `DEV_USER=zaher` in `~/dateplanner/.env` temporarily.
+
+More in [docs/OPERATIONS.md](docs/OPERATIONS.md).
