@@ -59,6 +59,11 @@ services:
   worker:
     <<: *app
     command: ["python", "-m", "app.worker"]
+    # Whisper runs here (the slow path); Ollama stays in Recipe Box's container
+    runtime: nvidia
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     stop_grace_period: 60s
     volumes:
       - /srv/dateplanner:/data
@@ -97,8 +102,11 @@ services:
     profiles: ["dev"]
     command: ["python", "-m", "app.worker"]
     stop_grace_period: 60s
+    runtime: nvidia
     environment:
       DATABASE_URL: postgresql+psycopg://dates:${PG_PASSWORD}@db:5432/dates_dev
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     volumes:
       - /srv/dateplanner:/data
       - /srv/gpu:/locks
