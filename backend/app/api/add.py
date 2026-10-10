@@ -1,9 +1,10 @@
 """Add a link, text or screenshot. Creates a Source and queues an ingest job."""
+import hashlib
 import time
 from collections import deque
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
@@ -12,6 +13,7 @@ from app import jobs
 from app.api.auth import current_user, require_key, upsert_user, username_from_request
 from app.db.models import Job, Source, User
 from app.db.session import get_db
+from app.ingest import media
 from app.ingest.urls import classify, first_url, normalize
 
 router = APIRouter()
@@ -104,3 +106,60 @@ def list_jobs(db: Session = Depends(get_db), _: User = Depends(current_user)):
         .order_by(Job.id.desc()).limit(50)
     ).all()
     return [dict(r._mapping) for r in rows]
+
+
+IMAGE_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
+MAX_IMAGE = 10_000_000
+
+
+def sniff_image(head: bytes) -> str | None:
+    """Content type from the file's first bytes (the upload's own type is not trusted)."""
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+async def add_image(db: Session, file: UploadFile, user: User | None) -> AddOut:
+    body = await file.read(MAX_IMAGE + 1)
+    if len(body) > MAX_IMAGE:
+        raise HTTPException(413, "image over 10 MB")
+    ctype = sniff_image(body[:16])
+    if ctype is None:
+        raise HTTPException(415, "send a JPEG, PNG or WebP screenshot")
+    digest = hashlib.sha256(body).hexdigest()
+    existing = db.scalars(select(Source).where(Source.adapter == "upload", Source.external_id == digest)).first()
+    if existing:
+        return AddOut(status="exists", source_id=str(existing.id), kind="image")
+    src = Source(kind="image", adapter="upload", external_id=digest, submitted_by=user.id if user else None,
+                 status="pending", raw={})
+    db.add(src)
+    db.flush()
+    folder = media.media_dir(src.id)
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"image{IMAGE_TYPES[ctype]}"
+    path.write_bytes(body)
+    src.raw = {"image": f"{src.id}/{path.name}", "filename": (file.filename or "")[:200]}
+    media.record(db, src, path, "photo")
+    job = jobs.enqueue(db, "ingest", {"source_id": str(src.id)}, source_id=src.id, needs_gpu=True,
+                       submitted_by=user.id if user else None)
+    db.commit()
+    return AddOut(status="queued", source_id=str(src.id), job_id=job.id, kind="image")
+
+
+@router.post("/api/add-image", response_model=AddOut, dependencies=[Depends(require_key)])
+async def add_image_with_key(file: UploadFile = File(...), user: str | None = Form(default=None),
+                             db: Session = Depends(get_db)):
+    _rate_limit()
+    who = db.scalars(select(User).where(User.username == user)).first() if user else None
+    return await add_image(db, file, who)
+
+
+@router.post("/api/ui/add-image", response_model=AddOut)
+async def add_image_from_ui(file: UploadFile = File(...), db: Session = Depends(get_db),
+                            user: User = Depends(current_user)):
+    _rate_limit()
+    return await add_image(db, file, user)

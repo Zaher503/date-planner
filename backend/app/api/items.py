@@ -19,16 +19,17 @@ from app.api.auth import current_user
 from app.api.common import event_price_label, image_url, place_price_label
 from app.config import get_settings
 from app.db.models import (
-    Candidate, Event, ItemSource, Job, Occurrence, Place, Source, User, UserItemState,
+    Candidate, Event, ItemSource, Job, Media, Occurrence, Place, Source, User, UserItemState,
 )
 from app.db.session import get_db
 from app.hours import is_open
+from app.ingest import media
 
 router = APIRouter()
 
 ItemType = Literal["place", "event"]
 # Source kinds the ingest job can read again (Instagram is a stub, discovery rows have no link to read)
-REPROCESSABLE = {"tiktok", "youtube", "gmaps", "applemaps", "event_page", "text"}
+REPROCESSABLE = {"tiktok", "youtube", "gmaps", "applemaps", "event_page", "text", "image"}
 CAPTION_CHARS = 500
 MAX_TAGS = 20
 NOT_NULL = {"title", "tags", "lat", "lon", "closed", "all_day", "status", "review_status"}
@@ -131,12 +132,17 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             review_place = place
 
     names = {u.id: u.display_name or u.username for u in db.scalars(select(User)).all()}
+    sources = linked_sources(db, item)
+    archived = {(m.source_id, m.kind) for m in db.scalars(
+        select(Media).where(Media.source_id.in_([s.id for s in sources]))).all()} if sources else set()
     out["sources"] = [{
         "id": str(s.id), "kind": s.kind, "url": s.url, "title": s.title,
         "caption": (s.caption or "")[:CAPTION_CHARS] or None,
-        "thumb": f"/api/thumb/{s.id}" if image_url(s.raw) else None,
+        "thumb": f"/api/thumb/{s.id}" if (image_url(s.raw) or s.kind == "image"
+                                          or (s.id, "thumb") in archived) else None,
+        "video": f"/api/media/{s.id}/video" if (s.id, "video") in archived else None,
         "created_at": _iso(s.created_at), "submitted_by": names.get(s.submitted_by),
-    } for s in linked_sources(db, item)]
+    } for s in sources]
     states = db.scalars(select(UserItemState).where(_state_col(item) == item.id)).all()
     out["me"] = _me(next((s for s in states if s.user_id == user.id), None))
     out["others"] = [{"user": names.get(s.user_id), "status": s.status, "rating": s.rating, "notes": s.notes}
@@ -328,6 +334,7 @@ def delete_item(type_: ItemType, item_id: uuid.UUID, db: Session = Depends(get_d
     for sid in orphans:
         for f in thumbs.glob(f"{sid}.*"):
             f.unlink(missing_ok=True)
+        media.remove(sid)
     return Response(status_code=204)
 
 

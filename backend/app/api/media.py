@@ -41,6 +41,11 @@ def thumbs_dir() -> Path:
 
 
 def cached(source_id: uuid.UUID) -> Path | None:
+    # The video archive keeps the original thumbnail; screenshots are their own picture
+    folder = get_settings().data_dir / "media" / str(source_id)
+    for name in ("thumb.jpg", "image.jpg", "image.png", "image.webp"):
+        if (folder / name).is_file():
+            return folder / name
     for ext in MEDIA_TYPE:
         p = thumbs_dir() / f"{source_id}{ext}"
         if p.is_file():
@@ -136,3 +141,14 @@ def thumb(source_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends
         _misses[source_id] = time.monotonic()
         raise HTTPException(404, "no image for this source") from None
     return _file(save(db, source_id, body, ctype))
+
+
+@router.get("/api/media/{source_id}/video")
+def video(source_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    """The archived copy of a source's video (Range requests work, so it can be scrubbed)."""
+    row = db.scalars(select(Media).where(Media.source_id == source_id, Media.kind == "video")).first()
+    path = get_settings().data_dir / "media" / row.path if row else None
+    if path is None or not path.is_file():
+        raise HTTPException(404, "no archived video for this source")
+    ctype = {".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime"}.get(path.suffix, "video/mp4")
+    return FileResponse(path, media_type=ctype, headers={"Cache-Control": CACHE_CONTROL})

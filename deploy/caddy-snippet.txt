@@ -2,6 +2,7 @@
 # Back up the Caddyfile first (heredoc rewrite, no sed -i), then reload Caddy.
 #
 # - POST /api/add: the iPhone Shortcut, checked by the app with X-Dates-Key (no Authentik).
+# - POST /api/add-image: a screenshot from the Shortcut, same key, up to 10 MB.
 # - /cal/*: calendar feed, checked by the app with a secret token in the path (no Authentik).
 # - Everything else: Authentik forward_auth (group "dates"), which sets X-Authentik-Username.
 # The passthrough routes strip any identity header a client sends, because the app trusts
@@ -15,6 +16,22 @@ dates.zkocr.com {
     handle @add {
         request_body {
             max_size 16KB
+        }
+        reverse_proxy 192.168.0.103:8820 192.168.0.172:8820 {
+            header_up -X-Authentik-Username
+            header_up -X-Authentik-Name
+            lb_policy first
+            health_uri /healthz
+            health_interval 10s
+        }
+    }
+    @addimage {
+        method POST
+        path /api/add-image
+    }
+    handle @addimage {
+        request_body {
+            max_size 11MB
         }
         reverse_proxy 192.168.0.103:8820 192.168.0.172:8820 {
             header_up -X-Authentik-Username

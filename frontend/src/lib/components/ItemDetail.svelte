@@ -20,6 +20,7 @@
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
   import Link from '@lucide/svelte/icons/link';
   import LoaderCircle from '@lucide/svelte/icons/loader-circle';
+  import Play from '@lucide/svelte/icons/play';
   import { api, type Item, type ItemType, type MyState, type MyStatus } from '$lib/api';
   import { colorOf, labelOf } from '$lib/categories';
   import { appleMapsUrl, duration, googleMapsUrl, hostOf, longWhen, relativeAgo, when } from '$lib/format';
@@ -58,6 +59,7 @@
     if (id !== lastId) {
       lastId = id;
       editing = false;
+      playing = false;
       confirmDelete = false;
       actionError = '';
       notes = item?.me?.notes ?? '';
@@ -66,6 +68,8 @@
   });
 
   const thumbSource = $derived(item?.sources.find((s) => s.thumb) ?? null);
+  const videoSource = $derived(item?.sources.find((s) => s.video) ?? null);
+  let playing = $state(false);
   const color = $derived(colorOf(item?.category));
   const isEvent = $derived(item?.type === 'event');
   const unsure = $derived(!!item && item.candidates.length > 0 && (item.review_status === 'needs_review' || isEvent));
@@ -245,7 +249,16 @@
       {#if editing}
         <ItemEdit {item} {tz} {saving} onsave={save} oncancel={() => (editing = false)} {onmovepin} />
       {:else}
-        {#if thumbSource}
+        {#if videoSource && playing}
+          <!-- svelte-ignore a11y_media_has_caption -->
+          <video class="player" src={videoSource.video} poster={videoSource.thumb ?? undefined} controls autoplay playsinline></video>
+        {:else if videoSource}
+          <button class="media" onclick={() => (playing = true)}>
+            {#if videoSource.thumb}<img src={videoSource.thumb} alt="" loading="lazy" />{:else}<span class="noimg"></span>{/if}
+            <span class="play"><Play size={26} /></span>
+            <span class="media-label">Saved copy of the {sourceLabel(videoSource.kind)} video</span>
+          </button>
+        {:else if thumbSource}
           <a class="media" href={thumbSource.url ?? undefined} target="_blank" rel="noopener noreferrer">
             <img src={thumbSource.thumb} alt="" loading="lazy" />
             <span class="media-label"><ExternalLink size={13} /> Open on {sourceLabel(thumbSource.kind)}</span>
@@ -568,6 +581,34 @@
     overflow: hidden;
     background: var(--surface-2);
     max-height: 260px;
+  }
+  button.media {
+    border: none;
+    padding: 0;
+    width: 100%;
+    cursor: pointer;
+  }
+  .noimg {
+    display: block;
+    height: 180px;
+  }
+  .play {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgb(0 0 0 / 0.55);
+    color: #fff;
+  }
+  .player {
+    width: 100%;
+    max-height: 70vh;
+    border-radius: 14px;
+    background: #000;
   }
   .media img {
     display: block;

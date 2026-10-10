@@ -9,7 +9,7 @@ CURRENCY_SYMBOL = {"USD": "$", "CAD": "$", "EUR": "€", "GBP": "£"}
 MAX_PRICE_TEXT = 14
 
 # Where an ingested source keeps a picture we can show as its thumbnail
-IMAGE_PATHS = (("tiktok", "thumbnail_url"), ("page", "image"), ("image_url",))
+IMAGE_PATHS = (("tiktok", "thumbnail_url"), ("youtube", "thumbnail"), ("page", "image"), ("image_url",))
 
 
 def image_url(raw: dict | None) -> str | None:
@@ -25,7 +25,7 @@ def image_url(raw: dict | None) -> str | None:
 
 def has_image():
     """SQL: the source has a candidate image URL (mirrors image_url)."""
-    return or_(*(Source.raw[path].astext.like("http%") for path in IMAGE_PATHS))
+    return or_(Source.kind == "image", *(Source.raw[path].astext.like("http%") for path in IMAGE_PATHS))
 
 
 def _money(v: float | Decimal) -> str:

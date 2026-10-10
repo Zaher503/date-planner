@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
   import X from '@lucide/svelte/icons/x';
   import ClipboardPaste from '@lucide/svelte/icons/clipboard-paste';
+  import ImageIcon from '@lucide/svelte/icons/image';
   import { api } from '$lib/api';
   import { hostOf } from '$lib/format';
   import { app } from '$lib/state.svelte';
@@ -15,6 +16,9 @@
   let text = $state(untrack(() => initial));
   let sending = $state(false);
   let error = $state('');
+  let image = $state<File | null>(null);
+  let preview = $state('');
+  let picker: HTMLInputElement;
   let box: HTMLTextAreaElement;
   let dialog: HTMLDialogElement;
 
@@ -44,13 +48,42 @@
     return host || 'Link';
   }
 
+  function setImage(f: File | null) {
+    if (preview) URL.revokeObjectURL(preview);
+    image = f;
+    preview = f ? URL.createObjectURL(f) : '';
+    error = '';
+    if (f && f.size > 10_000_000) {
+      error = 'That image is over 10 MB.';
+      image = null;
+      preview = '';
+    }
+  }
+
+  // Pasting a screenshot into the box attaches it
+  function pasted(e: ClipboardEvent) {
+    const f = [...(e.clipboardData?.files ?? [])].find((x) => x.type.startsWith('image/'));
+    if (f) {
+      e.preventDefault();
+      setImage(f);
+    }
+  }
+
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     const t = text.trim();
-    if (!t) return;
+    if (!t && !image) return;
     sending = true;
     error = '';
     try {
+      if (image) {
+        app.track(await api.addImage(image, image.name || 'screenshot.png'), 'Screenshot');
+        setImage(null);
+        if (!t) {
+          onclose();
+          return;
+        }
+      }
       const res = await api.add(t);
       app.track(res, label(t));
       onclose();
@@ -68,7 +101,7 @@
       <h2>Add a date idea</h2>
       <button type="button" class="icon-btn" aria-label="Close" onclick={onclose}><X size={20} /></button>
     </header>
-    <p class="muted">Paste a TikTok, a Google or Apple Maps link, an event page, or just type a place and what it is.</p>
+    <p class="muted">Paste a TikTok, a Google or Apple Maps link, an event page, a screenshot, or just type a place and what it is.</p>
     <textarea
       bind:this={box}
       class="field"
@@ -76,18 +109,27 @@
       maxlength="8000"
       placeholder="https://www.tiktok.com/@... or 'Rooftop jazz at Perch, Saturday 8pm'"
       bind:value={text}
+      onpaste={pasted}
       onkeydown={(e) => {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (e.currentTarget.form as HTMLFormElement).requestSubmit();
       }}
     ></textarea>
+    {#if preview}
+      <div class="shot">
+        <img src={preview} alt="Screenshot to add" />
+        <button type="button" class="btn small" onclick={() => setImage(null)}>Remove</button>
+      </div>
+    {/if}
     {#if error}<p class="error">{error}</p>{/if}
+    <input bind:this={picker} type="file" accept="image/png,image/jpeg,image/webp" hidden onchange={(e) => setImage(e.currentTarget.files?.[0] ?? null)} />
     <div class="actions">
       {#if canPaste}
         <button type="button" class="btn" onclick={paste}><ClipboardPaste size={16} /> Paste</button>
       {/if}
+      <button type="button" class="btn" onclick={() => picker.click()}><ImageIcon size={16} /> Screenshot</button>
       <span class="spacer"></span>
       <button type="button" class="btn" onclick={onclose}>Cancel</button>
-      <button type="submit" class="btn primary" disabled={sending || !text.trim()}>{sending ? 'Adding' : 'Add'}</button>
+      <button type="submit" class="btn primary" disabled={sending || (!text.trim() && !image)}>{sending ? 'Adding' : 'Add'}</button>
     </div>
   </form>
 </dialog>
@@ -127,6 +169,18 @@
   }
   .error {
     color: var(--danger);
+  }
+  .shot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .shot img {
+    width: 72px;
+    height: 72px;
+    object-fit: cover;
+    border-radius: 10px;
+    border: 1px solid var(--line);
   }
   .actions {
     display: flex;

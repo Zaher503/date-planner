@@ -80,6 +80,7 @@ export interface SourceInfo {
   title: string | null;
   caption: string | null;
   thumb: string | null;
+  video: string | null;
   created_at: string;
   submitted_by: string | null;
 }
@@ -227,6 +228,22 @@ export const api = {
   add: (text: string) => {
     const t = text.trim();
     return request<AddResult>('POST', '/api/ui/add', /^https?:\/\/\S+$/i.test(t) ? { url: t } : { text: t });
+  },
+  addImage: async (file: Blob, name = 'screenshot') => {
+    const form = new FormData();
+    form.append('file', file, name);
+    const res = await fetch('/api/ui/add-image', { method: 'POST', body: form, credentials: 'same-origin' });
+    if (!res.ok) {
+      let msg = `${res.status} ${res.statusText}`;
+      try {
+        const j = await res.json();
+        if (typeof j.detail === 'string') msg = j.detail;
+      } catch {
+        // not JSON
+      }
+      throw new ApiError(res.status, msg);
+    }
+    return (await res.json()) as AddResult;
   },
   jobs: () => request<Job[]>('GET', '/api/jobs'),
   services: () => request<ServiceHealth[]>('GET', '/api/health/services')
