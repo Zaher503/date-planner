@@ -61,6 +61,44 @@ services:
       - default
       - recipebox
 
+  # Geocoder: prebuilt US database (scripts/photon_import.sh)
+  photon:
+    image: eclipse-temurin:21-jre
+    restart: unless-stopped
+    command: ["java", "-Xmx3g", "-jar", "/photon/photon.jar", "serve",
+              "-data-dir", "/photon/data", "-listen-ip", "0.0.0.0", "-listen-port", "2322"]
+    volumes:
+      - /srv/dateplanner/photon:/photon
+    mem_limit: 6g
+
+  # Routing for the date-night picker (scripts/build_osrm.sh)
+  osrm-car:
+    image: &osrm ghcr.io/project-osrm/osrm-backend:v26.10.0-debian
+    restart: unless-stopped
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "500", "/data/socal.osrm"]
+    volumes:
+      - /srv/dateplanner/osrm/car:/data:ro
+    mem_limit: 3g
+
+  osrm-foot:
+    image: *osrm
+    restart: unless-stopped
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "500", "/data/socal.osrm"]
+    volumes:
+      - /srv/dateplanner/osrm/foot:/data:ro
+    mem_limit: 3g
+
+  # Private metasearch for venue websites
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET}
+      SEARXNG_BASE_URL: http://searxng:8080/
+    volumes:
+      - ./searxng/settings.yml:/etc/searxng/settings.yml:ro
+    mem_limit: 512m
+
 volumes:
   dates-pg:
 

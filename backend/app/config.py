@@ -24,6 +24,11 @@ class Settings(BaseSettings):
 
     ticketmaster_key: str = ""
 
+    photon_url: str = "http://photon:2322"
+    osrm_car_url: str = "http://osrm-car:5000"
+    osrm_foot_url: str = "http://osrm-foot:5000"
+    searxng_url: str = "http://searxng:8080"
+
     data_dir: Path = Path("/data")
     default_tz: str = "America/Los_Angeles"
 

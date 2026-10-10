@@ -23,7 +23,12 @@ LLM_MODEL=gemma4:e4b
 EMBED_MODEL=nomic-embed-text
 HA_URL=http://192.168.0.108:8123
 HA_TOKEN=${HA_TOKEN}
-NOTIFY_TARGETS=mobile_app_zahers_17pm
+NOTIFY_TARGETS=mobile_app_zahers_17pm,mobile_app_katherines_phone
+SEARXNG_SECRET=$(openssl rand -hex 32)
+PHOTON_URL=http://photon:2322
+OSRM_CAR_URL=http://osrm-car:5000
+OSRM_FOOT_URL=http://osrm-foot:5000
+SEARXNG_URL=http://searxng:8080
 TICKETMASTER_KEY=
 DATA_DIR=/data
 EOF

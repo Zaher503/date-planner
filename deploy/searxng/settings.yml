@@ -1,0 +1,24 @@
+# Private SearXNG for finding venue websites. Reachable only on the stack's internal network.
+use_default_settings: true
+
+general:
+  instance_name: "dates-search"
+  enable_metrics: false
+
+server:
+  # secret_key comes from the SEARXNG_SECRET environment variable
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+
+search:
+  safe_search: 0
+  default_lang: "en-US"
+  formats:
+    - html
+    - json
+
+outgoing:
+  request_timeout: 4.0
+  max_request_timeout: 8.0
