@@ -128,3 +128,17 @@ Each changed field is written and its key set in `user_overrides` (`lat`/`lon` -
 ## The app shell
 
 Everything else that is not `/api/*`, `/tiles/*`, `/healthz` or `/cal/*` serves the built SvelteKit app from `/app/static` (open; the data behind it needs identity). Unknown paths fall back to `index.html` (client-side routes). Files under `/_app/immutable/` get `Cache-Control: public, max-age=31536000, immutable`; `index.html` and `service-worker.js` get `no-cache`.
+
+## Implementation notes (details the contract above left open)
+
+- Errors: bad filter or body values give 400 with `{"detail": "..."}`; unknown PATCH/PUT keys or wrong types give 422 (FastAPI format); a missing item gives 404.
+- `/api/settings` `map.bounds` is read from `/data/tiles/SOURCE` (written by `scripts/fetch_tiles.sh`), falling back to the bbox above. `/api/facets` returns every category (only tags are capped at 100).
+- Event price label: `Free` (is_free, or a price of 0), `$15`, `$15-30`, `Up to $30` (only a maximum), else `price_text` when it is at most 14 characters, else null. Non-dollar currencies show as `€20` or `20 MXN`.
+- `open_now` for events needs a concrete occurrence happening now, so recurring events without expanded occurrences do not pass it.
+- `start` of an event is its next occurrence that has not ended (or the first in the `when` window), else `starts_at`. `thumb_src` is only present when `thumb` is true.
+- `/api/map` keeps the 2000 nearest features (to `near` or home). `/api/list` sorts and counts over at most 2000 matches per item type; `limit` above 200 is clamped.
+- PATCH: `lat` without `lon` (or the reverse) and null for `title`, `tags`, `lat`, `lon`, `closed`, `all_day`, `status`, `review_status` give 400. Only values that actually change are written and recorded in `user_overrides`, so a UI may send the whole form. A place's address change also updates its events (like a move or rename), except events whose own field was edited. Setting a `needs_review` place to `ok` also sets its confidence to 1 and settles its events, as `/api/places/{id}/resolve` does.
+- PATCH on event times: a time without an offset is read in the event's `tz`; moving `starts_at` alone keeps the duration by moving `ends_at`; `duration_min` follows; a one-off event's occurrence row is rewritten.
+- Reprocess skips sources the ingest job cannot read (Instagram stubs, discovery rows, images) and returns the existing job id when a source already has a queued or running ingest job.
+- Thumbnails: also recorded in `media` (kind `thumb`). A TikTok source without a stored thumbnail URL still tries oEmbed. Failed fetches are not retried for an hour (per API process).
+- The app shell answers 404 (not `index.html`) for missing files that look like assets (a dot in the last path segment, or under `/_app/`), tries `<path>/index.html` and `<path>.html` for prerendered pages, gives other files `Cache-Control: public, max-age=3600`, and returns a small 503 page when `/app/static/index.html` does not exist. The directory can be moved with `STATIC_DIR`.
