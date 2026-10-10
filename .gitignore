@@ -19,3 +19,6 @@ data/
 *.pmtiles
 *.osm.pbf
 frontend/.vite/
+
+# Claude Code worktrees
+.claude/worktrees/
