@@ -1,0 +1,64 @@
+name: dates
+
+x-app: &app
+  image: dates-app:local
+  restart: unless-stopped
+  env_file: .env
+  volumes:
+    - /srv/dateplanner:/data
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.db
+    image: dates-db:local
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: dates
+      POSTGRES_USER: dates
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+    command: postgres -c shared_buffers=256MB -c max_connections=40
+    shm_size: 256m
+    volumes:
+      - dates-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dates -d dates"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *app
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.app
+    command: ["sh", "/app/start-api.sh"]
+    ports:
+      - "8820:8820"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8820/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - default
+      - recipebox
+
+volumes:
+  dates-pg:
+
+networks:
+  recipebox:
+    external: true
+    name: recipebox_default
