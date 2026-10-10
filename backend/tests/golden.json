@@ -6,7 +6,7 @@
     {"url": "https://www.tiktok.com/@nate_eatz/video/7509295656469728558", "expect": [{"name": "Zaya", "near": [34.046819, -118.255698]}]},
     {"url": "https://www.tiktok.com/@kcrwinla/video/7619788283266075935", "expect": [{"name": "Blue Note", "near": [34.097908, -118.328384]}]},
     {"url": "https://www.tiktok.com/@doseofsydnee/video/7541254089527545102", "expect": [{"name": "Blue Note", "near": [34.097908, -118.328384]}]},
-    {"url": "https://www.tiktok.com/@firstdateguide/video/7680322948841950478", "expect": [{"name": "Clifton's", "near": [34.045282, -118.252823]}]},
+    {"url": "https://www.tiktok.com/@firstdateguide/video/7680322948841950478", "expect": [{"name": "Pacific Seas", "near": [34.045282, -118.252823], "note": "tiki bar inside Clifton's Republic, 648 S Broadway"}]},
     {"url": "https://www.tiktok.com/@nightmarketelgato/video/7635075982390529294", "expect": [{"name": "Night Market", "near": [34.050057, -118.273884], "note": "this video gives 941 S Union Ave (the market moved)"}]},
     {"url": "https://www.tiktok.com/@elisolanotravels/video/7214138257024552235", "expect": [{"name": "Republique", "near": [34.064158, -118.343766]}]},
     {"url": "https://www.tiktok.com/@thetastebud/video/7226509279887428907", "expect": [{"name": "Yamashiro", "near": [34.105765, -118.341406]}]},

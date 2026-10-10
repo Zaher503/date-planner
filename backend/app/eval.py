@@ -53,7 +53,7 @@ def main(path: Path) -> None:
             pins = []
             for h in hints:
                 r = resolve(db, h, home)
-                if r.best:
+                if r.best and not pipeline.too_vague(r):
                     pins.append((h, r))
             t_all = time.time() - t0
             print(f"\n{label}\n  read {t_read:.1f}s, total {t_all:.1f}s, {len(hints)} items, {len(pins)} pinned")

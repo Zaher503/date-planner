@@ -147,9 +147,31 @@ def _from_website(db: Session | None, hint: ItemHint, home: tuple[float, float])
     return found
 
 
+def _resolve_inside(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> Resolution | None:
+    """A venue inside another one: pin it where the host is, under its own name."""
+    host = resolve(db, ItemHint(kind="place", name=hint.inside, area=hint.area, category=hint.category), home)
+    if host.best is None or host.needs_review:
+        return None
+    c = host.best
+    c.extra = {k: v for k, v in c.extra.items() if k in ("enriched",)}  # host's website and hours are not ours
+    c.extra["inside"] = hint.inside
+    c.provider, c.name, c.osm_type, c.osm_id = "inside", hint.name, None, None
+    return Resolution(best=c, confidence=host.confidence, method="inside", alternatives=host.alternatives)
+
+
 def resolve(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> Resolution:
     found: list[Candidate] = []
     method = "name"
+
+    if hint.inside and not hint.address and hint.lat is None:
+        own = resolve(db, ItemHint(kind=hint.kind, name=hint.name, area=hint.area, category=hint.category,
+                                   flags=hint.flags), home)
+        if own.best and not own.needs_review:
+            return own  # the place is mapped on its own
+        inside = _resolve_inside(db, hint, home)
+        if inside:
+            return inside
+        return own
 
     if hint.lat is not None and hint.exact_pin:
         method = "pin"

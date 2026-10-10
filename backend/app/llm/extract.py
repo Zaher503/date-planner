@@ -16,6 +16,8 @@ Rules:
 - name: the business, venue or landmark exactly as written (fix obvious speech-to-text spelling only). For an event, name is the venue and event_title is the event.
 - If an entry is an activity with no named venue (for example "bike by the beach"), set specific to false and put the area it mentions (for example "Venice") in area.
 - address: only if the text gives a street address. area: neighborhood or city if mentioned.
+- inside: if the place is inside another named venue (a bar inside a hotel, a stall inside a market), the host venue's name, else null.
+- A location tag or hashtag that is only a neighborhood or city is not an item.
 - Dates as YYYY-MM-DD, times as 24h HH:MM. Today is {today}. The post was published {posted}. Resolve "this Friday" from the publish date. Leave dates empty unless the text states them.
 - recurrence: wording like "every Sunday" or "first Friday of the month", else null.
 - price_min/price_max only from numbers in the text; is_free true only if it says free.
@@ -39,6 +41,7 @@ SCHEMA = {
                     "specific": {"type": "boolean"},
                     "address": {"type": ["string", "null"]},
                     "area": {"type": ["string", "null"]},
+                    "inside": {"type": ["string", "null"]},
                     "category": {"type": "string", "enum": list(CATEGORIES)},
                     "description": {"type": ["string", "null"]},
                     "start_date": {"type": ["string", "null"]},
@@ -52,7 +55,7 @@ SCHEMA = {
                     "is_free": {"type": ["boolean", "null"]},
                     "tags": {"type": "array", "items": {"type": "string"}, "maxItems": 6},
                 },
-                "required": ["kind", "name", "event_title", "specific", "address", "area", "category",
+                "required": ["kind", "name", "event_title", "specific", "address", "area", "inside", "category",
                              "description", "start_date", "start_time", "end_date", "end_time",
                              "recurrence", "price_text", "price_min", "price_max", "is_free", "tags"],
             },
@@ -86,12 +89,17 @@ def _s(v) -> str | None:
     return None if v is None or v.lower() in NULLISH else v
 
 
+def name_ok(inside: str, name: str) -> bool:
+    """A host venue different from the place itself."""
+    return inside.strip().lower() != (name or "").strip().lower()
+
+
 def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
     name = _s(raw.get("name")) or ""
     area = _s(raw.get("area"))
     if not name and not area:
         return None
-    for key in ("event_title", "address", "description", "recurrence", "price_text"):
+    for key in ("event_title", "address", "inside", "description", "recurrence", "price_text"):
         raw[key] = _s(raw.get(key))
     hint = ItemHint(
         kind=raw.get("kind") or "place",
@@ -99,6 +107,7 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
         event_title=(raw.get("event_title") or "").strip() or None,
         address=(raw.get("address") or "").strip() or None,
         area=area,
+        inside=raw.get("inside") if raw.get("inside") and name_ok(raw.get("inside"), name) else None,
         category=raw.get("category"),
         description=(raw.get("description") or "").strip() or None,
         recurrence=(raw.get("recurrence") or "").strip() or None,

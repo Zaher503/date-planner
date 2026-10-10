@@ -29,3 +29,16 @@ def test_event_without_venue_uses_title():
     h = tidy(ItemHint("event", "", event_title="Candlelight Concert",
                       starts_at=datetime(2026, 10, 20, tzinfo=timezone.utc)), NOW)
     assert h.name == "Candlelight Concert" and "not a specific venue" in h.flags
+
+
+def test_readable_handle():
+    from app.ingest.pipeline import readable_handle
+    assert readable_handle("nightmarket_elgato", ["nightmarketelgato", "nightmarket_elgato"]) == "Nightmarket Elgato"
+    assert readable_handle("Zaya", ["nate_eatz", "zayadtla"]) == "Zaya"
+
+
+def test_prune_vague_items_in_single_place_posts():
+    from app.ingest.pipeline import prune
+    hints = [ItemHint("place", "Downtown LA", flags=["not a specific venue"]), ItemHint("place", "Pacific Seas")]
+    assert [h.name for h in prune(hints, is_list=False)] == ["Pacific Seas"]
+    assert len(prune(hints, is_list=True)) == 2

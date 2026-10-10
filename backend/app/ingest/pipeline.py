@@ -5,6 +5,7 @@ JSON-LD on web pages, the local model for free text. Items that cannot be placed
 confidently are still pinned but marked for review with alternatives.
 """
 import logging
+import re
 import uuid
 from dataclasses import asdict
 from datetime import date, datetime, timedelta, timezone
@@ -54,15 +55,20 @@ def _from_tiktok(db: Session, job: Job, src: Source) -> list[ItemHint]:
     src.caption, src.transcript = post.caption, post.transcript or None
     src.raw = {**(src.raw or {}), "tiktok": _json_safe({k: v for k, v in asdict(post).items() if k != "transcript"})}
     db.commit()
-    _, hints = _llm(db, job, llm.extract, post.as_text(), posted=post.posted_at.date() if post.posted_at else None)
+    is_list, hints = _llm(db, job, llm.extract, post.as_text(),
+                          posted=post.posted_at.date() if post.posted_at else None)
+    handles = [post.author or "", *post.mentions]
+    for h in hints:
+        h.name = readable_handle(h.name, handles)
     if post.poi:
+        # The location tag fills in an address; on its own it is often just a neighborhood
         same = next((h for h in hints if name_similarity(h.name, post.poi["name"]) >= 0.7), None)
         if same:
             same.address = same.address or post.poi.get("address")
-        else:
-            hints.insert(0, ItemHint(kind="place", name=post.poi["name"], address=post.poi.get("address"),
-                                     area=post.poi.get("city"), provider="tiktok_poi"))
-    return hints
+        elif not hints:
+            hints = [ItemHint(kind="place", name=post.poi["name"], address=post.poi.get("address"),
+                              area=post.poi.get("city"), provider="tiktok_poi")]
+    return prune(hints, is_list)
 
 
 def _from_maps(src: Source) -> list[ItemHint]:
@@ -99,14 +105,32 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
                                    page.description, page.text[:6000]) if x)
     if len(text) < 40:
         raise Unprocessable("the page had no readable text (it may need a browser)")
-    _, hints = _llm(db, job, llm.extract, text)
-    return hints
+    is_list, hints = _llm(db, job, llm.extract, text)
+    return prune(hints, is_list)
 
 
 def _from_text(db: Session, job: Job, src: Source) -> list[ItemHint]:
     src.title = (src.caption or "").strip().splitlines()[0][:140] if src.caption else "Note"
-    _, hints = _llm(db, job, llm.extract, src.caption or "")
-    return hints
+    is_list, hints = _llm(db, job, llm.extract, src.caption or "")
+    return prune(hints, is_list)
+
+
+def too_vague(res) -> bool:
+    return res.best is not None and res.best.kind == "area" and (res.best.osm_value or "") in TOO_BIG
+
+
+def readable_handle(name: str, handles: list[str]) -> str:
+    """'nightmarket_elgato' (an account handle used as a name) -> 'Nightmarket Elgato'."""
+    flat = re.sub(r"[^a-z0-9]", "", name.lower())
+    if flat and any(flat == re.sub(r"[^a-z0-9]", "", h.lower()) for h in handles if h) and " " not in name.strip():
+        return " ".join(w.capitalize() for w in re.split(r"[_.]+", name.strip().lstrip("@")) if w)
+    return name
+
+
+def prune(hints: list[ItemHint], is_list: bool) -> list[ItemHint]:
+    """In a post about one place, drop vague extras (a neighborhood mentioned in passing)."""
+    specific = [h for h in hints if "not a specific venue" not in h.flags]
+    return specific if specific and not is_list else hints
 
 
 def tidy(h: ItemHint, now: datetime) -> ItemHint:
@@ -163,7 +187,7 @@ def run(db: Session, job: Job) -> dict:
         if res.best is None:
             results.append({"name": hint.name, "error": "not found"})
             continue
-        if res.best.kind == "area" and (res.best.osm_value or "") in TOO_BIG:
+        if too_vague(res):
             results.append({"name": hint.event_title or hint.name, "error": "too vague to pin (only a city)"})
             continue
         place, place_new = store.upsert_place(db, hint, res, src.submitted_by)

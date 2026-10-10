@@ -16,6 +16,7 @@ class ItemHint:
     event_title: str | None = None
     address: str | None = None
     area: str | None = None  # neighborhood or city as stated
+    inside: str | None = None  # host venue (a bar inside a hotel)
     lat: float | None = None
     lon: float | None = None
     exact_pin: bool = False
