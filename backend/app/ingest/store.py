@@ -1,5 +1,6 @@
 """Save resolved items: create or merge places and events, link them to the source,
 and keep the alternatives for the review picker. Fields the user edited are never overwritten."""
+import re
 from datetime import timedelta
 
 from geoalchemy2.shape import from_shape, to_shape
@@ -81,7 +82,10 @@ def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | No
 
     extra = cand.extra or {}
     _set(place, "category", hint.category or OSM_CATEGORY.get(cand.osm_value or "") or "other")
-    _set(place, "address_text", cand.address_text or hint.address)
+    new_addr = cand.address_text or hint.address
+    # A house-numbered address replaces a street-only one from an earlier, vaguer source
+    precise = bool(new_addr and re.match(r"\s*\d", new_addr)) and not re.match(r"\s*\d", place.address_text or "")
+    _set(place, "address_text", new_addr, overwrite=precise)
     _set(place, "website", hint.website or extra.get("website"))
     _set(place, "phone", hint.phone or extra.get("phone"))
     _set(place, "opening_hours", hint.opening_hours or extra.get("opening_hours"))
