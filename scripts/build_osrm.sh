@@ -2,7 +2,7 @@
 # Run ON the Zephyrus. Builds OSRM routing data (car and foot, MLD) for Southern California
 # into /srv/dateplanner/osrm/{car,foot}. Re-run monthly to pick up new roads.
 set -euo pipefail
-OSRM_IMAGE=${OSRM_IMAGE:-ghcr.io/project-osrm/osrm-backend:v26.10.0}
+OSRM_IMAGE=${OSRM_IMAGE:-ghcr.io/project-osrm/osrm-backend:v26.10.0-debian}
 PBF_URL=https://download.geofabrik.de/north-america/us/california/socal-latest.osm.pbf
 DIR=/srv/dateplanner/osrm
 mkdir -p "$DIR"
