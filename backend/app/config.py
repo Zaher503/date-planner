@@ -1,0 +1,33 @@
+"""Settings from the environment (deploy/.env)."""
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    database_url: str = "postgresql+psycopg://dates:dates@localhost:5432/dates"
+    dates_key: str = ""
+    trusted_proxy: str = "192.168.0.70"
+    # Lets the API run without Caddy in front (local dev and tests only)
+    dev_user: str = ""
+
+    ollama_url: str = "http://recipebox-ollama:11434"
+    llm_model: str = "gemma4:e4b"
+    embed_model: str = "nomic-embed-text"
+
+    ha_url: str = "http://192.168.0.108:8123"
+    ha_token: str = ""
+    notify_targets: str = ""
+
+    ticketmaster_key: str = ""
+
+    data_dir: Path = Path("/data")
+    default_tz: str = "America/Los_Angeles"
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
