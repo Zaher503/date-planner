@@ -1,25 +1,28 @@
-"""The ingest job: one shared link or text -> pinned places and events.
+"""The ingest job: one shared link, text or screenshot -> pinned places and events.
 
-Fast path only (no video download): TikTok page data and auto-captions, maps links,
-JSON-LD on web pages, the local model for free text. Items that cannot be placed
-confidently are still pinned but marked for review with alternatives.
+Fast path (no video download): TikTok page data and auto-captions, YouTube metadata and
+subtitles, maps links, JSON-LD on web pages, the local model for free text and screenshots.
+Slow path, only for videos the fast path could not place confidently: download, Whisper
+(when there are no captions), on-screen text from frames, then extract and resolve again.
+Items that still cannot be placed confidently are pinned but marked for review.
 """
 import logging
 import re
 import uuid
-from dataclasses import asdict
+from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 import httpx
 from sqlalchemy.orm import Session
 
 from app import jobs
 from app.db.models import Job, Source
-from app.gpu import gpu_lock
-from app.ingest import maps_links, store
+from app.gpu import gpu_lock, unload_llm
+from app.ingest import maps_links, media, ocr, store
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
-from app.ingest.tiktok import fetch_post
+from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
 from app.llm import extract as llm
 from app.net import BlockedURL, fetch_text
 from app.resolve.resolver import resolve
@@ -28,6 +31,17 @@ from app.resolve.scorer import name_similarity
 log = logging.getLogger(__name__)
 # A pin on a whole city or county tells you nothing; neighborhoods (Venice) are fine
 TOO_BIG = {"city", "town", "county", "state", "country", "region", "province", "municipality"}
+VIDEO_KINDS = {"tiktok", "youtube"}
+
+
+@dataclass
+class Gathered:
+    """What the fast path read, kept so the slow path can extract again with more text."""
+    hints: list[ItemHint]
+    text: str = ""
+    posted: date | None = None
+    post: TikTokPost | None = None
+    info: dict = field(default_factory=dict)
 
 
 class Unprocessable(Exception):
@@ -45,18 +59,8 @@ def _llm(db: Session, job: Job, fn, *args, **kwargs):
         return fn(*args, **kwargs)
 
 
-def _from_tiktok(db: Session, job: Job, src: Source) -> list[ItemHint]:
-    try:
-        post = fetch_post(src.url)
-    except ValueError as e:
-        raise Unprocessable(str(e)) from e
-    first_line = post.caption.strip().splitlines()[0] if post.caption.strip() else ""
-    src.title = (first_line or f"TikTok by @{post.author}")[:140]
-    src.caption, src.transcript = post.caption, post.transcript or None
-    src.raw = {**(src.raw or {}), "tiktok": _json_safe({k: v for k, v in asdict(post).items() if k != "transcript"})}
-    db.commit()
-    is_list, hints = _llm(db, job, llm.extract, post.as_text(),
-                          posted=post.posted_at.date() if post.posted_at else None)
+def _tiktok_hints(db: Session, job: Job, post: TikTokPost, text: str) -> list[ItemHint]:
+    is_list, hints = _llm(db, job, llm.extract, text, posted=post.posted_at.date() if post.posted_at else None)
     handles = [post.author or "", *post.mentions]
     for h in hints:
         h.name = readable_handle(h.name, handles)
@@ -69,6 +73,73 @@ def _from_tiktok(db: Session, job: Job, src: Source) -> list[ItemHint]:
             hints = [ItemHint(kind="place", name=post.poi["name"], address=post.poi.get("address"),
                               area=post.poi.get("city"), provider="tiktok_poi")]
     return prune(hints, is_list)
+
+
+def _from_tiktok(db: Session, job: Job, src: Source) -> Gathered:
+    try:
+        post = fetch_post(src.url)
+    except ValueError as e:
+        raise Unprocessable(str(e)) from e
+    first_line = post.caption.strip().splitlines()[0] if post.caption.strip() else ""
+    src.title = (first_line or f"TikTok by @{post.author}")[:140]
+    src.caption, src.transcript = post.caption, post.transcript or None
+    src.raw = {**(src.raw or {}), "tiktok": _json_safe({k: v for k, v in asdict(post).items() if k != "transcript"})}
+    db.commit()
+    text = post.as_text()
+    return Gathered(hints=_tiktok_hints(db, job, post, text), text=text, post=post,
+                    posted=post.posted_at.date() if post.posted_at else None)
+
+
+def youtube_text(info: dict, transcript: str) -> str:
+    parts = [f"Title: {info.get('title') or ''}".strip()]
+    if info.get("description"):
+        parts.append(f"Description: {info['description'][:3000]}")
+    if info.get("uploader"):
+        parts.append(f"Channel: {info['uploader']}")
+    if transcript:
+        parts.append("Spoken (captions):\n" + transcript)
+    return "\n\n".join(parts)
+
+
+def _from_youtube(db: Session, job: Job, src: Source) -> Gathered:
+    try:
+        info = media.probe(src.url)
+    except media.MediaError as e:
+        raise Unprocessable(str(e)) from e
+    subs = media.subtitles(src.url, media.media_dir(src.id) / "subs")
+    transcript = vtt_to_text(subs.read_text(encoding="utf-8", errors="replace"))[:6000] if subs else ""
+    src.title = (info.get("title") or "YouTube video")[:140]
+    src.caption, src.transcript = info.get("description") or None, transcript or None
+    src.raw = {**(src.raw or {}), "youtube": {k: info.get(k) for k in
+                                              ("id", "uploader", "duration", "thumbnail", "upload_date", "webpage_url")}}
+    db.commit()
+    posted = None
+    if info.get("upload_date"):
+        try:
+            posted = datetime.strptime(info["upload_date"], "%Y%m%d").date()
+        except ValueError:
+            pass
+    text = youtube_text(info, transcript)
+    is_list, hints = _llm(db, job, llm.extract, text, posted=posted)
+    return Gathered(hints=prune(hints, is_list), text=text, posted=posted, info=info)
+
+
+def _from_image(db: Session, job: Job, src: Source) -> Gathered:
+    rel = (src.raw or {}).get("image")
+    path = media.media_root() / rel if rel else None
+    if path is None or not path.exists():
+        raise Unprocessable("the screenshot file is missing")
+    with gpu_lock(lambda s: jobs.set_stage(db, job, s, 20)):
+        jobs.set_stage(db, job, "reading the screenshot", 25)
+        text = ocr.read_screenshot(path)
+        src.ocr_text = text or None
+        src.title = (text.strip().splitlines()[0] if text.strip() else "Screenshot")[:140]
+        db.commit()
+        if len(text) < 4:
+            raise Unprocessable("no readable text in the screenshot")
+        jobs.set_stage(db, job, "reading with the local model", 40)
+        is_list, hints = llm.extract(f"Text read from a screenshot:\n{text}")
+    return Gathered(hints=prune(hints, is_list), text=text)
 
 
 def _from_maps(src: Source) -> list[ItemHint]:
@@ -149,6 +220,77 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
     return h
 
 
+def weak(resolved: list) -> bool:
+    """True when nothing was placed confidently (so the video is worth the slow path)."""
+    return not any(r.best is not None and not r.needs_review and not too_vague(r) for _, r in resolved)
+
+
+def strength(resolved: list) -> tuple[int, float]:
+    good = [r for _, r in resolved if r.best is not None and not too_vague(r)]
+    return sum(1 for r in good if not r.needs_review), sum(r.confidence for r in good)
+
+
+def _resolve_all(db: Session, job: Job, hints: list[ItemHint], home, pct: tuple[int, int]) -> list:
+    out = []
+    lo, hi = pct
+    for i, hint in enumerate(hints):
+        jobs.set_stage(db, job, f"finding place {i + 1} of {len(hints)}", lo + int((hi - lo) * i / len(hints)))
+        out.append((hint, resolve(db, hint, home)))
+    return out
+
+
+def slow_text(db: Session, job: Job, src: Source, g: Gathered) -> str:
+    """Download the video, transcribe it when there were no captions, read on-screen text.
+    Returns the extra text (empty when nothing new was found). The video stays archived."""
+    jobs.set_stage(db, job, "downloading the video", 55)
+    video = media.has_video(db, src)
+    if video is None:
+        try:
+            dl = media.download(src.url, src.id, info=g.info or None)
+        except media.MediaError as e:
+            log.info("slow path skipped for %s: %s", src.id, e)
+            return ""
+        media.archive(db, src, dl)
+        db.commit()
+        video = dl.video
+    extra: list[str] = []
+    with gpu_lock(lambda s: jobs.set_stage(db, job, s, 58)):
+        if not src.transcript:
+            jobs.set_stage(db, job, "transcribing", 60)
+            unload_llm()  # Whisper and the vision model do not fit on the card together
+            try:
+                from app.ingest.transcribe import transcribe
+                said = transcribe(video)
+            except Exception as e:  # missing CUDA, broken audio: carry on with the frames
+                log.warning("whisper failed for %s: %s", src.id, e)
+                said = ""
+            if said:
+                src.transcript = said
+                extra.append("Spoken (transcribed):\n" + said)
+        jobs.set_stage(db, job, "reading on-screen text", 70)
+        try:
+            frames = ocr.extract_frames(video, Path(video).parent / "frames")
+        except Exception as e:
+            log.warning("frames failed for %s: %s", src.id, e)
+            frames = []
+        seen = ocr.read_frames(frames, progress=lambda i, n: jobs.set_stage(
+            db, job, f"reading on-screen text ({i + 1} of {n})", 70 + int(12 * i / max(n, 1))))
+        if seen:
+            src.ocr_text = seen
+            extra.append("Text seen in the video:\n" + seen)
+    db.commit()
+    return "\n\n".join(extra)
+
+
+def _extract_again(db: Session, job: Job, g: Gathered, extra: str) -> list[ItemHint]:
+    text = f"{g.text}\n\n{extra}"
+    jobs.set_stage(db, job, "reading everything again", 84)
+    if g.post is not None:
+        return _tiktok_hints(db, job, g.post, text)
+    is_list, hints = _llm(db, job, llm.extract, text, posted=g.posted)
+    return prune(hints, is_list)
+
+
 def run(db: Session, job: Job) -> dict:
     src = db.get(Source, uuid.UUID(job.payload["source_id"]))
     if src is None:
@@ -156,14 +298,19 @@ def run(db: Session, job: Job) -> dict:
     jobs.set_stage(db, job, "reading the link", 10)
     try:
         if src.kind == "tiktok":
-            hints = _from_tiktok(db, job, src)
+            g = _from_tiktok(db, job, src)
+        elif src.kind == "youtube":
+            g = _from_youtube(db, job, src)
         elif src.kind in ("gmaps", "applemaps"):
             hints = _from_maps(src)
             _llm(db, job, llm.classify, hints, src.title or "")
-        elif src.kind in ("event_page", "youtube"):
-            hints = _from_page(db, job, src)
+            g = Gathered(hints=hints)
+        elif src.kind == "event_page":
+            g = Gathered(hints=_from_page(db, job, src))
         elif src.kind == "text":
-            hints = _from_text(db, job, src)
+            g = Gathered(hints=_from_text(db, job, src))
+        elif src.kind == "image":
+            g = _from_image(db, job, src)
         else:
             raise Unprocessable(f"{src.kind} links are not supported yet")
     except (Unprocessable, BlockedURL) as e:
@@ -172,18 +319,30 @@ def run(db: Session, job: Job) -> dict:
         raise Unprocessable(str(e)) from e
 
     now = datetime.now(timezone.utc)
-    hints = [tidy(h, now) for h in hints if h.name or h.event_title]
+    hints = [tidy(h, now) for h in g.hints if h.name or h.event_title]
     src.fetched_at = now
+    home = store.home_point(db)
+    resolved = _resolve_all(db, job, hints, home, (45, 55))
+    slow = False
+
+    if src.kind in VIDEO_KINDS and src.url and weak(resolved) and not job.payload.get("fast_only"):
+        extra = slow_text(db, job, src, g)
+        if extra:
+            slow = True
+            again = [tidy(h, now) for h in _extract_again(db, job, g, extra) if h.name or h.event_title]
+            if again:
+                second = _resolve_all(db, job, again, home, (86, 92))
+                if strength(second) >= strength(resolved):
+                    hints, resolved = again, second
+
     if not hints:
         src.status, src.error = "failed", "no place or event found in this link"
         db.commit()
-        return {"items": [], "error": src.error}
+        return {"items": [], "error": src.error, "slow_path": slow}
 
-    home = store.home_point(db)
     results = []
-    for i, hint in enumerate(hints):
-        jobs.set_stage(db, job, f"finding place {i + 1} of {len(hints)}", 50 + int(45 * i / len(hints)))
-        res = resolve(db, hint, home)
+    for i, (hint, res) in enumerate(resolved):
+        jobs.set_stage(db, job, "saving", 93 + int(6 * i / len(resolved)))
         if res.best is None:
             results.append({"name": hint.name, "error": "not found"})
             continue
@@ -207,7 +366,13 @@ def run(db: Session, job: Job) -> dict:
     placed = [r for r in results if "id" in r]
     src.status = "done" if placed else "failed"
     src.error = None if placed else "could not find any of the places on the map"
-    src.raw = {**(src.raw or {}), "hints": [_json_safe({k: v for k, v in asdict(h).items()
-                                                        if v not in (None, [], False, "")}) for h in hints]}
+    src.raw = {**(src.raw or {}), "slow_path": slow,
+               "hints": [_json_safe({k: v for k, v in asdict(h).items() if v not in (None, [], False, "")})
+                         for h in hints]}
     db.commit()
-    return {"items": results, "placed": len(placed), "review": sum(1 for r in placed if r["review"])}
+    # Keep a copy of the video even when the fast path was enough
+    if placed and src.kind in VIDEO_KINDS and media.has_video(db, src) is None:
+        jobs.enqueue(db, "archive", {"source_id": str(src.id)}, source_id=src.id, submitted_by=src.submitted_by)
+        db.commit()
+    return {"items": results, "placed": len(placed), "review": sum(1 for r in placed if r["review"]),
+            "slow_path": slow}

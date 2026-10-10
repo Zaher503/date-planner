@@ -41,3 +41,25 @@ def refresh_home(db: Session, job: Job) -> dict:
     s.home = from_shape(Point(lon, lat), srid=4326)
     db.commit()
     return {"lat": round(lat, 4), "lon": round(lon, 4)}
+
+
+@handler("archive")
+def archive(db: Session, job: Job) -> dict:
+    """Keep a copy of a video (and its thumbnail) the fast path read without downloading."""
+    import uuid
+
+    from app.db.models import Source
+    from app.ingest import media
+    src = db.get(Source, uuid.UUID(job.payload["source_id"]))
+    if src is None or not src.url:
+        return {"skipped": "source gone"}
+    if media.has_video(db, src):
+        return {"skipped": "already archived"}
+    try:
+        dl = media.download(src.url, src.id)
+    except media.MediaError as e:
+        # Not worth retrying: the video is too long, removed or blocked
+        return {"skipped": str(e)}
+    kinds = media.archive(db, src, dl)
+    db.commit()
+    return {"archived": kinds, "bytes": sum(p.stat().st_size for p in (dl.video, dl.thumb) if p)}
