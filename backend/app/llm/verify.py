@@ -62,3 +62,18 @@ def date_supported(d: date | None, text: str) -> bool:
     if WEEKDAYS[d.weekday()] in low or re.search(rf"\b{WEEKDAYS[d.weekday()][:3]}\b", low):
         return True
     return bool(RELATIVE.search(low))
+
+
+def address_supported(address: str, text: str) -> bool:
+    """The house number (and street name) of an address must be in the text."""
+    m = re.match(r"\s*(\d+[A-Za-z]?)\s+(.*)", address or "")
+    if not m:
+        return True  # no house number, nothing to invent
+    number, rest = m.group(1), m.group(2)
+    low = (text or "").lower()
+    if not re.search(rf"(?<!\d){re.escape(number.lower())}(?!\d)", low):
+        return False
+    words = [w for w in re.findall(r"[a-z]{3,}", rest.lower())
+             if w not in {"street", "avenue", "blvd", "boulevard", "road", "drive", "north", "south", "east", "west",
+                          "los", "angeles", "california", "suite", "place", "lane"}]
+    return not words or any(w in low for w in words[:2])

@@ -69,3 +69,12 @@ def test_to_hint_ignores_model_specific_flag_for_named_venue():
     h = to_hint(raw(name="El Matador Beach", specific=False, is_free=False), "10. El Matador Beach", LA)
     assert "not a specific venue" not in h.flags
     assert h.is_free is None  # no price in the text, so unknown
+
+
+def test_address_must_come_from_text():
+    assert verify.address_supported("515 W 7th St", "Zaya | 515 W 7th St, Los Angeles")
+    assert not verify.address_supported("2375 Glendale Blvd", "7. La Cha Cha Cha - a rooftop in the Arts District")
+    assert not verify.address_supported("812 Sunset Blvd", "812 E 3rd St")  # number right, street wrong
+    assert verify.address_supported("Sunset Blvd", "anything")
+    h = to_hint(raw(name="La Cha Cha Cha", address="2375 Glendale Blvd"), "La Cha Cha Cha rooftop", LA)
+    assert h.address is None and "removed unverified address" in h.flags

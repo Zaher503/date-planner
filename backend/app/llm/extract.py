@@ -121,8 +121,11 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
     if not name or (area and name.lower() == area.lower()):
         hint.flags.append("not a specific venue")
 
-    # Numbers must come from the text
+    # Numbers must come from the text: the model sometimes "remembers" an address
     nums = verify.numbers_in(text)
+    if hint.address and not verify.address_supported(hint.address, text):
+        hint.flags.append("removed unverified address")
+        hint.address = None
     for key in ("price_min", "price_max"):
         v = raw.get(key)
         if v is not None and not verify.price_supported(v, nums):
