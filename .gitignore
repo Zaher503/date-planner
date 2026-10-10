@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+frontend/build/
+frontend/.svelte-kit/
+
+# Secrets and local data
+.env
+deploy/.env
+*.secret
+data/
+*.pmtiles
+*.osm.pbf
