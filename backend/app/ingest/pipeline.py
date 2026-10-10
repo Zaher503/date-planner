@@ -25,6 +25,8 @@ from app.resolve.resolver import resolve
 from app.resolve.scorer import name_similarity
 
 log = logging.getLogger(__name__)
+# A pin on a whole city or county tells you nothing; neighborhoods (Venice) are fine
+TOO_BIG = {"city", "town", "county", "state", "country", "region", "province", "municipality"}
 
 
 class Unprocessable(Exception):
@@ -133,6 +135,7 @@ def run(db: Session, job: Job) -> dict:
             hints = _from_tiktok(db, job, src)
         elif src.kind in ("gmaps", "applemaps"):
             hints = _from_maps(src)
+            _llm(db, job, llm.classify, hints, src.title or "")
         elif src.kind in ("event_page", "youtube"):
             hints = _from_page(db, job, src)
         elif src.kind == "text":
@@ -159,6 +162,9 @@ def run(db: Session, job: Job) -> dict:
         res = resolve(db, hint, home)
         if res.best is None:
             results.append({"name": hint.name, "error": "not found"})
+            continue
+        if res.best.kind == "area" and (res.best.osm_value or "") in TOO_BIG:
+            results.append({"name": hint.event_title or hint.name, "error": "too vague to pin (only a city)"})
             continue
         place, place_new = store.upsert_place(db, hint, res, src.submitted_by)
         store.save_candidates(db, src, place, i, res)
