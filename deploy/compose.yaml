@@ -72,6 +72,45 @@ services:
       - default
       - recipebox
 
+  # Dev instance for UI testing (docs/OPERATIONS.md): database dates_dev, loopback only.
+  # DEV_USER skips Authentik, so it must never be set on the public api service.
+  api-dev:
+    <<: *app
+    profiles: ["dev"]
+    command: ["sh", "/app/start-api.sh"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://dates:${PG_PASSWORD}@db:5432/dates_dev
+      DEV_USER: zaher
+    ports:
+      - "127.0.0.1:8821:8820"
+    networks:
+      - default
+      - recipebox
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8820/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker-dev:
+    <<: *app
+    profiles: ["dev"]
+    command: ["python", "-m", "app.worker"]
+    stop_grace_period: 60s
+    environment:
+      DATABASE_URL: postgresql+psycopg://dates:${PG_PASSWORD}@db:5432/dates_dev
+    volumes:
+      - /srv/dateplanner:/data
+      - /srv/gpu:/locks
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      api-dev:
+        condition: service_healthy
+    networks:
+      - default
+      - recipebox
+
   # Geocoder: prebuilt US database (scripts/photon_import.sh)
   photon:
     image: eclipse-temurin:21-jre

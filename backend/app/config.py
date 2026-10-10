@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     searxng_url: str = "http://searxng:8080"
 
     data_dir: Path = Path("/data")
+    # Built SvelteKit app (copied in by deploy/Dockerfile.app)
+    static_dir: Path = Path("/app/static")
     default_tz: str = "America/Los_Angeles"
 
 
