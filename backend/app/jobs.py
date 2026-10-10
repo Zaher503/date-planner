@@ -19,12 +19,15 @@ def enqueue(db: Session, type_: str, payload: dict | None = None, *, needs_gpu: 
     return job
 
 
-def claim(db: Session, *, gpu: bool | None = None) -> Job | None:
-    """Lock and mark the next due job as running. gpu=None takes either kind."""
+def claim(db: Session, *, gpu: bool | None = None, types: list[str] | None = None) -> Job | None:
+    """Lock and mark the next due job as running. gpu=None takes either kind.
+    types limits it to job types this worker can handle (others stay queued)."""
     q = (select(Job).where(Job.status == "queued", Job.run_after <= datetime.now(timezone.utc))
          .order_by(Job.run_after, Job.id).limit(1).with_for_update(skip_locked=True))
     if gpu is not None:
         q = q.where(Job.needs_gpu.is_(gpu))
+    if types is not None:
+        q = q.where(Job.type.in_(types))
     job = db.scalars(q).first()
     if job:
         job.status, job.locked_at, job.locked_by = "running", datetime.now(timezone.utc), WORKER_ID

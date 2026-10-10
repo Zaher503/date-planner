@@ -48,6 +48,12 @@ services:
   worker:
     <<: *app
     command: ["python", "-m", "app.worker"]
+    stop_grace_period: 60s
+    volumes:
+      - /srv/dateplanner:/data
+      - /srv/gpu:/locks
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       api:
         condition: service_healthy
