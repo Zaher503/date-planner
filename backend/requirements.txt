@@ -9,3 +9,4 @@ alembic>=1.14,<2
 pydantic-settings>=2.6,<3
 httpx>=0.28,<1
 apscheduler>=3.11,<4
+tzdata>=2024.1

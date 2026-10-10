@@ -1,0 +1,59 @@
+{
+  "_embedded": {
+    "events": [
+      {
+        "name": "Jazz Under the Stars",
+        "type": "event",
+        "id": "vvG1zZ9abc123",
+        "url": "https://www.ticketmaster.com/event/abc123",
+        "locale": "en-us",
+        "images": [
+          {"ratio": "3_2", "url": "https://s1.ticketm.net/img/small.jpg", "width": 305},
+          {"ratio": "16_9", "url": "https://s1.ticketm.net/img/wide.jpg", "width": 1024}
+        ],
+        "dates": {
+          "start": {"localDate": "2026-10-17", "localTime": "20:00:00", "dateTime": "2026-10-18T03:00:00Z",
+                    "dateTBD": false, "timeTBA": false, "noSpecificTime": false},
+          "timezone": "America/Los_Angeles",
+          "status": {"code": "onsale"}
+        },
+        "classifications": [
+          {"primary": true, "segment": {"name": "Music"}, "genre": {"name": "Jazz"},
+           "subGenre": {"name": "Undefined"}}
+        ],
+        "priceRanges": [{"type": "standard", "currency": "USD", "min": 25.0, "max": 65.5}],
+        "info": "Outdoor seating, bring a blanket.",
+        "_embedded": {
+          "venues": [
+            {"name": "Hollywood Bowl", "postalCode": "90068", "timezone": "America/Los_Angeles",
+             "city": {"name": "Los Angeles"}, "state": {"stateCode": "CA"},
+             "address": {"line1": "2301 N Highland Ave"},
+             "location": {"longitude": "-118.33895", "latitude": "34.11265"}}
+          ]
+        }
+      },
+      {
+        "name": "Comedy Night (Time TBA)",
+        "type": "event",
+        "id": "vvG1zZ9tba456",
+        "url": "https://www.ticketmaster.com/event/tba456",
+        "images": [],
+        "dates": {
+          "start": {"localDate": "2026-10-20", "dateTBD": false, "timeTBA": true, "noSpecificTime": false},
+          "timezone": "America/Los_Angeles",
+          "status": {"code": "cancelled"}
+        },
+        "classifications": [
+          {"segment": {"name": "Arts & Theatre"}, "genre": {"name": "Comedy"}, "subGenre": {"name": "Comedy"}}
+        ],
+        "_embedded": {
+          "venues": [
+            {"name": "The Comedy Store", "city": {"name": "West Hollywood"}, "state": {"stateCode": "CA"},
+             "address": {"line1": "8433 Sunset Blvd"}}
+          ]
+        }
+      }
+    ]
+  },
+  "page": {"size": 200, "totalElements": 2, "totalPages": 1, "number": 0}
+}
