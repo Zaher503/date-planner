@@ -111,7 +111,7 @@ def parse_filters(*, bbox: str | None = None, types: str | None = None, when: st
                   tz: str | None = None) -> Filters:
     """Validate the raw query strings. Raises HTTP 400 on bad input."""
     zone = ZoneInfo(tz or get_settings().default_tz)
-    now = now or datetime.now(zone)
+    now = (now or datetime.now(zone)).astimezone(zone)  # local, so opening hours compare directly
     f = Filters(now=now, open_now=_flag(open_now), past=_flag(past))
     if bbox:
         w, s, e, n = _floats(bbox, 4, "bbox")

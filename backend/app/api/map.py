@@ -13,6 +13,7 @@ from app.api.filters import (
 )
 from app.db.models import Event, ItemSource, Occurrence, Place, Source, User, UserItemState
 from app.db.session import get_db
+from app.hours import is_open
 from app.ingest.store import home_point
 
 router = APIRouter()
@@ -102,8 +103,8 @@ def event_props(r) -> dict:
 
 
 def keep_place(r, f: Filters) -> bool:
-    """Checks done in Python after the query."""
-    return True
+    """Checks done in Python after the query: open now (unknown hours pass)."""
+    return not f.open_now or is_open(r.opening_hours, f.now) is not False
 
 
 def fetch_items(db: Session, f: Filters, user: User, sort: str = "date") -> list[tuple[dict, object]]:
