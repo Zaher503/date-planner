@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.api import add, health, items, map, media, meta, review
+from app.api import add, health, items, map, media, meta, review, static
 from app.api.auth import current_user
 from app.db.models import AppSettings, User
 from app.db.session import SessionLocal, get_db
@@ -39,3 +39,7 @@ def healthz(db: Session = Depends(get_db)):
 @app.get("/api/me")
 def me(user: User = Depends(current_user)):
     return {"id": user.id, "username": user.username, "display_name": user.display_name}
+
+
+# Last: the app shell catches every path the routes above do not handle
+app.include_router(static.router)
