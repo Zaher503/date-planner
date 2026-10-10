@@ -364,6 +364,7 @@
           localIdeographFontFamily: 'sans-serif'
         });
         map.touchZoomRotate.disableRotation();
+        if (import.meta.env.DEV) (window as unknown as { __map: MlMap }).__map = map;
         map.addControl(new maplibre.NavigationControl({ showCompass: false }), 'bottom-right');
         const geo = new maplibre.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false });
         geo.on('geolocate', (e: { coords: GeolocationCoordinates }) => onlocate?.({ lat: e.coords.latitude, lon: e.coords.longitude }));

@@ -74,10 +74,12 @@
     goto(url.pathname + url.search, { replaceState: !push, keepFocus: true, noScroll: true });
   }
 
+  // A filter change shows its results, so an open detail closes
   function setFilters(f: Filters) {
     nav((sp) => {
       for (const k of FILTER_KEYS) sp.delete(k);
       for (const [k, v] of filterParams(f)) sp.set(k, v);
+      sp.delete('sel');
     });
   }
 
@@ -237,10 +239,11 @@
       .then((it) => {
         if (loadedKey !== key) return;
         item = it;
-        // Bring it into view if it is off screen
+        // Bring it into view if it is off screen or hidden inside a cluster
         if (view) {
           const [w, so, e, n] = view.bbox;
-          if (it.lon < w || it.lon > e || it.lat < so || it.lat > n) mapView?.flyTo(it.lon, it.lat, 14);
+          const off = it.lon < w || it.lon > e || it.lat < so || it.lat > n;
+          if (off || view.center.zoom < 13.5) mapView?.flyTo(it.lon, it.lat, 14);
         }
       })
       .catch((e) => {
