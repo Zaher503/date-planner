@@ -1,5 +1,6 @@
 # NAS Caddyfile block for dates.zkocr.com (Phase 6). Modeled on food.zkocr.com.
-# Back up the Caddyfile first (heredoc rewrite, no sed -i), then reload Caddy.
+# Live on the NAS since 2026-10-11 (backup Caddyfile.bak-20261011-dates). Back up before editing
+# (heredoc rewrite, no sed -i), then reload Caddy.
 #
 # - POST /api/add: the iPhone Shortcut, checked by the app with X-Dates-Key (no Authentik).
 # - POST /api/add-image: a screenshot from the Shortcut, same key, up to 10 MB.
@@ -21,8 +22,10 @@ dates.zkocr.com {
             header_up -X-Authentik-Username
             header_up -X-Authentik-Name
             lb_policy first
+            lb_try_duration 3s
             health_uri /healthz
             health_interval 10s
+            health_timeout 2s
         }
     }
     @addimage {
@@ -37,8 +40,10 @@ dates.zkocr.com {
             header_up -X-Authentik-Username
             header_up -X-Authentik-Name
             lb_policy first
+            lb_try_duration 3s
             health_uri /healthz
             health_interval 10s
+            health_timeout 2s
         }
     }
     handle /cal/* {
@@ -46,16 +51,20 @@ dates.zkocr.com {
             header_up -X-Authentik-Username
             header_up -X-Authentik-Name
             lb_policy first
+            lb_try_duration 3s
             health_uri /healthz
             health_interval 10s
+            health_timeout 2s
         }
     }
     handle {
         import authentik_auth
         reverse_proxy 192.168.0.103:8820 192.168.0.172:8820 {
             lb_policy first
+            lb_try_duration 3s
             health_uri /healthz
             health_interval 10s
+            health_timeout 2s
         }
     }
 }
