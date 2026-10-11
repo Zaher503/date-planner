@@ -14,11 +14,11 @@ Runs on the Zephyrus as a Docker Compose stack, all AI local (Ollama gemma4:e4b 
 | 4 Map UI (SvelteKit + MapLibre) | Deployed 2026-10-10 (`acc5cca`), not yet checked in a browser |
 | 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Deployed 2026-10-10 (worker on the GPU), no video has gone through it yet |
 | 6 Caddy + Authentik at dates.zkocr.com, iPhone Shortcut | Live 2026-10-11 (Caddy, Cloudflare, Authentik group `dates`: Zaher + Kathy); Shortcut not yet set up on the phones |
-| 7 Interests + discovery (Ticketmaster key set, dry run finds ~760 events / 21 days) | Started (RA/Luma/Eventbrite/iCal adapters half-built on an unmerged branch) |
-| 8 Date-night planner + calendar | Half-built on an unmerged branch |
+| 7 Interests + discovery (Ticketmaster key set, dry run finds ~760 events / 21 days) | Started (Ticketmaster, RA, Luma, Eventbrite adapters merged; iCal, venue watch, scheduler, inbox, scoring still to do) |
+| 8 Date-night planner + calendar | Core merged (OSRM client, picker, opening hours); plan API, ICS feed and UI still to do |
 | 9 Lifecycle, backups, Homarr tile | Homarr tile done (2026-10-10, both boards); widget and the rest not started |
 
-**Next step:** fix the map showing no pins at dates.zkocr.com, try the video slow path, then the unmerged Phase 7/8 branches. See `docs/TODO-ZAHER.md`.
+**Next step:** deploy the map pins fix and recheck, try the video slow path, then the unmerged Phase 7/8 branches. See `docs/TODO-ZAHER.md`.
 
 Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expected places): 28/28 correct, 0 wrong auto-accepts.
 
