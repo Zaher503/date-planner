@@ -43,6 +43,7 @@ export interface ItemProps {
   dist_m: number | null;
   thumb: boolean;
   thumb_src?: string | null;
+  hero?: number | null;
   tags: string[];
 }
 
@@ -85,6 +86,15 @@ export interface SourceInfo {
   submitted_by: string | null;
 }
 
+export interface ItemImage {
+  id: number;
+  kind: 'frame' | 'page';
+  at: number | null;
+  chosen: boolean;
+  url: string;
+  video: string | null;
+}
+
 export interface MyState {
   status: MyStatus | null;
   rating: number | null;
@@ -116,7 +126,7 @@ export interface Item {
   open_now?: boolean | null;
   price_level?: number | null;
   closed?: boolean;
-  events?: { id: string; title: string; starts_at: string | null; recurrence_text: string | null }[];
+  events?: { id: string; title: string; starts_at: string | null; recurrence_text: string | null; price_label: string | null }[];
   // Event
   starts_at?: string | null;
   ends_at?: string | null;
@@ -136,6 +146,7 @@ export interface Item {
   place?: { id: string; title: string } | null;
 
   sources: SourceInfo[];
+  images: ItemImage[];
   me: MyState | null;
   others: { user: string; status: MyStatus | null; rating: number | null; notes: string | null }[];
   candidates: Candidate[];
@@ -217,6 +228,8 @@ export const api = {
   item: (type: ItemType, id: string) => request<Item>('GET', `/api/items/${type}/${id}`),
   patch: (type: ItemType, id: string, body: Record<string, unknown>) =>
     request<Item>('PATCH', `/api/items/${type}/${id}`, body),
+  setImage: (type: ItemType, id: string, imageId: number | null) =>
+    request<Item>('PUT', `/api/items/${type}/${id}/image`, { image_id: imageId }),
   remove: (type: ItemType, id: string) => request<void>('DELETE', `/api/items/${type}/${id}`),
   setMine: (type: ItemType, id: string, body: Partial<MyState>) =>
     request<MyState>('PUT', `/api/items/${type}/${id}/me`, body),

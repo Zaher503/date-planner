@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 
 import httpx
 
+from app.ingest.timing import vtt_cues
 from app.net import fetch_text, public_client
 
 REHYDRATION = re.compile(
@@ -37,6 +38,7 @@ class TikTokPost:
     duration_s: int | None = None
     thumbnail_url: str | None = None
     caption_url: str | None = None
+    cues: list = field(default_factory=list)  # (start seconds, text) from the captions
 
     def as_text(self) -> str:
         """Everything the extractor should read, labelled."""
@@ -152,6 +154,7 @@ def fetch_post(url: str) -> TikTokPost:
                 r = client.get(post.caption_url)
                 if r.status_code == 200:
                     post.transcript = vtt_to_text(r.text)[:6000]
+                    post.cues = vtt_cues(r.text)
             except httpx.HTTPError:
                 pass
     return post

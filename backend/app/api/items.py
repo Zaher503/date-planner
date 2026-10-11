@@ -19,7 +19,7 @@ from app.api.auth import current_user
 from app.api.common import event_price_label, image_url, place_price_label
 from app.config import get_settings
 from app.db.models import (
-    Candidate, Event, ItemSource, Job, Media, Occurrence, Place, Source, User, UserItemState,
+    Candidate, Event, ItemImage, ItemSource, Job, Media, Occurrence, Place, Source, User, UserItemState,
 )
 from app.db.session import get_db
 from app.hours import is_open
@@ -111,7 +111,9 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "open_now": is_open(item.opening_hours, datetime.now(_tz())),
             "price_level": item.price_level, "closed": item.closed,
             "events": [{"id": str(e.id), "title": e.title, "starts_at": _iso(e.starts_at),
-                        "recurrence_text": e.recurrence_text} for e in events],
+                        "recurrence_text": e.recurrence_text,
+                        "price_label": event_price_label(e.is_free, e.price_min, e.price_max, e.price_text,
+                                                         e.currency)} for e in events],
         })
         if item.review_status == "needs_review":
             review_place = item
@@ -143,12 +145,35 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
         "video": f"/api/media/{s.id}/video" if (s.id, "video") in archived else None,
         "created_at": _iso(s.created_at), "submitted_by": names.get(s.submitted_by),
     } for s in sources]
+    pics = db.scalars(select(ItemImage).where((ItemImage.place_id if is_place else ItemImage.event_id) == item.id)
+                      .order_by(ItemImage.source_id, ItemImage.rank)).all()
+    out["images"] = [{"id": p.id, "kind": p.kind, "at": p.at_seconds, "chosen": p.chosen,
+                      "url": f"/api/item-image/{p.id}", "video": f"/api/media/{p.source_id}/video"
+                      if p.kind == "frame" else None} for p in pics]
     states = db.scalars(select(UserItemState).where(_state_col(item) == item.id)).all()
     out["me"] = _me(next((s for s in states if s.user_id == user.id), None))
     out["others"] = [{"user": names.get(s.user_id), "status": s.status, "rating": s.rating, "notes": s.notes}
                      for s in states if s.user_id != user.id]
     out["candidates"] = _candidates(db, review_place.id) if review_place is not None else []
     return out
+
+
+class ImageIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    image_id: int | None = None  # None goes back to the source thumbnail
+
+
+@router.put("/api/items/{type_}/{item_id}/image")
+def put_image(type_: ItemType, item_id: uuid.UUID, body: ImageIn, db: Session = Depends(get_db),
+              user: User = Depends(current_user)):
+    item = load(db, type_, item_id)
+    col = ItemImage.place_id if type_ == "place" else ItemImage.event_id
+    if body.image_id is not None and db.scalars(
+            select(ItemImage.id).where(ItemImage.id == body.image_id, col == item.id)).first() is None:
+        raise HTTPException(404, "that picture does not belong to this item")
+    db.execute(update(ItemImage).where(col == item.id).values(chosen=ItemImage.id == body.image_id))
+    db.commit()
+    return detail(db, item, user)
 
 
 @router.get("/api/items/{type_}/{item_id}")

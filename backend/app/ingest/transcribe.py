@@ -50,26 +50,31 @@ def audio_of(video: Path):
     return np.frombuffer(raw, dtype=np.float32)
 
 
+def keep_segment(s) -> bool:
+    return s.no_speech_prob < 0.5 and s.avg_logprob > -1.0 and not JUNK.search(s.text)
+
+
 def clean_segments(segments) -> str:
-    keep = [s.text.strip() for s in segments
-            if s.no_speech_prob < 0.5 and s.avg_logprob > -1.0 and not JUNK.search(s.text)]
+    keep = [s.text.strip() for s in segments if keep_segment(s)]
     return " ".join(t for t in keep if t)
 
 
-def transcribe(video: Path) -> str:
+def transcribe(video: Path) -> tuple[str, list[tuple[float, str]]]:
+    """Transcript plus (start seconds, text) for each kept segment."""
     _preload_cuda()
     from faster_whisper import WhisperModel
     audio = audio_of(video)
     if audio.size < 16000:  # under a second of sound
-        return ""
+        return "", []
     root = get_settings().data_dir / "models" / "whisper"
     root.mkdir(parents=True, exist_ok=True)
     model = WhisperModel(MODEL, device="cuda", compute_type=COMPUTE, download_root=str(root))
     try:
         segments, info = model.transcribe(audio, vad_filter=True, beam_size=5, condition_on_previous_text=False)
-        text = clean_segments(list(segments))
+        kept = [s for s in segments if keep_segment(s)]
+        text = clean_segments(kept)
         log.info("whisper %s: %d chars, language %s", video.name, len(text), info.language)
-        return text[:8000]
+        return text[:8000], [(float(s.start), s.text.strip()) for s in kept if s.text.strip()]
     finally:
         del model
         gc.collect()

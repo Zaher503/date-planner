@@ -62,4 +62,9 @@ def archive(db: Session, job: Job) -> dict:
         return {"skipped": str(e)}
     kinds = media.archive(db, src, dl)
     db.commit()
+    from app.ingest import images
+    try:
+        images.video_images(db, src, dl.video)
+    except Exception as e:  # pictures are a nicety
+        log.warning("frame pictures failed for %s: %s", src.id, e)
     return {"archived": kinds, "bytes": sum(p.stat().st_size for p in (dl.video, dl.thumb) if p)}

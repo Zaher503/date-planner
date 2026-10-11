@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.auth import current_user
 from app.api.common import image_url
 from app.config import get_settings
-from app.db.models import Media, Source, User
+from app.db.models import ItemImage, Media, Source, User
 from app.db.session import get_db
 from app.net import BlockedURL, public_client
 
@@ -141,6 +141,33 @@ def thumb(source_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends
         _misses[source_id] = time.monotonic()
         raise HTTPException(404, "no image for this source") from None
     return _file(save(db, source_id, body, ctype))
+
+
+@router.get("/api/item-image/{image_id}")
+def item_image(image_id: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
+    """A hero candidate: a saved video frame, or a page photo fetched once and kept."""
+    row = db.get(ItemImage, image_id)
+    if row is None:
+        raise HTTPException(404, "no such picture")
+    root = get_settings().data_dir / "media"
+    if row.path and (root / row.path).is_file():
+        return _file(root / row.path)
+    if not row.url:
+        raise HTTPException(404, "picture file is gone")
+    try:
+        with public_client(timeout=15) as client:
+            body, ctype = fetch_image(client, row.url)
+    except (httpx.HTTPError, BlockedURL, NotImage, ValueError):
+        raise HTTPException(404, "could not load that picture") from None
+    folder = root / "item-images"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"{row.id}{TYPES[ctype]}"
+    tmp = folder / f".{row.id}.{uuid.uuid4().hex}.tmp"
+    tmp.write_bytes(body)
+    os.replace(tmp, path)
+    row.path = f"item-images/{path.name}"
+    db.commit()
+    return _file(path)
 
 
 @router.get("/api/media/{source_id}/video")

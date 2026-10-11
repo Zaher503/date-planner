@@ -39,6 +39,7 @@ class ItemHint:
     price_level: int | None = None
     tags: list[str] = field(default_factory=list)
     image_url: str | None = None
+    images: list[str] = field(default_factory=list)  # photos next to this listing on its page
     provider: str = "llm"  # jsonld, llm, maps_link, tiktok_poi
     status: str = "scheduled"
     flags: list[str] = field(default_factory=list)  # reasons to review

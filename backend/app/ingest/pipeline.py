@@ -22,6 +22,8 @@ from app.gpu import gpu_lock, unload_llm
 from app.ingest import maps_links, media, ocr, store
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
+from app.ingest import images, page_images
+from app.ingest.timing import vtt_cues
 from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
 from app.llm import extract as llm
 from app.net import BlockedURL, fetch_text
@@ -83,7 +85,9 @@ def _from_tiktok(db: Session, job: Job, src: Source) -> Gathered:
     first_line = post.caption.strip().splitlines()[0] if post.caption.strip() else ""
     src.title = (first_line or f"TikTok by @{post.author}")[:140]
     src.caption, src.transcript = post.caption, post.transcript or None
-    src.raw = {**(src.raw or {}), "tiktok": _json_safe({k: v for k, v in asdict(post).items() if k != "transcript"})}
+    src.raw = {**(src.raw or {}), "tiktok": _json_safe({k: v for k, v in asdict(post).items()
+                                                        if k not in ("transcript", "cues")}),
+               "cues": [[t, x] for t, x in post.cues]}
     db.commit()
     text = post.as_text()
     return Gathered(hints=_tiktok_hints(db, job, post, text), text=text, post=post,
@@ -107,11 +111,13 @@ def _from_youtube(db: Session, job: Job, src: Source) -> Gathered:
     except media.MediaError as e:
         raise Unprocessable(str(e)) from e
     subs = media.subtitles(src.url, media.media_dir(src.id) / "subs")
-    transcript = vtt_to_text(subs.read_text(encoding="utf-8", errors="replace"))[:6000] if subs else ""
+    vtt = subs.read_text(encoding="utf-8", errors="replace") if subs else ""
+    transcript = vtt_to_text(vtt)[:6000] if vtt else ""
     src.title = (info.get("title") or "YouTube video")[:140]
     src.caption, src.transcript = info.get("description") or None, transcript or None
     src.raw = {**(src.raw or {}), "youtube": {k: info.get(k) for k in
-                                              ("id", "uploader", "duration", "thumbnail", "upload_date", "webpage_url")}}
+                                              ("id", "uploader", "duration", "thumbnail", "upload_date", "webpage_url")},
+               "cues": [[t, x] for t, x in vtt_cues(vtt)]}
     db.commit()
     posted = None
     if info.get("upload_date"):
@@ -171,13 +177,17 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
     context = "\n".join(x for x in (page.title, page.description) if x)
     if page.items:
         _llm(db, job, llm.classify, page.items, context)
+        if len(page.items) > 1:
+            page_images.attach(page.items, html, final)
         return page.items
     text = "\n\n".join(x for x in (f"Page title: {page.title}" if page.title else None,
                                    page.description, page.text[:6000]) if x)
     if len(text) < 40:
         raise Unprocessable("the page had no readable text (it may need a browser)")
     is_list, hints = _llm(db, job, llm.extract, text)
-    return prune(hints, is_list)
+    hints = prune(hints, is_list)
+    page_images.attach(hints, html, final)
+    return hints
 
 
 def _from_text(db: Session, job: Job, src: Source) -> list[ItemHint]:
@@ -260,12 +270,13 @@ def slow_text(db: Session, job: Job, src: Source, g: Gathered) -> str:
             unload_llm()  # Whisper and the vision model do not fit on the card together
             try:
                 from app.ingest.transcribe import transcribe
-                said = transcribe(video)
+                said, cues = transcribe(video)
             except Exception as e:  # missing CUDA, broken audio: carry on with the frames
                 log.warning("whisper failed for %s: %s", src.id, e)
-                said = ""
+                said, cues = "", []
             if said:
                 src.transcript = said
+                src.raw = {**(src.raw or {}), "cues": [[round(t, 2), x] for t, x in cues]}
                 extra.append("Spoken (transcribed):\n" + said)
         jobs.set_stage(db, job, "reading on-screen text", 70)
         try:
@@ -357,9 +368,12 @@ def run(db: Session, job: Job) -> dict:
         if hint.kind == "event":
             event, event_new = store.upsert_event(db, hint, place, res, src.submitted_by)
             store.link(db, src, event=event, position=i, confidence=res.confidence)
+            images.page_images(db, src, hint, place=place, event=event, multi=len(resolved) > 1)
             row.update(type="event", id=str(event.id), event_title=event.title, new=event_new,
                        review=event.review_status == "needs_review")
         store.link(db, src, place=place, position=i, confidence=res.confidence)
+        if hint.kind != "event":
+            images.page_images(db, src, hint, place=place, event=None, multi=len(resolved) > 1)
         db.commit()
         results.append(row)
 
@@ -370,6 +384,12 @@ def run(db: Session, job: Job) -> dict:
                "hints": [_json_safe({k: v for k, v in asdict(h).items() if v not in (None, [], False, "")})
                          for h in hints]}
     db.commit()
+    video = media.has_video(db, src) if placed and src.kind in VIDEO_KINDS else None
+    if video:
+        try:
+            images.video_images(db, src, video)
+        except Exception as e:  # pictures are a nicety; the items are already saved
+            log.warning("frame pictures failed for %s: %s", src.id, e)
     # Keep a copy of the video even when the fast path was enough
     if placed and src.kind in VIDEO_KINDS and media.has_video(db, src) is None:
         jobs.enqueue(db, "archive", {"source_id": str(src.id)}, source_id=src.id, submitted_by=src.submitted_by)

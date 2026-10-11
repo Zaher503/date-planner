@@ -12,6 +12,7 @@
   import Tag from '@lucide/svelte/icons/tag';
   import Repeat from '@lucide/svelte/icons/repeat';
   import Pencil from '@lucide/svelte/icons/pencil';
+  import ImageIcon from '@lucide/svelte/icons/image';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import EyeOff from '@lucide/svelte/icons/eye-off';
@@ -35,14 +36,15 @@
     error: string;
     tz: string;
     onclose: () => void;
-    onselect: (t: ItemType, id: string) => void;
+    onselect: (t: ItemType, id: string, edit?: boolean) => void;
+    startEditing?: boolean;
     onchanged: (item: Item) => void;
     ondeleted: () => void;
     onfly: () => void;
     onmovepin: () => void;
   }
 
-  let { item, loading, error, tz, onclose, onselect, onchanged, ondeleted, onfly, onmovepin }: Props = $props();
+  let { item, loading, error, tz, startEditing = false, onclose, onselect, onchanged, ondeleted, onfly, onmovepin }: Props = $props();
 
   let editing = $state(false);
   let saving = $state(false);
@@ -59,8 +61,9 @@
     const id = item?.id ?? '';
     if (id !== lastId) {
       lastId = id;
-      editing = false;
+      editing = startEditing;
       playing = false;
+      showPics = false;
       showOriginal = false;
       showSources = false;
       confirmDelete = false;
@@ -73,6 +76,21 @@
   const thumbSource = $derived(item?.sources.find((s) => s.thumb) ?? null);
   const videoSource = $derived(item?.sources.find((s) => s.video) ?? null);
   let playing = $state(false);
+  let showPics = $state(false);
+  const pics = $derived(item?.images ?? []);
+  const hero = $derived(pics.find((i) => i.chosen) ?? null);
+  const heroSrc = $derived(hero?.url ?? videoSource?.thumb ?? null);
+  const stamp = (s: number | null) => (s == null ? '' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
+
+  async function pickImage(id: number | null) {
+    if (!item) return;
+    const it = item;
+    const updated = await run('image', () => api.setImage(it.type, it.id, id));
+    if (updated) {
+      onchanged(updated);
+      app.changed();
+    }
+  }
   const color = $derived(colorOf(item?.category));
   const isEvent = $derived(item?.type === 'event');
   const unsure = $derived(!!item && item.candidates.length > 0 && (item.review_status === 'needs_review' || isEvent));
@@ -265,18 +283,45 @@
       {:else}
         {#if videoSource && playing}
           <!-- svelte-ignore a11y_media_has_caption -->
-          <video class="player" src={videoSource.video} poster={videoSource.thumb ?? undefined} controls autoplay playsinline></video>
+          <video class="player" src="{videoSource.video}{hero?.kind === 'frame' && hero.at != null ? `#t=${hero.at}` : ''}" poster={heroSrc ?? undefined} controls autoplay playsinline></video>
         {:else if videoSource}
           <button class="media" onclick={() => (playing = true)}>
-            {#if videoSource.thumb}<img src={videoSource.thumb} alt="" loading="lazy" />{:else}<span class="noimg"></span>{/if}
+            {#if heroSrc}<img src={heroSrc} alt="" loading="lazy" />{:else}<span class="noimg"></span>{/if}
             <span class="play"><Play size={26} /></span>
             <span class="media-label">Saved copy of the {sourceLabel(videoSource.kind)} video</span>
           </button>
         {:else if thumbSource}
           <a class="media" href={thumbSource.url ?? undefined} target="_blank" rel="noopener noreferrer">
-            <img src={thumbSource.thumb} alt="" loading="lazy" />
+            <img src={hero?.url ?? thumbSource.thumb} alt="" loading="lazy" />
             <span class="media-label"><ExternalLink size={13} /> Open on {sourceLabel(thumbSource.kind)}</span>
           </a>
+        {:else if hero}
+          <div class="media"><img src={hero.url} alt="" loading="lazy" /></div>
+        {/if}
+
+        {#if pics.length > 1 || (pics.length === 1 && !hero)}
+          <button class="pics-toggle" onclick={() => (showPics = !showPics)} aria-expanded={showPics}>
+            <ImageIcon size={14} /> {showPics ? 'Hide pictures' : 'Change picture'}
+          </button>
+          {#if showPics}
+            <div class="pics" role="group" aria-label="Choose a picture">
+              {#if heroSrc || thumbSource}
+                {@const first = thumbSource?.thumb ?? videoSource?.thumb}
+                {#if first}
+                  <button class="pic" class:on={!hero} disabled={busy === 'image'} onclick={() => pickImage(null)} title="Link thumbnail">
+                    <img src={first} alt="Link thumbnail" loading="lazy" />
+                  </button>
+                {/if}
+              {/if}
+              {#each pics as p (p.id)}
+                <button class="pic" class:on={p.chosen} disabled={busy === 'image'} onclick={() => pickImage(p.id)}
+                  title={p.at != null ? `Video at ${stamp(p.at)}` : 'Photo from the page'}>
+                  <img src={p.url} alt="Option" loading="lazy" />
+                  {#if p.at != null}<span class="pic-time">{stamp(p.at)}</span>{/if}
+                </button>
+              {/each}
+            </div>
+          {/if}
         {/if}
 
         <div class="mine">
@@ -390,11 +435,12 @@
             <h3>Events here</h3>
             <ul class="linked">
               {#each item.events as ev (ev.id)}
-                <li>
-                  <button onclick={() => onselect('event', ev.id)}>
+                <li class="ev-row">
+                  <button class="ev-open" onclick={() => onselect('event', ev.id)}>
                     <span>{ev.title}</span>
-                    <span class="sub">{ev.starts_at ? when(ev.starts_at, { tz }) : (ev.recurrence_text ?? '')}</span>
+                    <span class="sub">{[ev.starts_at ? when(ev.starts_at, { tz }) : ev.recurrence_text, ev.price_label].filter(Boolean).join(' · ')}</span>
                   </button>
+                  <button class="ev-edit" aria-label="Edit {ev.title}" title="Edit" onclick={() => onselect('event', ev.id, true)}><Pencil size={15} /></button>
                 </li>
               {/each}
             </ul>
@@ -657,6 +703,57 @@
     font-size: 12px;
     font-weight: 600;
   }
+  .pics-toggle {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: none;
+    background: none;
+    padding: 2px 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-2);
+    cursor: pointer;
+  }
+  .pics {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .pic {
+    position: relative;
+    flex: none;
+    width: 96px;
+    height: 72px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--surface-2);
+    cursor: pointer;
+  }
+  .pic.on {
+    border-color: var(--accent);
+  }
+  .pic img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .pic-time {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.62);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+  }
   .mine {
     display: flex;
     flex-wrap: wrap;
@@ -792,6 +889,26 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+  }
+  .ev-row {
+    display: flex;
+    gap: 6px;
+  }
+  .ev-open {
+    flex: 1;
+    min-width: 0;
+  }
+  .linked .ev-edit {
+    flex: none;
+    width: 40px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+  }
+  .linked .ev-open {
+    width: auto;
   }
   .linked button {
     width: 100%;

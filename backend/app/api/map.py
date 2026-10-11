@@ -11,7 +11,7 @@ from app.api.filters import (
     GEOM, Filters, common_conditions, event_conditions, event_end, filters_dep, my_state, place_conditions,
     point_sql,
 )
-from app.db.models import Event, ItemSource, Occurrence, Place, Source, User, UserItemState
+from app.db.models import Event, ItemImage, ItemSource, Occurrence, Place, Source, User, UserItemState
 from app.db.session import get_db
 from app.hours import is_open
 from app.ingest.store import home_point
@@ -37,13 +37,20 @@ def _thumb_src(model):
             .correlate(model).scalar_subquery())
 
 
+def _hero(model):
+    """Id of the picture the user (or the extractor) picked as this item's hero, or NULL."""
+    col = ItemImage.place_id if model is Place else ItemImage.event_id
+    return (select(ItemImage.id).where(col == model.id, ItemImage.chosen.is_(True)).limit(1)
+            .correlate(model).scalar_subquery())
+
+
 def place_query(f: Filters, user_id: int, origin) -> Select:
     lon, lat = _lonlat(Place)
     q = (select(Place.id, Place.name.label("title"), Place.category, lon.label("lon"), lat.label("lat"),
                 Place.price_level, Place.review_status, UserItemState.status.label("my"),
                 UserItemState.rating, Place.address_text, Place.tags, Place.opening_hours,
                 Place.created_at, func.ST_Distance(Place.geom, origin).label("dist"),
-                _thumb_src(Place).label("thumb_src"))
+                _thumb_src(Place).label("thumb_src"), _hero(Place).label("hero"))
          .outerjoin(UserItemState, my_state(Place, user_id))
          .where(*common_conditions(Place, f, lon, lat, origin), *place_conditions(f)))
     return q
@@ -62,7 +69,8 @@ def event_query(f: Filters, user_id: int, origin) -> Select:
                 Event.is_free, Event.price_min, Event.price_max, Event.price_text, Event.currency,
                 Event.review_status, UserItemState.status.label("my"), UserItemState.rating,
                 Event.address_text, Event.venue_name, Event.tags, Event.created_at,
-                func.ST_Distance(Event.geom, origin).label("dist"), _thumb_src(Event).label("thumb_src"))
+                func.ST_Distance(Event.geom, origin).label("dist"), _thumb_src(Event).label("thumb_src"),
+                _hero(Event).label("hero"))
          .outerjoin(UserItemState, my_state(Event, user_id))
          .where(*common_conditions(Event, f, lon, lat, origin), *event_conditions(f)))
     return q
@@ -80,7 +88,8 @@ def place_props(r) -> dict:
         "rs": r.review_status, "my": r.my, "rating": r.rating,
         "addr": r.address_text, "venue": None,
         "dist_m": round(r.dist) if r.dist is not None else None,
-        "thumb": r.thumb_src is not None, **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
+        "thumb": r.thumb_src is not None or r.hero is not None,
+        **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}), **({"hero": r.hero} if r.hero else {}),
         "tags": list(r.tags or [])[:MAX_TAGS],
     }
 
@@ -97,7 +106,8 @@ def event_props(r) -> dict:
         "rs": r.review_status, "my": r.my, "rating": r.rating,
         "addr": r.address_text, "venue": r.venue_name,
         "dist_m": round(r.dist) if r.dist is not None else None,
-        "thumb": r.thumb_src is not None, **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
+        "thumb": r.thumb_src is not None or r.hero is not None,
+        **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}), **({"hero": r.hero} if r.hero else {}),
         "tags": list(r.tags or [])[:MAX_TAGS],
     }
 

@@ -67,7 +67,9 @@
         onpointerenter={() => onhover?.(p.id)}
         onpointerleave={() => onhover?.(null)}
       >
-        {#if p.thumb && p.thumb_src}
+        {#if p.hero}
+          <img class="thumb" src="/api/item-image/{p.hero}" alt="" loading="lazy" decoding="async" />
+        {:else if p.thumb && p.thumb_src}
           <img class="thumb" src="/api/thumb/{p.thumb_src}" alt="" loading="lazy" decoding="async" />
         {:else}
           <span class="thumb dot" class:event={p.t === 'event'} style="--c: {colorOf(p.cat)}"></span>

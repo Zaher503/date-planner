@@ -224,6 +224,28 @@ class ItemSource(Base):
     event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
     position: Mapped[int] = mapped_column(SmallInteger, server_default="0")  # order in a list video
     confidence: Mapped[float | None] = mapped_column(Float)
+    mention_at: Mapped[float | None] = mapped_column(Float)  # seconds into the video where it comes up
+
+
+class ItemImage(Base):
+    """Candidate hero pictures for one item: video frames near where it was mentioned, or page photos."""
+    __tablename__ = "item_images"
+    __table_args__ = (
+        CheckConstraint("num_nonnulls(place_id, event_id) = 1", name="one_item"),
+        Index("ix_item_images_place", "place_id"),
+        Index("ix_item_images_event", "event_id"),
+        Index("ix_item_images_source", "source_id"),
+    )
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
+    place_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("places.id", ondelete="CASCADE"))
+    event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
+    kind: Mapped[str] = mapped_column(Text)  # frame or page
+    path: Mapped[str | None] = mapped_column(Text)  # relative to DATA_DIR/media
+    url: Mapped[str | None] = mapped_column(Text)  # remote photo, cached into path on first view
+    at_seconds: Mapped[float | None] = mapped_column(Float)
+    rank: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    chosen: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
 
 
 class Media(Base):

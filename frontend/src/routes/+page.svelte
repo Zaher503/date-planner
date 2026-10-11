@@ -83,7 +83,10 @@
     });
   }
 
-  function select(t: ItemType, id: string) {
+  let openEdit = $state(false);
+
+  function select(t: ItemType, id: string, edit = false) {
+    openEdit = edit;
     const push = !sel;
     nav((sp) => {
       sp.set('sel', `${t}:${id}`);
@@ -405,6 +408,7 @@
           {tz}
           onclose={closeDetail}
           onselect={select}
+          startEditing={openEdit}
           onchanged={(it) => (item = it)}
           ondeleted={closeDetail}
           onfly={flyToItem}
