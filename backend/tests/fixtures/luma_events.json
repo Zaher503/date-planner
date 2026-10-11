@@ -1,0 +1,508 @@
+{
+ "entries": [
+  {
+   "api_id": "evt-orwA1BNJwnqfuGN",
+   "event": {
+    "api_id": "evt-orwA1BNJwnqfuGN",
+    "calendar_api_id": "cal-W2ewEOJlVPAQJjA",
+    "cover_url": "https://images.lumacdn.com/event-covers/58/1c584b13-f47f-4459-b50c-71e08686833c.jpg",
+    "end_at": "2026-10-10T20:00:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "Great Food: Saturday Soup Kitchen",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": true,
+    "social_image_url": "https://images.lumacdn.com/event-social/tn/83e5bd8e-11d8-4a90-a18e-ec4b2b60959d.png",
+    "start_at": "2026-10-10T15:30:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "jv623el3",
+    "user_api_id": "usr-kfOCdCxGra8cHax",
+    "visibility": "public",
+    "geo_address_info": {
+     "mode": "obfuscated",
+     "city": "Los Angeles",
+     "city_state": "Los Angeles, CA",
+     "sublocality": "Wilshire Center",
+     "country": "United States",
+     "country_code": "US",
+     "region": "California",
+     "region_short": "CA"
+    },
+    "geo_address_visibility": "guests-only",
+    "coordinate": {
+     "latitude": 34.06428486537916,
+     "longitude": -118.31223178047836
+    },
+    "waitlist_enabled": true,
+    "waitlist_status": "enabled"
+   },
+   "start_at": "2026-10-10T15:30:00.000Z",
+   "guest_count": 16,
+   "ticket_count": 16,
+   "ticket_info": {
+    "price": null,
+    "is_free": true,
+    "max_price": null,
+    "is_sold_out": false,
+    "spots_remaining": 4,
+    "is_near_capacity": true,
+    "require_approval": false
+   },
+   "registration_availability": "open",
+   "waitlist_active": false,
+   "featured_city": null
+  },
+  {
+   "api_id": "evt-vnidcxx5QekAKbQ",
+   "event": {
+    "api_id": "evt-vnidcxx5QekAKbQ",
+    "calendar_api_id": "cal-eCCcgTeGXy58PEB",
+    "cover_url": "https://images.lumacdn.com/event-covers/l6/58223866-3827-4be8-a983-a8a6f96fb824.png",
+    "end_at": "2026-10-12T00:00:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "Micro Biz Launchpad Weekend - Orange County",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": true,
+    "social_image_url": "https://images.lumacdn.com/event-social/6j/3b5682a9-2fd9-4d25-aeaa-2b5981466e43.png",
+    "start_at": "2026-10-10T15:30:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "rsyh72ql",
+    "user_api_id": "usr-YYNNhG6XB94Vtz4",
+    "visibility": "public",
+    "geo_address_info": {
+     "mode": "obfuscated",
+     "city": "Orange",
+     "city_state": "Orange, CA",
+     "sublocality": null,
+     "country": "United States",
+     "country_code": "US",
+     "region": "California",
+     "region_short": "CA"
+    },
+    "geo_address_visibility": "guests-only",
+    "coordinate": {
+     "latitude": 33.79072228244727,
+     "longitude": -117.8578291768425
+    },
+    "waitlist_enabled": true,
+    "waitlist_status": "active"
+   },
+   "start_at": "2026-10-10T15:30:00.000Z",
+   "guest_count": 25,
+   "ticket_count": 25,
+   "ticket_info": {
+    "price": null,
+    "is_free": false,
+    "max_price": null,
+    "is_sold_out": true,
+    "spots_remaining": 5,
+    "is_near_capacity": false,
+    "require_approval": false
+   },
+   "registration_availability": "sold-out",
+   "waitlist_active": false,
+   "featured_city": null
+  },
+  {
+   "api_id": "evt-HZDC9vYoaSlp1Pb",
+   "event": {
+    "api_id": "evt-HZDC9vYoaSlp1Pb",
+    "calendar_api_id": "cal-BUOfRh1YtbozJCB",
+    "cover_url": "https://images.lumacdn.com/uploads/gr/20ccdd4f-084a-4a88-a02e-3fda7bdd41e0.png",
+    "end_at": "2026-10-11T00:00:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "Inclusive Coding Festival 2026",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": false,
+    "social_image_url": "https://images.lumacdn.com/event-social/lf/6ae22841-01fc-4b0f-99d3-78928a49e37d.png",
+    "start_at": "2026-10-10T16:00:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "9bhegzkw",
+    "user_api_id": "usr-fId1yPEELnjS18R",
+    "visibility": "public",
+    "geo_address_info": {
+     "city": "Irvine",
+     "type": "google",
+     "region": "California",
+     "address": "University of California, Irvine Division of Continuing Education",
+     "country": "United States",
+     "place_id": "ChIJeTukmgje3IARTqugxCM37hY",
+     "localized": null,
+     "city_state": "Irvine, CA",
+     "description": "",
+     "sublocality": null,
+     "country_code": "US",
+     "full_address": "University of California, Irvine Division of Continuing Education, 510 E Peltason Dr, Irvine, CA 92697, USA",
+     "region_short": "CA",
+     "short_address": "510 E Peltason Dr, Irvine",
+     "place_coordinate": {
+      "latitude": 33.6449487,
+      "longitude": -117.83477710000001
+     },
+     "apple_maps_place_id": "I51F4632C1EBA6BAA",
+     "mode": "shown"
+    },
+    "geo_address_visibility": "public",
+    "coordinate": {
+     "longitude": -117.83477710000001,
+     "latitude": 33.6449487
+    },
+    "waitlist_enabled": true,
+    "waitlist_status": "enabled"
+   },
+   "start_at": "2026-10-10T16:00:00.000Z",
+   "guest_count": 0,
+   "ticket_count": 0,
+   "ticket_info": {
+    "price": {
+     "cents": 1000,
+     "currency": "usd",
+     "is_flexible": false
+    },
+    "is_free": false,
+    "max_price": null,
+    "is_sold_out": false,
+    "spots_remaining": 30,
+    "is_near_capacity": false,
+    "require_approval": false
+   },
+   "registration_availability": "open",
+   "waitlist_active": false,
+   "featured_city": null
+  },
+  {
+   "api_id": "evt-dHQhMYVugBpo9I8",
+   "event": {
+    "api_id": "evt-dHQhMYVugBpo9I8",
+    "calendar_api_id": "cal-oDyCJSEmm2vIKJu",
+    "cover_url": "https://images.lumacdn.com/uploads/wz/67fa586a-ef4f-4cfd-93e3-bab0dd98f3d1.png",
+    "end_at": "2026-10-10T21:30:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "The Patch Party - The Vote Tote Edition",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": true,
+    "social_image_url": "https://images.lumacdn.com/event-social/85/65a9da83-1b0f-4ba2-92e4-cf59ed7866df.png",
+    "start_at": "2026-10-10T19:00:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "1ryqnjle",
+    "user_api_id": "usr-c4pM6kAi0qjhzNh",
+    "visibility": "public",
+    "geo_address_info": {
+     "city": "Santa Monica",
+     "type": "google",
+     "region": "California",
+     "address": "Diner Antonette",
+     "country": "United States",
+     "place_id": "ChIJ-79lbMqkwoARRFJkqSo-Cd8",
+     "localized": null,
+     "city_state": "Santa Monica, CA",
+     "description": "",
+     "sublocality": "Wilshire Montana",
+     "country_code": "US",
+     "full_address": "Diner Antonette, 1213 Wilshire Blvd, Santa Monica, CA 90403, USA",
+     "region_short": "CA",
+     "short_address": "1213 Wilshire Blvd, Santa Monica",
+     "place_coordinate": null,
+     "apple_maps_place_id": "I40313A4D52594A78",
+     "mode": "shown"
+    },
+    "geo_address_visibility": "public",
+    "coordinate": {
+     "longitude": -118.4905545,
+     "latitude": 34.0256869
+    },
+    "waitlist_enabled": true,
+    "waitlist_status": "active"
+   },
+   "start_at": "2026-10-10T19:00:00.000Z",
+   "guest_count": 14,
+   "ticket_count": 14,
+   "ticket_info": {
+    "price": null,
+    "is_free": true,
+    "max_price": null,
+    "is_sold_out": true,
+    "spots_remaining": 0,
+    "is_near_capacity": false,
+    "require_approval": false
+   },
+   "registration_availability": "waitlist",
+   "waitlist_active": true,
+   "featured_city": null
+  },
+  {
+   "api_id": "evt-zidb9IZmLxIPbhE",
+   "event": {
+    "api_id": "evt-zidb9IZmLxIPbhE",
+    "calendar_api_id": "cal-eCAxYF85iIbP0mM",
+    "cover_url": "https://images.lumacdn.com/uploads/p8/cb25803d-f5a9-433d-8e00-46a566149957.jpg",
+    "end_at": "2026-10-10T23:00:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "GLOBE365 千万网红选品会",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": true,
+    "social_image_url": "https://images.lumacdn.com/event-social/x7/dd2af5e4-3a70-474d-b1f4-872dcabe9b35.png",
+    "start_at": "2026-10-10T19:30:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "f3aqsjyn",
+    "user_api_id": "usr-p74NKTdAxGRSOlT",
+    "visibility": "public",
+    "geo_address_info": {
+     "city": "Los Angeles",
+     "type": "google",
+     "region": "California",
+     "address": "801 S Figueroa St",
+     "country": "United States",
+     "place_id": "ChIJ6Vw6LLfHwoAR6hzyTUxtkSA",
+     "localized": {
+      "zh-CN": {
+       "city": "Los Angeles",
+       "region": "California",
+       "address": "801 S Figueroa St",
+       "country": "美国",
+       "city_state": "Los Angeles, CA",
+       "sublocality": "Downtown Los Angeles",
+       "full_address": "801 S Figueroa St, Los Angeles, CA 90017美国",
+       "region_short": "CA",
+       "short_address": "801 S Figueroa St, Los Angeles"
+      }
+     },
+     "city_state": "Los Angeles, CA",
+     "description": "5楼",
+     "sublocality": "Downtown Los Angeles",
+     "country_code": "US",
+     "full_address": "801 S Figueroa St, Los Angeles, CA 90017, USA",
+     "region_short": "CA",
+     "short_address": "801 S Figueroa St, Los Angeles",
+     "place_coordinate": {
+      "latitude": 34.0480739,
+      "longitude": -118.26176120000001
+     },
+     "apple_maps_place_id": null,
+     "mode": "shown"
+    },
+    "geo_address_visibility": "public",
+    "coordinate": {
+     "longitude": -118.26176120000001,
+     "latitude": 34.0480739
+    },
+    "waitlist_enabled": false,
+    "waitlist_status": "disabled"
+   },
+   "start_at": "2026-10-10T19:30:00.000Z",
+   "guest_count": 4,
+   "ticket_count": 4,
+   "ticket_info": {
+    "price": null,
+    "is_free": true,
+    "max_price": null,
+    "is_sold_out": false,
+    "spots_remaining": 76,
+    "is_near_capacity": false,
+    "require_approval": false
+   },
+   "registration_availability": "open",
+   "waitlist_active": false,
+   "featured_city": null
+  },
+  {
+   "api_id": "evt-HN0XC7rTUdpBttU",
+   "event": {
+    "api_id": "evt-HN0XC7rTUdpBttU",
+    "calendar_api_id": "cal-FISZHnDkt3gBfh7",
+    "cover_url": "https://images.lumacdn.com/uploads/q9/7ef44832-f3f2-4d33-901d-2dacafa8cefa.png",
+    "end_at": "2026-10-13T04:00:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "THE AI EDGE - Meet the Israeli Startups Shaping What’s Next in AI",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": false,
+    "social_image_url": "https://images.lumacdn.com/event-social/5w/fad6c927-a0ed-4502-a56a-c85b7e818bbe.png",
+    "start_at": "2026-10-13T01:00:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "avvyfhkk",
+    "user_api_id": "usr-QUdYRAMSJqU3D7D",
+    "visibility": "public",
+    "geo_address_info": {
+     "mode": "obfuscated",
+     "city": "Irvine",
+     "city_state": "Irvine, CA",
+     "sublocality": "Turtle Rock",
+     "country": "United States",
+     "country_code": "US",
+     "region": "California",
+     "region_short": "CA"
+    },
+    "geo_address_visibility": "guests-only",
+    "coordinate": {
+     "latitude": 33.63310018992808,
+     "longitude": -117.82828643433098
+    },
+    "waitlist_enabled": true,
+    "waitlist_status": "active"
+   },
+   "start_at": "2026-10-13T01:00:00.000Z",
+   "guest_count": 0,
+   "ticket_count": 0,
+   "ticket_info": {
+    "price": {
+     "cents": 3500,
+     "currency": "usd",
+     "is_flexible": false
+    },
+    "is_free": false,
+    "max_price": null,
+    "is_sold_out": true,
+    "spots_remaining": 0,
+    "is_near_capacity": false,
+    "require_approval": true
+   },
+   "registration_availability": "waitlist",
+   "waitlist_active": true,
+   "featured_city": null
+  },
+  {
+   "api_id": "evt-GSqet4DOdR4Iu0y",
+   "event": {
+    "api_id": "evt-GSqet4DOdR4Iu0y",
+    "calendar_api_id": "cal-cFoDEHEtzUM0vqC",
+    "cover_url": "https://images.lumacdn.com/uploads/j5/e1368b64-0565-4162-b85d-7a0a4fea2101.png",
+    "end_at": "2026-10-14T02:30:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "Software Founders & Investors — LA Rooftop Mixer",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": true,
+    "social_image_url": "https://images.lumacdn.com/event-social/4d/1be2d14b-58c2-4e84-bd76-05fe98214022.png",
+    "start_at": "2026-10-13T23:30:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "6gqnesk5",
+    "user_api_id": "usr-zKKZ4cMEJ2yo9l1",
+    "visibility": "public",
+    "geo_address_info": {
+     "city": "Santa Monica",
+     "type": "google",
+     "region": "California",
+     "address": "Santa Monica Pier",
+     "country": "United States",
+     "place_id": "ChIJm6deTdekwoARTY_RzhoRms0",
+     "localized": null,
+     "city_state": "Santa Monica, CA",
+     "description": "",
+     "sublocality": null,
+     "country_code": "US",
+     "full_address": "200 Santa Monica Pier, Santa Monica, CA 90401, USA",
+     "region_short": "CA",
+     "short_address": "200 Santa Monica Pier, Santa Monica",
+     "place_coordinate": {
+      "latitude": 34.008282099999995,
+      "longitude": -118.4987585
+     },
+     "apple_maps_place_id": "IFA5491C7A27B4CBA",
+     "mode": "shown"
+    },
+    "geo_address_visibility": "public",
+    "coordinate": {
+     "longitude": -118.4987585,
+     "latitude": 34.008282099999995
+    },
+    "waitlist_enabled": false,
+    "waitlist_status": "disabled"
+   },
+   "start_at": "2026-10-13T23:30:00.000Z",
+   "guest_count": 108,
+   "ticket_count": 108,
+   "ticket_info": {
+    "price": null,
+    "is_free": true,
+    "max_price": null,
+    "is_sold_out": false,
+    "spots_remaining": 42,
+    "is_near_capacity": false,
+    "require_approval": true
+   },
+   "registration_availability": "open",
+   "waitlist_active": false,
+   "featured_city": null
+  },
+  {
+   "api_id": "evt-geseHekR3e05sub",
+   "event": {
+    "api_id": "evt-geseHekR3e05sub",
+    "calendar_api_id": "cal-4NLN7HGs8duSCzT",
+    "cover_url": "https://images.lumacdn.com/uploads/xj/b2ece854-eba9-44c9-b0c9-b70c8099744d.png",
+    "end_at": "2026-10-14T05:00:00.000Z",
+    "event_type": "independent",
+    "hide_rsvp": false,
+    "location_type": "offline",
+    "name": "Pitch and Chat [Los Angeles] => Jon V",
+    "one_to_one": true,
+    "recurrence_id": null,
+    "show_guest_list": false,
+    "social_image_url": "https://images.lumacdn.com/event-social/e1/8a51330f-23b8-4820-86df-a85b9992f312.png",
+    "start_at": "2026-10-14T02:00:00.000Z",
+    "timezone": "America/Los_Angeles",
+    "url": "r6jl1fud",
+    "user_api_id": "usr-UpjKmR9v3lvZgmX",
+    "visibility": "public",
+    "geo_address_info": {
+     "mode": "obfuscated",
+     "city": "Los Angeles",
+     "city_state": "Los Angeles, CA",
+     "sublocality": "Venice",
+     "country": "United States",
+     "country_code": "US",
+     "region": "California",
+     "region_short": "CA"
+    },
+    "geo_address_visibility": "guests-only",
+    "coordinate": {
+     "latitude": 33.99291171235004,
+     "longitude": -118.46958021789781
+    },
+    "waitlist_enabled": true,
+    "waitlist_status": "enabled"
+   },
+   "start_at": "2026-10-14T02:00:00.000Z",
+   "guest_count": 0,
+   "ticket_count": 0,
+   "ticket_info": {
+    "price": {
+     "cents": 1000,
+     "currency": "usd",
+     "min_cents": 500,
+     "is_flexible": true
+    },
+    "is_free": false,
+    "max_price": null,
+    "is_sold_out": false,
+    "spots_remaining": 7,
+    "is_near_capacity": false,
+    "require_approval": false
+   },
+   "registration_availability": "open",
+   "waitlist_active": false,
+   "featured_city": null
+  }
+ ],
+ "has_more": false,
+ "next_cursor": null
+}

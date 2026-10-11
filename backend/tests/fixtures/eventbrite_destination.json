@@ -1,0 +1,150 @@
+{
+ "pagination": {
+  "object_count": 6,
+  "continuation": null,
+  "page_count": 1,
+  "page_size": 6,
+  "has_more_items": false,
+  "page_number": 1
+ },
+ "events": [
+  {
+   "id": "2002815903281",
+   "name": "FREE EVENT! E-40, The Game, Mack 10, Sage The Gemini & MORE!",
+   "ticket_availability": {
+    "maximum_ticket_price": {
+     "currency": "USD",
+     "major_value": "24.59",
+     "value": 2459,
+     "display": "24.59 USD"
+    },
+    "minimum_ticket_price": {
+     "currency": "USD",
+     "major_value": "0.00",
+     "value": 0,
+     "display": "0.00 USD"
+    },
+    "is_free": false,
+    "has_bogo_tickets": false,
+    "has_available_tickets": true,
+    "is_sold_out": false
+   },
+   "is_cancelled": null
+  },
+  {
+   "id": "2001010745004",
+   "name": "FREE EVENT! 3BallMTY, Falcons, Supernova & MORE!",
+   "ticket_availability": {
+    "maximum_ticket_price": {
+     "currency": "USD",
+     "major_value": "24.59",
+     "value": 2459,
+     "display": "24.59 USD"
+    },
+    "minimum_ticket_price": {
+     "currency": "USD",
+     "major_value": "0.00",
+     "value": 0,
+     "display": "0.00 USD"
+    },
+    "is_free": false,
+    "has_bogo_tickets": false,
+    "has_available_tickets": true,
+    "is_sold_out": false
+   },
+   "is_cancelled": null
+  },
+  {
+   "id": "1998619555893",
+   "name": "MAGIC MARKET'S BEWITCHED (LOS ANGELES)",
+   "ticket_availability": {
+    "maximum_ticket_price": {
+     "currency": "USD",
+     "major_value": "71.21",
+     "value": 7121,
+     "display": "71.21 USD"
+    },
+    "minimum_ticket_price": {
+     "currency": "USD",
+     "major_value": "17.85",
+     "value": 1785,
+     "display": "17.85 USD"
+    },
+    "is_free": false,
+    "has_bogo_tickets": false,
+    "has_available_tickets": true,
+    "is_sold_out": false
+   },
+   "is_cancelled": null
+  },
+  {
+   "id": "1987557557157",
+   "name": "CatCon 2026",
+   "ticket_availability": {
+    "maximum_ticket_price": {
+     "currency": "USD",
+     "major_value": "210.74",
+     "value": 21074,
+     "display": "210.74 USD"
+    },
+    "minimum_ticket_price": {
+     "currency": "USD",
+     "major_value": "11.53",
+     "value": 1153,
+     "display": "11.53 USD"
+    },
+    "is_free": false,
+    "has_bogo_tickets": false,
+    "has_available_tickets": true,
+    "is_sold_out": false
+   },
+   "is_cancelled": null
+  },
+  {
+   "id": "1977731925428",
+   "name": "Rose Bowl Flea Market Sunday, October 11, 2026",
+   "ticket_availability": {
+    "maximum_ticket_price": {
+     "currency": "USD",
+     "major_value": "24.29",
+     "value": 2429,
+     "display": "24.29 USD"
+    },
+    "minimum_ticket_price": {
+     "currency": "USD",
+     "major_value": "16.88",
+     "value": 1688,
+     "display": "16.88 USD"
+    },
+    "is_free": false,
+    "has_bogo_tickets": false,
+    "has_available_tickets": true,
+    "is_sold_out": false
+   },
+   "is_cancelled": null
+  },
+  {
+   "id": "1991928137681",
+   "name": "I LOVE FUNK:  Kool & The Gang, Zapp, The Sugarhill Gang, Rose Royce & MORE",
+   "ticket_availability": {
+    "maximum_ticket_price": {
+     "currency": "USD",
+     "major_value": "93.44",
+     "value": 9344,
+     "display": "93.44 USD"
+    },
+    "minimum_ticket_price": {
+     "currency": "USD",
+     "major_value": "24.59",
+     "value": 2459,
+     "display": "24.59 USD"
+    },
+    "is_free": false,
+    "has_bogo_tickets": false,
+    "has_available_tickets": true,
+    "is_sold_out": false
+   },
+   "is_cancelled": null
+  }
+ ]
+}
