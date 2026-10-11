@@ -377,12 +377,17 @@
           syncSelected();
           syncCandidates();
           syncCircle();
+          // 'load' waits for every style resource (sprite, glyphs, tiles); a single failure and it never
+          // fires, which left the view unset and the pins unfetched. Hand the view over here as well.
+          placeHome();
+          emitView();
         });
         map.on('load', () => {
           placeHome();
           emitView();
         });
         map.on('moveend', emitView);
+        emitView();
         map.on('error', (e) => console.warn('map', e.error?.message ?? e));
 
         // While moving a pin, any click places it; feature clicks are ignored
