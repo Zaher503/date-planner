@@ -115,7 +115,3 @@ def test_day_only_rule_and_24h():
 
 def test_comment_is_ignored():
     assert is_open('Mo-Fr 10:00-16:00 "by appointment"', at(MON, "11:00")) is True
-
-
-def test_parse_shape():
-    assert parse("Mo 16:00-01:00") == {0: [(960, 1500)]}

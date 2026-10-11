@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from app.plan.hours import intervals, is_open, is_open_between, parse
+from app.hours import intervals, is_open, is_open_between, parse
 
 # 2026-10-12 is a Monday
 MON, TUE, FRI, SAT, SUN = 12, 13, 16, 17, 18

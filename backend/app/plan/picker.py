@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 
-from app.plan import hours
+from app import hours
 from app.plan.osrm import Leg, Point, haversine_m
 
 FOOD = frozenset({"restaurant", "cafe", "dessert", "market"})
