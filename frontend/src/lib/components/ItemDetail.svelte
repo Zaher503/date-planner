@@ -1,5 +1,6 @@
 <script lang="ts">
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+  import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import Bookmark from '@lucide/svelte/icons/bookmark';
   import CalendarCheck from '@lucide/svelte/icons/calendar-check';
   import CircleCheck from '@lucide/svelte/icons/circle-check';
@@ -60,6 +61,8 @@
       lastId = id;
       editing = false;
       playing = false;
+      showOriginal = false;
+      showSources = false;
       confirmDelete = false;
       actionError = '';
       notes = item?.me?.notes ?? '';
@@ -74,6 +77,17 @@
   const isEvent = $derived(item?.type === 'event');
   const unsure = $derived(!!item && item.candidates.length > 0 && (item.review_status === 'needs_review' || isEvent));
   const hidden = $derived(item?.review_status === 'dismissed');
+  const venueName = $derived.by(() => {
+    const v = item?.venue_name?.trim();
+    if (!isEvent || !v || v === item?.title || v === item?.place?.title) return null;
+    return v;
+  });
+  const originalText = $derived.by(() => {
+    const text = item?.sources.find((s) => s.caption?.trim())?.caption?.trim() ?? '';
+    return text && text !== item?.description?.trim() ? text : '';
+  });
+  let showOriginal = $state(false);
+  let showSources = $state(false);
 
   async function run<T>(label: string, fn: () => Promise<T>): Promise<T | undefined> {
     busy = label;
@@ -313,7 +327,8 @@
           <li>
             <MapPin size={17} />
             <span>
-              {item.address_text ?? (isEvent ? item.venue_name : null) ?? 'No address yet'}
+              {#if venueName}<strong class="venue">{venueName}</strong>{/if}
+              {#if item.address_text}{item.address_text}{:else if !venueName}{(isEvent ? item.venue_name : null) ?? 'No address yet'}{/if}
               <span class="maplinks">
                 <a href={appleMapsUrl(item.lat, item.lon, item.title, item.address_text)} target="_blank" rel="noopener noreferrer">Apple Maps</a>
                 <a href={googleMapsUrl(item.lat, item.lon, item.title, item.address_text)} target="_blank" rel="noopener noreferrer">Google Maps</a>
@@ -333,6 +348,15 @@
 
         {#if item.description}
           <p class="desc">{item.description}</p>
+        {/if}
+
+        {#if originalText}
+          <section class="original">
+            <button class="toggle" aria-expanded={showOriginal} onclick={() => (showOriginal = !showOriginal)}>
+              <ChevronDown size={16} class={showOriginal ? 'flip' : ''} /> Original description
+            </button>
+            {#if showOriginal}<p class="desc orig-text">{originalText}</p>{/if}
+          </section>
         {/if}
 
         {#if item.tags.length}
@@ -377,27 +401,6 @@
           </section>
         {/if}
 
-        {#if item.sources.length}
-          <section>
-            <h3>Saved from</h3>
-            <ul class="sources">
-              {#each item.sources as s (s.id)}
-                <li>
-                  <Link size={15} />
-                  <span>
-                    {#if s.url}
-                      <a href={s.url} target="_blank" rel="noopener noreferrer">{s.title || hostOf(s.url) || sourceLabel(s.kind)}</a>
-                    {:else}
-                      {s.title || sourceLabel(s.kind)}
-                    {/if}
-                    <span class="sub">{sourceLabel(s.kind)} · {relativeAgo(s.created_at)}{s.submitted_by ? ` by ${s.submitted_by}` : ''}</span>
-                  </span>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-
         {#if actionError}<p class="error">{actionError}</p>{/if}
 
         <div class="actions">
@@ -410,6 +413,30 @@
         </div>
         {#if item.edited.length}
           <p class="fine">Your edits ({item.edited.join(', ')}) are kept when the link is reread.</p>
+        {/if}
+
+        {#if item.sources.length}
+          <div class="saved-from">
+            <button class="chip" aria-expanded={showSources} onclick={() => (showSources = !showSources)}>
+              <Link size={13} /> Saved from {item.sources.length === 1 ? sourceLabel(item.sources[0].kind) : `${item.sources.length} links`}
+            </button>
+            {#if showSources}
+              <ul class="sources">
+                {#each item.sources as s (s.id)}
+                  <li>
+                    <span>
+                      {#if s.url}
+                        <a href={s.url} target="_blank" rel="noopener noreferrer">{s.title || hostOf(s.url) || sourceLabel(s.kind)}</a>
+                      {:else}
+                        {s.title || sourceLabel(s.kind)}
+                      {/if}
+                      <span class="sub">{sourceLabel(s.kind)} · {relativeAgo(s.created_at)}{s.submitted_by ? ` by ${s.submitted_by}` : ''}</span>
+                    </span>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </div>
         {/if}
       {/if}
     </div>
@@ -776,14 +803,53 @@
     font-weight: 600;
   }
   .sources li {
-    display: flex;
-    gap: 8px;
-    font-size: 14px;
+    font-size: 13.5px;
   }
-  .sources li > :global(svg) {
-    flex: none;
-    margin-top: 2px;
-    color: var(--text-3);
+  .venue {
+    display: block;
+    font-weight: 650;
+  }
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--text-2);
+    font-size: 13px;
+    font-weight: 650;
+  }
+  .toggle :global(svg) {
+    transition: transform 0.15s;
+    transform: rotate(-90deg);
+  }
+  .toggle :global(svg.flip) {
+    transform: none;
+  }
+  .orig-text {
+    margin-top: 6px;
+    font-size: 13.5px;
+    color: var(--text-2);
+    word-break: break-word;
+  }
+  .saved-from {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: 1px solid var(--line);
+    background: var(--surface-2);
+    color: var(--text-2);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 12px;
+    font-weight: 600;
   }
   .sources a {
     word-break: break-word;

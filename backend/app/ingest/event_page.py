@@ -16,6 +16,12 @@ PLACE_TYPES = {
     "entertainmentbusiness", "sportsactivitylocation", "healthandbeautybusiness", "dayspa",
     "eventvenue", "civicstructure", "stadiumorarena", "bowlingalley", "comedyclub",
 }
+# schema.org subtypes of Event that do not end in "event"
+EVENT_TYPES = {
+    "festival", "exhibitionevent", "courseinstance", "danceevent", "musicevent", "saleevent", "theaterevent",
+    "comedyevent", "literaryevent", "screeningevent", "foodevent", "sportsevent", "socialevent", "visualartsevent",
+    "businessevent", "childrensevent", "educationevent", "hackathon", "publicationevent",
+}
 DAYS = {"monday": "Mo", "tuesday": "Tu", "wednesday": "We", "thursday": "Th", "friday": "Fr",
         "saturday": "Sa", "sunday": "Su"}
 PLACE_CATEGORY = {
@@ -230,7 +236,7 @@ def place_item(node: dict, page_url: str) -> ItemHint:
 
 
 def items_from_jsonld(nodes: list[dict], page_url: str) -> list[ItemHint]:
-    events = [n for n in nodes if any(t.endswith("event") for t in _types(n))]
+    events = [n for n in nodes if any(t.endswith("event") or t in EVENT_TYPES for t in _types(n))]
     if events:
         items = [event_item(n, page_url) for n in events[:10]]
         return [i for i in items if i and (i.event_title or i.name)]

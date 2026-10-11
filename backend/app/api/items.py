@@ -30,7 +30,7 @@ router = APIRouter()
 ItemType = Literal["place", "event"]
 # Source kinds the ingest job can read again (Instagram is a stub, discovery rows have no link to read)
 REPROCESSABLE = {"tiktok", "youtube", "gmaps", "applemaps", "event_page", "text", "image"}
-CAPTION_CHARS = 500
+CAPTION_CHARS = 4000
 MAX_TAGS = 20
 NOT_NULL = {"title", "tags", "lat", "lon", "closed", "all_day", "status", "review_status"}
 

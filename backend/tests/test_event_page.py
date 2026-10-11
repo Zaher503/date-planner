@@ -53,3 +53,15 @@ def test_address_variants():
     assert address_text({"streetAddress": "2121 E 7th Pl", "addressLocality": "Los Angeles",
                          "addressRegion": "CA", "postalCode": "90021"}) == "2121 E 7th Pl, Los Angeles, CA 90021"
     assert address_text(None) is None
+
+
+def test_event_subtype_festival():
+    html = ('<html><script type="application/ld+json">{"@context":"https://schema.org","@type":"Festival",'
+            '"name":"Haunted Mansion","startDate":"2026-10-24T02:00:00-07:00","endDate":"2026-10-25T12:00:00-07:00",'
+            '"location":{"@type":"Place","name":"Catch One","address":{"@type":"PostalAddress",'
+            '"streetAddress":"4067 West Pico Boulevard, Los Angeles, CA 90019"}},'
+            '"offers":[{"@type":"AggregateOffer","lowPrice":"0.0","highPrice":"65.87","priceCurrency":"USD"}]}'
+            '</script></html>')
+    e = parse_page("https://example.com/x", html).items[0]
+    assert e.kind == "event" and e.name == "Catch One" and e.event_title == "Haunted Mansion"
+    assert e.starts_at is not None and e.price_max == 65.87
