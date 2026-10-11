@@ -6,17 +6,22 @@ Zaher saves date ideas as TikToks, event pages and map links, and they get lost 
 
 Constraints: everything runs on the **Zephyrus** (RTX 3070 8 GB, 16 GB RAM, Debian 13), only free services (no trials, nothing that needs a card), it lives behind Caddy and Authentik at **dates.zkocr.com**, and it shows up in **Homarr**. Recipe Box (`~/recipebox` on the Zephyrus, documented in `~/.claude/skills/homelab/recipe-box.md`) already solves video download, Whisper, the Ollama vision model and the Cloudflare browser fallback, so this app reuses those patterns and shares its Ollama container.
 
-## Status (updated 2026-10-10, end of session 1)
+## Status (updated 2026-10-10, end of session 2)
 
-**Phases 1, 2 and 3 are done and deployed on the Zephyrus. Next: Phase 4 (UI).** This file (`docs/PLAN.md` in the repo `C:\Users\z503\Desktop\Date planner`, local git only, one commit per task) is the main copy of the plan; keep it updated as phases finish. The README has the current layout, commands and what works.
+**Phases 1-3 are done and deployed. Phases 4-5 (and most of 6) are built and committed on `main` but NOT yet deployed/verified** - that's blocked on Zaher running `scripts/deploy.sh` himself (see `docs/TODO-ZAHER.md`). Two further phases are partially built on unmerged worktree branches. This file (`docs/PLAN.md` in the repo `C:\Users\z503\Desktop\Date planner`, local git only, one commit per task) is the main copy of the plan; keep it updated as phases finish. The README has the current layout, commands and what works.
 
 | Phase | State |
 |---|---|
 | 1 Foundation | Done. Compose project `dates` (db, api, worker), Alembic, `/healthz`, keyed `/api/add`, identity header trusted only from the NAS, `scripts/deploy.sh` |
 | 2 Geo infra | Done. Photon US db (14 GB), SoCal PMTiles (487 MB, `/srv/dateplanner/tiles/region.pmtiles`), OSRM car + foot (SoCal), SearXNG. `/api/health/services` all green |
 | 3 Ingestion fast path | Done. TikTok, maps links, JSON-LD pages, free text; resolver; dedup/merge; review API. Golden set 28/28, 0 wrong auto-accepts |
-| Ticketmaster adapter | Built and tested, **off until Zaher adds a free key** (`TICKETMASTER_KEY` in `~/dateplanner/.env`) |
-| 4 to 9 | Not started |
+| Ticketmaster adapter | Built and tested, key set 2026-10-10 (`TICKETMASTER_KEY` in `~/dateplanner/.env`); dry run returns ~760 events in 4 calls |
+| 4 UI v1 | **Built, not deployed.** Full SvelteKit app (map, filters, list, detail/edit, Add box with live job toasts, settings, PWA shell) plus the backend routes it needs (`map.py`, `items.py`, etc.), served from the API image. Needs `scripts/deploy.sh` + a live check (map loads, pins show, worker has GPU). Known bug: in the offline mock the map sometimes never fires `style.load`, so pins don't show - may be mock-only (no tiles/sprites there) |
+| 5 Slow path + inputs | **Built, not deployed.** yt-dlp, faster-whisper, frame OCR, media archive, screenshot uploads, YouTube metadata/subtitles; worker given `runtime: nvidia`. Needs the same deploy + verify pass as Phase 4, plus one real captionless-TikTok test to exercise Whisper |
+| 6 Edge wiring | **Partially done.** Caddy block (`deploy/caddy-snippet.txt`), the Shortcut guide (`docs/SHORTCUT.md`) and `add-date.ps1` are written. Cloudflare CNAME, the Authentik app/group (`dates`, add Katherine), and installing the Caddy block on the NAS still need Zaher |
+| 7 Interests + discovery | Started. Ticketmaster adapter done, waiting on key. RA/Luma/Eventbrite/iCal adapters half-built on branch `worktree-agent-acbe7cae544aaddc2`, stopped partway and not merged |
+| 8 Planner + calendar | Half-built on branch `worktree-agent-a110dca7936cb47f7` (OSRM picker + per-item ICS), stopped partway and not merged |
+| 9 Lifecycle + ops | Not started |
 
 **Answers given after the quiz:** partner is **Katherine** (HA `mobile_app_katherines_phone`, already in NOTIFY_TARGETS; add her to the Authentik `dates` group in Phase 6). Radius is **40 km** (HA uses miles, so show miles in the UI). Home = HA `zone.home` = Los Angeles (34.0461, -118.3265). Big downloads were approved and are done.
 
@@ -220,15 +225,15 @@ Data on the Zephyrus: `/srv/dateplanner/{media,tiles,osrm,photon,backups}`, Post
 1. **[DONE] Foundation:** git init, compose skeleton (db, api, worker), Alembic schema above, `/healthz`, deploy script, `.env.example`, port 8820 on the Zephyrus.
 2. **[DONE] Geo infra:** PMTiles regional extract, Photon country dump, OSRM car + foot builds, SearXNG config. Measured RAM: whole stack about 4.4 GB (Photon 0.7, OSRM car 1.5, foot 1.7).
 3. **[DONE] Ingestion fast path:** router, TikTok page JSON + stickers + auto-captions, maps links, JSON-LD event pages, extraction with number and address verification, resolver + scorer, candidates and review API, dedup/merge. Golden set `backend/tests/golden.json` (22 links, 28 places): 28/28, 0 wrong auto-accepts. Run `docker compose exec worker python -m app.eval` after any extraction/resolver change.
-4. **[NEXT] UI v1:** map, filters, list, detail card, add box with live progress, review picker, per-user status/rating/notes.
+4. **[DEPLOYED 2026-10-10] UI v1:** map, filters, list, detail card, add box with live progress, review picker, per-user status/rating/notes.
    - Already in place: `/api/ui/add`, `/api/jobs` (live stages), `/api/review` + `/api/places/{id}/resolve`, `/api/me`, `/api/health/services`, tiles file at `/srv/dateplanner/tiles/region.pmtiles` (mounted at `/data/tiles` in the containers).
    - Still to build in the backend: `GET /api/map?bbox&filters` (compact GeoJSON), `GET /api/list`, `GET/PATCH/DELETE /api/items/...` (PATCH writes keys into `user_overrides`), `PUT /api/items/.../me` (user_item_state), `POST .../reprocess`, a range-capable route serving `region.pmtiles`, and serving the built SvelteKit app from the API image (multi-stage Dockerfile with Node). Thumbnails: TikTok thumbnail URLs expire, so either proxy/cache them or wait for Phase 5 media archive.
    - Testing the UI before Phase 6: the API only trusts identity from the NAS, so use `DEV_USER=zaher` in `.env` temporarily, or reach it through the NAS (`ssh` + curl with `X-Authentik-Username`). Never leave `DEV_USER` set once it is public.
-5. **Slow path + inputs:** yt-dlp, Whisper turbo, frame OCR, media archive, screenshot input, Instagram stub (done in Phase 1). GPU lock + Recipe Box/Transcriber polling already exists in `app/gpu.py` (lock not yet adopted by Recipe Box/Transcriber themselves). Worker needs `runtime: nvidia` added for Whisper. Free text input already works.
-6. **Edge wiring:** Caddy block, Cloudflare, Authentik provider/app/group (add Katherine), the "Save to Dates" Shortcut + `add-date.ps1`. Header trust check is done (Phase 1).
-7. **Interests + discovery:** tag vocabulary, seed picker, embeddings, profiles, score with "why", adapters (Ticketmaster adapter + dry-run CLI done, waiting on key; then RA, Luma, Eventbrite web, iCal, venue watch, SearXNG queries, Overpass places), scheduler, inbox, HA push (`app/notify/ha.py` exists).
-8. **Planner + calendar:** OSRM client, itinerary picker, plan CRUD, per-item ICS, subscribable feed.
-9. **Lifecycle + ops:** RRULE occurrences, nightly archive, monthly re-verify (closed places), Ticketmaster 30-day purge, weekly yt-dlp update, pg_dump + NAS pull backup, SMB appdata, Homarr tile + widget, homelab skill doc.
+5. **[DEPLOYED 2026-10-10] Slow path + inputs:** yt-dlp, Whisper turbo, frame OCR, media archive, screenshot input, Instagram stub (done in Phase 1). GPU lock + Recipe Box/Transcriber polling already exists in `app/gpu.py` (lock not yet adopted by Recipe Box/Transcriber themselves). Worker runs with `runtime: nvidia`; not yet exercised by a real video. Free text input already works.
+6. **[PARTIAL - needs Zaher] Edge wiring:** Caddy block, Cloudflare, Authentik provider/app/group (add Katherine), the "Save to Dates" Shortcut + `add-date.ps1`. Header trust check is done (Phase 1).
+7. **[STARTED - branch unmerged] Interests + discovery:** tag vocabulary, seed picker, embeddings, profiles, score with "why", adapters (Ticketmaster adapter + dry-run CLI done, key set; then RA, Luma, Eventbrite web, iCal, venue watch, SearXNG queries, Overpass places), scheduler, inbox, HA push (`app/notify/ha.py` exists).
+8. **[PARTIAL - branch unmerged] Planner + calendar:** OSRM client, itinerary picker, plan CRUD, per-item ICS, subscribable feed.
+9. **[NOT STARTED] Lifecycle + ops:** RRULE occurrences, nightly archive, monthly re-verify (closed places), Ticketmaster 30-day purge, weekly yt-dlp update, pg_dump + NAS pull backup, SMB appdata, Homarr widget (tile done 2026-10-10), homelab skill doc.
 
 ## Verification
 

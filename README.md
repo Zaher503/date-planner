@@ -11,12 +11,14 @@ Runs on the Zephyrus as a Docker Compose stack, all AI local (Ollama gemma4:e4b 
 | 1 Foundation (stack, schema, API skeleton, deploy) | Done |
 | 2 Geo infra (Photon, OSRM car/foot, SearXNG, SoCal map tiles) | Done |
 | 3 Ingestion fast path (TikTok, maps links, web pages, text; resolver; review API) | Done |
-| 4 Map UI (SvelteKit + MapLibre) | **Next** |
-| 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Not started |
-| 6 Caddy + Authentik at dates.zkocr.com, iPhone Shortcut | Not started |
-| 7 Interests + discovery (Ticketmaster adapter built, waiting for a free key) | Started |
-| 8 Date-night planner + calendar | Not started |
-| 9 Lifecycle, backups, Homarr tile | Not started |
+| 4 Map UI (SvelteKit + MapLibre) | Deployed 2026-10-10 (`acc5cca`), not yet checked in a browser |
+| 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Deployed 2026-10-10 (worker on the GPU), no video has gone through it yet |
+| 6 Caddy + Authentik at dates.zkocr.com, iPhone Shortcut | Caddy snippet + Shortcut/`add-date.ps1` written; Cloudflare CNAME, Authentik group and NAS install still **need Zaher** |
+| 7 Interests + discovery (Ticketmaster key set, dry run finds ~760 events / 21 days) | Started (RA/Luma/Eventbrite/iCal adapters half-built on an unmerged branch) |
+| 8 Date-night planner + calendar | Half-built on an unmerged branch |
+| 9 Lifecycle, backups, Homarr tile | Homarr tile done (2026-10-10, both boards); widget and the rest not started |
+
+**Next step:** try the deployed map and the video slow path, then Phase 6 (Caddy, Cloudflare, Authentik) and the unmerged Phase 7/8 branches. See `docs/TODO-ZAHER.md`.
 
 Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expected places): 28/28 correct, 0 wrong auto-accepts.
 
@@ -49,7 +51,7 @@ Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expec
 | `deploy/` | `compose.yaml`, Dockerfiles, SearXNG settings, `.env.example` |
 | `scripts/` | `deploy.sh`, `init-env.sh`, `photon_import.sh`, `fetch_tiles.sh`, `build_osrm.sh` |
 | `docs/` | `PLAN.md` (design + phases), `OPERATIONS.md` (running it) |
-| `frontend/` | Empty until Phase 4 |
+| `frontend/` | SvelteKit app: map, filters, item list/detail/edit, Add box, settings, PWA shell |
 
 ## Everyday commands
 
