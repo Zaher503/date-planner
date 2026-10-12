@@ -1,11 +1,24 @@
 # Waiting on Zaher (updated 2026-10-11)
 
-Done since the last list: Phases 4 + 5 are deployed (`acc5cca` on the Zephyrus, worker on the GPU with ffmpeg, yt-dlp and faster-whisper), the Ticketmaster key is set (dry run: ~760 events in the next 21 days, 4 calls), the Homarr tile is on both boards, and **Phase 6 is live**: https://dates.zkocr.com through Caddy + Cloudflare + Authentik (group `dates`: Zaher and Kathy).
+Legend: [x] done, [~] done but needs your check, [ ] pending.
 
-1. **Deploy and recheck the map pins fix (`3bb9627`).** The first view was only handed to the list and the data fetch on the map's `load` event, which never fires if any style resource fails. It now also fires on `style.load`. Verified in the offline mock only; confirm on https://dates.zkocr.com after `scripts/deploy.sh`.
-2. **Service worker does not register** in the Claude browser pane ("unknown error occurred when fetching the script", although `/service-worker.js` returns 200). Check in real Chrome on the phone before relying on Add to Home Screen.
-3. **Try the video slow path.** Nothing has gone through the new code yet: all 6 ingests ran before the deploy, no media is archived, and Whisper has never run. Add one TikTok with no captions (Whisper downloads `large-v3-turbo` into `/srv/dateplanner/models` on first use; watch `docker compose logs -f worker` in `~/dateplanner/src/deploy`).
-4. **"Save to Dates" Shortcut on the phones:** `docs/SHORTCUT.md` (the endpoint and key now work through https://dates.zkocr.com).
-5. **Agent branches are merged (2026-10-11).** Phase 7 adapters (RA, Luma, Eventbrite web) and the Phase 8 planner core (OSRM client, picker, hours) are on main; their worktrees/branches can be deleted. Still missing: iCal, venue watch, SearXNG and Overpass adapters, scheduler, inbox, interests/scoring, plan CRUD, ICS feed, Plan page.
-6. **After any `.env` change**, recreate every app container, including the dev copies (they only start under the `dev` profile):
-   `ssh zephyrus "cd ~/dateplanner/src/deploy && docker compose --profile dev up -d"`
+## Done
+- [x] Phases 4 + 5 deployed (map UI, video slow path; worker on the GPU with ffmpeg, yt-dlp, faster-whisper).
+- [x] Ticketmaster key set (dry run: ~760 events in the next 21 days, 4 calls).
+- [x] Homarr tile on both boards.
+- [x] Phase 6 live: https://dates.zkocr.com through Caddy + Cloudflare + Authentik (group `dates`: Zaher and Kathy).
+- [x] Agent branches merged into main: RA, Luma, Eventbrite web adapters and the planner core (OSRM client, picker). Their worktrees and branches in `.claude/worktrees/` can be deleted.
+- [x] One opening-hours module (`app/hours.py`) for the open-now filter and the picker.
+- [x] `scripts/deploy.bat` one-click deploy.
+- [x] Deployed `f959226` to the Zephyrus (REVISION confirmed, `/healthz` ok): includes the map pins fix and the merged adapters/planner.
+
+## Needs your check
+- [~] **Map pins fix (`3bb9627`, deployed).** Pins and list showed in the offline mock. Open https://dates.zkocr.com and confirm the 20 places and 1 event appear on the map and in the list. If still empty, the cause is elsewhere (check the browser console).
+
+## Pending
+- [ ] **Service worker does not register** in the Claude browser pane ("unknown error occurred when fetching the script", although `/service-worker.js` returns 200). Check in real Chrome on the phone before relying on Add to Home Screen.
+- [ ] **Try the video slow path.** Whisper has never run (`/srv/dateplanner/models` does not exist yet, no media archived). Add one TikTok with no captions; `large-v3-turbo` downloads on first use. Watch `docker compose logs -f worker` in `~/dateplanner/src/deploy`.
+- [ ] **"Save to Dates" Shortcut on the phones:** `docs/SHORTCUT.md` (endpoint and key work through https://dates.zkocr.com).
+- [ ] **Still to build (Claude):** iCal, venue watch, SearXNG and Overpass adapters; scheduler and Suggested inbox; interests and scoring; plan CRUD, ICS feed and Plan page; Phase 9 lifecycle and ops.
+- [ ] **After any `.env` change**, recreate every app container, including the dev copies:
+  `ssh zephyrus "cd ~/dateplanner/src/deploy && docker compose --profile dev up -d"`
