@@ -3,12 +3,12 @@
   import X from '@lucide/svelte/icons/x';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
-  import Settings2 from '@lucide/svelte/icons/settings-2';
+  import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
   import Plus from '@lucide/svelte/icons/plus';
   import type { Facets } from '$lib/api';
   import { labelOf } from '$lib/categories';
   import { EMPTY, PRICE_LABEL, STATUS_LABEL, WHEN_LABEL, toggle, type Filters, type When } from '$lib/filters';
-  import { dayKey, kmToMi, miToKm } from '$lib/format';
+  import { kmToMi, miToKm } from '$lib/format';
 
   interface Props {
     filters: Filters;
@@ -17,14 +17,15 @@
     radiusKm: number;
     reviewCount: number;
     onchange: (f: Filters) => void;
-    onsettings: () => void;
+    onnear: (near: 'home' | 'me') => void;
     onadd: () => void;
   }
 
-  let { filters, facets, units, radiusKm, reviewCount, onchange, onsettings, onadd }: Props = $props();
+  let { filters, facets, units, radiusKm, reviewCount, onchange, onnear, onadd }: Props = $props();
 
   type Panel = 'when' | 'price' | 'tags' | 'distance' | 'status' | 'type' | null;
   let open = $state<Panel>(null);
+  let showFilters = $state(false);
   let query = $state('');
   let root: HTMLDivElement;
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -47,6 +48,11 @@
     query = '';
     open = null;
     onchange({ ...EMPTY, near: filters.near });
+  }
+
+  function toggleFilters() {
+    showFilters = !showFilters;
+    if (!showFilters) open = null;
   }
 
   function toggleOpen(p: Panel) {
@@ -86,6 +92,10 @@
     !!(filters.q || filters.when || filters.open_now || filters.past || filters.price.length || tagCount || filters.dist_km || filters.status.length || filters.types.length === 1)
   );
 
+  const activeCount = $derived(
+    [!!filters.when || filters.open_now || filters.past, filters.price.length > 0, tagCount > 0, !!filters.dist_km, filters.status.length > 0, filters.types.length === 1].filter(Boolean).length
+  );
+
   // Distance slider works in the display unit
   const distMin = $derived(units === 'mi' ? 3 : 5);
   const distMax = $derived(units === 'mi' ? 95 : 150);
@@ -98,8 +108,7 @@
     set({ dist_km: units === 'mi' ? miToKm(v) : v });
   }
 
-  const today = dayKey(new Date());
-  const whens: When[] = ['', 'today', 'tomorrow', 'weekend', 'week', 'month', 'range'];
+  const whens: When[] = ['', 'today', 'weekend', 'week'];
   let tagFilter = $state('');
   const shownTags = $derived(
     facets.tags.filter((t) => !tagFilter || t.tag.includes(tagFilter.toLowerCase())).slice(0, 60)
@@ -139,9 +148,20 @@
         <span class="count">{reviewCount}</span>
       </button>
     {/if}
-    <button class="icon-btn" aria-label="Settings" title="Settings" onclick={onsettings}><Settings2 size={19} /></button>
+    <button
+      class="icon-btn filter-btn"
+      class:on={showFilters || activeCount > 0}
+      aria-label="Filters"
+      title="Filters"
+      aria-expanded={showFilters}
+      onclick={toggleFilters}
+    >
+      <SlidersHorizontal size={19} />
+      {#if activeCount}<span class="count dot">{activeCount}</span>{/if}
+    </button>
   </div>
 
+  {#if showFilters}
   <div class="chips" role="toolbar" aria-label="Filters">
     <button class="chip" class:on={!!filters.when || filters.open_now || filters.past} onclick={() => toggleOpen('when')} aria-expanded={open === 'when'}>
       {whenLabel}<ChevronDown size={14} />
@@ -165,38 +185,20 @@
       <button class="chip clear-all" onclick={clearAll}><X size={14} />Clear</button>
     {/if}
   </div>
+  {/if}
 
   {#if open}
     <div class="pop" role="dialog" aria-label="Filter options">
       {#if open === 'when'}
         <div class="opts">
           {#each whens as w (w)}
-            <button class="chip" class:on={filters.when === w} onclick={() => set({ when: w, ...(w === 'range' && !filters.from ? { from: today, to: today } : {}) })}>
-              {WHEN_LABEL[w]}
-            </button>
+            <button class="chip" class:on={filters.when === w} onclick={() => set({ when: w })}>{WHEN_LABEL[w]}</button>
           {/each}
         </div>
-        {#if filters.when === 'range'}
-          <div class="dates">
-            <label>
-              <span class="label">From</span>
-              <input class="field" type="date" value={filters.from} onchange={(e) => set({ from: e.currentTarget.value, to: filters.to < e.currentTarget.value ? e.currentTarget.value : filters.to })} />
-            </label>
-            <label>
-              <span class="label">To</span>
-              <input class="field" type="date" value={filters.to} min={filters.from} onchange={(e) => set({ to: e.currentTarget.value })} />
-            </label>
-          </div>
-        {/if}
         <label class="switch">
           <input type="checkbox" checked={filters.open_now} onchange={(e) => set({ open_now: e.currentTarget.checked })} />
           <span>Open now</span>
         </label>
-        <label class="switch">
-          <input type="checkbox" checked={filters.past} onchange={(e) => set({ past: e.currentTarget.checked })} />
-          <span>Include past events</span>
-        </label>
-        <p class="hint">Dates apply to events. Places always show unless you pick Events under Type.</p>
       {:else if open === 'price'}
         <div class="opts">
           {#each Object.entries(PRICE_LABEL) as [k, label] (k)}
@@ -239,8 +241,8 @@
         </div>
         <span class="label">From</span>
         <div class="opts">
-          <button class="chip" class:on={filters.near === 'home'} onclick={() => set({ near: 'home' })}>Home</button>
-          <button class="chip" class:on={filters.near === 'me'} onclick={() => set({ near: 'me' })}>My location</button>
+          <button class="chip" class:on={filters.near === 'home'} onclick={() => onnear('home')}>Home</button>
+          <button class="chip" class:on={filters.near === 'me'} onclick={() => onnear('me')}>My location</button>
         </div>
       {:else if open === 'status'}
         <div class="opts">
@@ -248,7 +250,6 @@
             <button class="chip" class:on={filters.status.includes(k)} onclick={() => set({ status: toggle(filters.status, k) })}>{label}</button>
           {/each}
         </div>
-        <p class="hint">Want, Going and Been are yours. Dismissed items stay hidden.</p>
       {:else if open === 'type'}
         <div class="opts">
           <button class="chip" class:on={filters.types.length !== 1} onclick={() => set({ types: [] })}>Places and events</button>
@@ -330,6 +331,13 @@
   .add-desk {
     display: none;
   }
+  .filter-btn.on {
+    color: var(--accent);
+  }
+  .count.dot {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
   .chips {
     display: flex;
     gap: 6px;
@@ -381,11 +389,6 @@
   .chip.on .n {
     color: inherit;
     opacity: 0.7;
-  }
-  .dates {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
   }
   .switch {
     display: flex;

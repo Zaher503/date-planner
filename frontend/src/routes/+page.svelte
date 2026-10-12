@@ -4,6 +4,7 @@
   import { page } from '$app/state';
   import Plus from '@lucide/svelte/icons/plus';
   import X from '@lucide/svelte/icons/x';
+  import Settings2 from '@lucide/svelte/icons/settings-2';
   import LoaderCircle from '@lucide/svelte/icons/loader-circle';
   import { api, type Item, type ItemType, type ListItem, type MapData } from '$lib/api';
   import { apiQuery, EMPTY, filterParams, parseFilters, type Filters } from '$lib/filters';
@@ -42,6 +43,55 @@
   let picking = $state(false);
   let reviewCount = $state(0);
 
+  // Desktop side pane width, draggable and remembered
+  const PANE_MIN = 300;
+  const PANE_MAX = 720;
+  const PANE_DEFAULT = 400;
+  let paneW = $state(PANE_DEFAULT);
+  let resizing = $state(false);
+
+  function setPane(w: number) {
+    paneW = Math.round(Math.max(PANE_MIN, Math.min(PANE_MAX, w, window.innerWidth - 240)));
+  }
+
+  function savePane() {
+    try {
+      localStorage.setItem('dates.paneW', String(paneW));
+    } catch {
+      /* storage can be blocked */
+    }
+  }
+
+  function paneDown(e: PointerEvent) {
+    resizing = true;
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function paneMove(e: PointerEvent) {
+    if (resizing) setPane(e.clientX);
+  }
+
+  function paneUp() {
+    if (!resizing) return;
+    resizing = false;
+    savePane();
+  }
+
+  function paneKey(e: KeyboardEvent) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      e.preventDefault();
+      setPane(paneW + (e.key === 'ArrowRight' ? 20 : -20));
+      savePane();
+    }
+  }
+
+  // The map has to learn about its new size
+  $effect(() => {
+    void paneW;
+    const id = requestAnimationFrame(() => mapView?.resize());
+    return () => cancelAnimationFrame(id);
+  });
+
   let globalList = $state<ListItem[] | null>(null);
   let globalTotal = $state(0);
 
@@ -58,6 +108,12 @@
     app.desktop = mq.matches;
     const on = (e: MediaQueryListEvent) => (app.desktop = e.matches);
     mq.addEventListener('change', on);
+    try {
+      const saved = Number(localStorage.getItem('dates.paneW'));
+      if (saved) setPane(saved);
+    } catch {
+      /* storage can be blocked */
+    }
     app.init();
     const add = page.url.searchParams.get('add');
     if (add !== null) {
@@ -184,16 +240,48 @@
       .catch(() => {});
   });
 
-  // Ask for the location when distances should be measured from here
-  $effect(() => {
-    if (filters.near !== 'me' || me || !navigator.geolocation) return;
+  // Ask the browser for the device location (shows its permission prompt)
+  function locate(ok: (pos: { lat: number; lon: number }) => void, fail: () => void) {
+    if (!window.isSecureContext || !navigator.geolocation) {
+      app.info('Location needs a secure connection', 'Open the app over https to use your location. Measuring from home instead.');
+      fail();
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
-      (p) => (me = { lat: p.coords.latitude, lon: p.coords.longitude }),
-      () => {
-        app.info('Location not available', 'Measuring from home instead.');
-        setFilters({ ...filters, near: 'home' });
+      (p) => ok({ lat: p.coords.latitude, lon: p.coords.longitude }),
+      (e) => {
+        const denied = e.code === e.PERMISSION_DENIED;
+        app.info(
+          denied ? 'Location is blocked' : 'Location not available',
+          denied ? 'Allow location for this site in the browser, then try again. Measuring from home instead.' : 'Measuring from home instead.'
+        );
+        fail();
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  }
+
+  // Picking "My location" asks for permission right away, from the tap itself
+  function chooseNear(near: 'home' | 'me') {
+    if (near === 'home' || me) {
+      setFilters({ ...filters, near });
+      return;
+    }
+    locate(
+      (pos) => {
+        me = pos;
+        setFilters({ ...filters, near: 'me' });
+      },
+      () => setFilters({ ...filters, near: 'home' })
+    );
+  }
+
+  // A link that opens with near=me asks as soon as the page loads
+  $effect(() => {
+    if (filters.near !== 'me' || me) return;
+    locate(
+      (pos) => (me = pos),
+      () => setFilters({ ...filters, near: 'home' })
     );
   });
 
@@ -344,7 +432,7 @@
 {:else if !settings}
   <div class="fatal"><LoaderCircle class="spin" size={26} /></div>
 {:else}
-  <div class="app" class:desktop={app.desktop}>
+  <div class="app" class:desktop={app.desktop} class:resizing style:--pane-w="{paneW}px">
     <div class="map-area">
       <MapView
         bind:this={mapView}
@@ -370,6 +458,10 @@
       {#if mapError}<div class="map-msg">Could not load pins: {mapError}</div>{/if}
     </div>
 
+    <div class="settings-zone">
+      <button class="settings-btn" aria-label="Settings" title="Settings" onclick={openSettings}><Settings2 size={16} /></button>
+    </div>
+
     <div class="top">
       <FilterBar
         {filters}
@@ -378,7 +470,7 @@
         radiusKm={settings.radius_km}
         {reviewCount}
         onchange={setFilters}
-        onsettings={openSettings}
+        onnear={chooseNear}
         onadd={() => (adding = '')}
       />
     </div>
@@ -434,6 +526,25 @@
       {/if}
     </Sheet>
 
+    {#if app.desktop}
+      <div
+        class="pane-grip"
+        role="slider"
+        tabindex="0"
+        aria-label="Resize the side panel"
+        aria-orientation="horizontal"
+        aria-valuemin={PANE_MIN}
+        aria-valuemax={PANE_MAX}
+        aria-valuenow={paneW}
+        onpointerdown={paneDown}
+        onpointermove={paneMove}
+        onpointerup={paneUp}
+        onpointercancel={paneUp}
+        ondblclick={() => (setPane(PANE_DEFAULT), savePane())}
+        onkeydown={paneKey}
+      ></div>
+    {/if}
+
     {#if !app.desktop && !sel}
       <button class="fab" aria-label="Add a date idea" style="bottom: calc({sheetPx}px + 14px)" onclick={() => (adding = '')}><Plus size={26} /></button>
     {/if}
@@ -483,11 +594,46 @@
     top: 0;
     left: 0;
     right: 0;
-    padding: calc(var(--safe-top) + 10px) 12px 0;
+    padding: calc(var(--safe-top) + 26px) 12px 0;
     pointer-events: none;
   }
   .top :global(> *) {
     pointer-events: auto;
+  }
+  /* Settings: tucked in the top-left corner, fades in when the pointer is near */
+  .settings-zone {
+    position: absolute;
+    z-index: 26;
+    top: 0;
+    left: 0;
+    width: 72px;
+    height: 44px;
+    padding: calc(var(--safe-top) + 3px) 0 0 6px;
+  }
+  .settings-btn {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-2);
+    opacity: 0.28;
+    transition: opacity 0.18s, background 0.18s;
+  }
+  .settings-zone:hover .settings-btn,
+  .settings-btn:focus-visible {
+    opacity: 1;
+    background: var(--surface-2);
+  }
+  @media (hover: none) {
+    .settings-btn {
+      opacity: 0.6;
+    }
+  }
+  .pane-grip {
+    display: none;
   }
   .summary {
     display: flex;
@@ -577,7 +723,7 @@
   @media (min-width: 768px) {
     .app {
       display: grid;
-      grid-template-columns: 400px 1fr;
+      grid-template-columns: var(--pane-w, 400px) 1fr;
       grid-template-rows: auto 1fr;
     }
     .map-area {
@@ -589,7 +735,7 @@
       position: relative;
       grid-column: 1;
       grid-row: 1;
-      padding: 14px 14px 10px;
+      padding: 26px 14px 10px;
       background: var(--surface);
       border-right: 1px solid var(--line);
     }
@@ -600,7 +746,35 @@
     }
     .pick {
       top: 16px;
-      left: calc(400px + (100% - 400px) / 2);
+      left: calc(var(--pane-w, 400px) + (100% - var(--pane-w, 400px)) / 2);
+    }
+    .pane-grip {
+      display: block;
+      position: absolute;
+      z-index: 24;
+      top: 0;
+      bottom: 0;
+      left: calc(var(--pane-w, 400px) - 4px);
+      width: 8px;
+      cursor: col-resize;
+      touch-action: none;
+    }
+    .pane-grip::after {
+      content: '';
+      position: absolute;
+      inset: 0 3px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .pane-grip:hover::after,
+    .pane-grip:focus-visible::after,
+    .resizing .pane-grip::after {
+      opacity: 0.6;
+    }
+    .resizing {
+      user-select: none;
+      cursor: col-resize;
     }
   }
 </style>
