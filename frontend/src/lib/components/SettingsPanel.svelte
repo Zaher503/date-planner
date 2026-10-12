@@ -2,7 +2,9 @@
   import ChevronLeft from '@lucide/svelte/icons/chevron-left';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
   import { api, type ServiceHealth } from '$lib/api';
+  import { CATEGORIES, colorOf, labelOf } from '$lib/categories';
   import { kmToMi } from '$lib/format';
+  import { pinColors } from '$lib/pincolors.svelte';
   import { app } from '$lib/state.svelte';
   import { theme, type ThemeChoice } from '$lib/theme.svelte';
 
@@ -69,6 +71,22 @@
             <button class="chip" class:on={theme.choice === c.v} onclick={() => theme.set(c.v)}>{c.label}</button>
           {/each}
         </div>
+      </section>
+
+      <section>
+        <div class="row">
+          <h3>Pin colors</h3>
+          <button class="chip" onclick={() => pinColors.reset()} disabled={!Object.keys(pinColors.overrides).length}>Reset all</button>
+        </div>
+        <ul class="colors">
+          {#each CATEGORIES as cat (cat)}
+            <li>
+              <input type="color" aria-label="{labelOf(cat)} pin color" value={colorOf(cat)} oninput={(e) => pinColors.set(cat, e.currentTarget.value)} />
+              <span>{labelOf(cat)}</span>
+            </li>
+          {/each}
+        </ul>
+        <p class="muted">Groups of one kind keep their color; groups of mixed kinds show a rainbow pin with a count.</p>
       </section>
 
       <section>
@@ -179,6 +197,28 @@
   }
   .name {
     flex: 1;
+  }
+  .colors {
+    list-style: none;
+    margin: 0 0 6px;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+  }
+  .colors li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+  }
+  .colors input {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: none;
   }
   .health {
     width: 9px;

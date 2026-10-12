@@ -4,9 +4,11 @@
   import 'maplibre-gl/dist/maplibre-gl.css';
   import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
   import type { Candidate, ItemType, MapData } from '$lib/api';
-  import { GROUP_COLOR, GROUPS, groupOf } from '$lib/categories';
+  import { categoryKey, colorOf, DEFAULT_CATEGORY_COLOR } from '$lib/categories';
+  import { pinColors } from '$lib/pincolors.svelte';
   import { badge } from '$lib/format';
   import { baseStyle, FONT, type Theme } from './style';
+  import { HEAD_FROM_TIP_PX, pinSvg, rainbowSvg, rasterise } from './pins';
 
   interface Props {
     data: MapData | null;
@@ -60,36 +62,34 @@
 
   const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] };
 
-  // Event pins: a rounded square per colour group, drawn once on a canvas
-  function eventIcon(color: string, ratio: number): ImageData {
-    const size = 26 * ratio;
-    const c = document.createElement('canvas');
-    c.width = c.height = size;
-    const g = c.getContext('2d')!;
-    const r = 7 * ratio;
-    const pad = 2 * ratio;
-    g.beginPath();
-    g.roundRect(pad, pad, size - 2 * pad, size - 2 * pad, r);
-    g.fillStyle = color;
-    g.fill();
-    g.lineWidth = 2 * ratio;
-    g.strokeStyle = '#ffffff';
-    g.stroke();
-    return g.getImageData(0, 0, size, size);
-  }
+  const CATS = Object.keys(DEFAULT_CATEGORY_COLOR);
 
-  function addOverlays() {
+  // Teardrop pins: one per category (with its icon), a blank one per category for clusters of a single
+  // category, and a rainbow one for clusters of mixed categories
+  async function registerPins() {
     if (!map) return;
     const ratio = Math.min(window.devicePixelRatio || 1, 3);
-    for (const grp of GROUPS) {
-      const id = `ev-${grp}`;
-      if (!map.hasImage(id)) map.addImage(id, eventIcon(GROUP_COLOR[grp], ratio), { pixelRatio: ratio });
+    const edge = theme === 'dark' ? '#16171a' : '#ffffff';
+    const jobs: [string, string][] = [['pin-rainbow', rainbowSvg(edge)]];
+    for (const cat of CATS) {
+      jobs.push([`pin-${cat}`, pinSvg(colorOf(cat), cat, edge)], [`pinb-${cat}`, pinSvg(colorOf(cat), null, edge)]);
     }
+    const images = await Promise.all(jobs.map(([, svg]) => rasterise(svg, ratio)));
+    if (!map) return;
+    jobs.forEach(([id], i) => {
+      if (map!.hasImage(id)) map!.updateImage(id, images[i]);
+      else map!.addImage(id, images[i], { pixelRatio: ratio });
+    });
+  }
+
+  async function addOverlays() {
+    if (!map) return;
+    await registerPins();
+    if (!map) return;
     const dark = theme === 'dark';
     const ring = dark ? '#16171a' : '#ffffff';
-    const groupColor: unknown[] = ['match', ['get', 'g']];
-    for (const grp of GROUPS) groupColor.push(grp, GROUP_COLOR[grp]);
-    groupColor.push(GROUP_COLOR.other);
+    // Number sits in the middle of the pin head, above the anchored tip
+    const numberOffset = [0, -HEAD_FROM_TIP_PX / 12];
 
     map.addSource('circle', { type: 'geojson', data: EMPTY_FC });
     map.addLayer({
@@ -110,33 +110,32 @@
       data: EMPTY_FC,
       cluster: true,
       clusterMaxZoom: 13,
-      clusterRadius: 36,
+      clusterRadius: 40,
+      // Lowest and highest category index in the cluster: equal means every item shares one category
+      clusterProperties: { lo: ['min', ['get', 'ci']], hi: ['max', ['get', 'ci']] },
       promoteId: 'id'
     });
     map.addLayer({
       id: 'clusters',
-      type: 'circle',
-      source: 'items',
-      filter: ['has', 'point_count'],
-      paint: {
-        'circle-color': dark ? '#e9e6e1' : '#24262b',
-        'circle-radius': ['step', ['get', 'point_count'], 14, 10, 17, 50, 21],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': ring
-      }
-    });
-    map.addLayer({
-      id: 'cluster-count',
       type: 'symbol',
       source: 'items',
       filter: ['has', 'point_count'],
       layout: {
+        'icon-image': [
+          'case',
+          ['==', ['get', 'lo'], ['get', 'hi']],
+          ['concat', 'pinb-', ['at', ['get', 'lo'], ['literal', CATS]]],
+          'pin-rainbow'
+        ],
+        'icon-anchor': 'bottom',
+        'icon-allow-overlap': true,
         'text-field': ['get', 'point_count_abbreviated'],
         'text-font': FONT,
         'text-size': 12,
+        'text-offset': numberOffset as never,
         'text-allow-overlap': true
       },
-      paint: { 'text-color': dark ? '#16171a' : '#ffffff' }
+      paint: { 'text-color': '#ffffff', 'text-halo-color': 'rgba(0,0,0,0.55)', 'text-halo-width': 1.2 }
     });
     map.addLayer({
       id: 'selected-ring',
@@ -144,25 +143,28 @@
       source: 'items',
       filter: ['==', ['get', 'id'], ''],
       paint: {
-        'circle-radius': 17,
+        'circle-radius': 18,
         'circle-color': 'rgba(0,0,0,0)',
         'circle-stroke-width': 3,
-        'circle-stroke-color': dark ? '#ffffff' : '#111111'
+        'circle-stroke-color': dark ? '#ffffff' : '#111111',
+        'circle-translate': [0, -(HEAD_FROM_TIP_PX)]
       }
     });
+    const pinLayout = {
+      'icon-image': ['concat', 'pin-', ['get', 'c']],
+      'icon-anchor': 'bottom',
+      'icon-allow-overlap': true
+    };
+    const pinPaint = {
+      'icon-opacity': ['case', ['==', ['get', 'rs'], 'suggested'], 0.5, 1]
+    };
     map.addLayer({
       id: 'places',
-      type: 'circle',
+      type: 'symbol',
       source: 'items',
       filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 't'], 'place']],
-      paint: {
-        'circle-color': groupColor as never,
-        'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5, 13, 7, 16, 9],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': ring,
-        'circle-opacity': ['case', ['==', ['get', 'rs'], 'suggested'], 0.45, 1],
-        'circle-stroke-opacity': ['case', ['==', ['get', 'rs'], 'suggested'], 0.6, 1]
-      }
+      layout: pinLayout as never,
+      paint: pinPaint as never
     });
     map.addLayer({
       id: 'events',
@@ -170,20 +172,22 @@
       source: 'items',
       filter: ['all', ['!', ['has', 'point_count']], ['==', ['get', 't'], 'event']],
       layout: {
-        'icon-image': ['concat', 'ev-', ['get', 'g']],
-        'icon-allow-overlap': true,
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 8, 0.8, 13, 1, 16, 1.15],
+        ...pinLayout,
+        // The date badge sits just under the pin's tip
         'text-field': ['get', 'b'],
         'text-font': FONT,
         'text-size': 10.5,
+        'text-anchor': 'top',
+        'text-offset': [0, 0.15],
         'text-allow-overlap': true,
         'text-ignore-placement': true
-      },
+      } as never,
       paint: {
-        'text-color': '#ffffff',
-        'icon-opacity': ['case', ['==', ['get', 'rs'], 'suggested'], 0.5, 1],
-        'text-opacity': ['case', ['==', ['get', 'rs'], 'suggested'], 0.7, 1]
-      }
+        ...pinPaint,
+        'text-color': dark ? '#f1efe9' : '#1d1f24',
+        'text-halo-color': dark ? 'rgba(22,23,26,0.9)' : 'rgba(255,255,255,0.95)',
+        'text-halo-width': 1.5
+      } as never
     });
     // Needs review: a small amber dot on the pin's shoulder
     map.addLayer({
@@ -196,7 +200,7 @@
         'circle-color': '#f59f00',
         'circle-stroke-width': 1.5,
         'circle-stroke-color': ring,
-        'circle-translate': [8, -8]
+        'circle-translate': [10, -33]
       }
     });
     map.addLayer({
@@ -210,7 +214,7 @@
         'text-font': FONT,
         'text-size': 12,
         'text-anchor': 'left',
-        'text-offset': [1.1, 0],
+        'text-offset': [1.5, -1.6],
         'text-max-width': 10,
         'text-optional': true
       },
@@ -248,7 +252,7 @@
       type: 'FeatureCollection' as const,
       features: d.features.map((f) => ({
         ...f,
-        properties: { ...f.properties, g: groupOf(f.properties.cat), b: f.properties.t === 'event' ? badge(f.properties, tz) : '' }
+        properties: { ...f.properties, c: categoryKey(f.properties.cat), ci: CATS.indexOf(categoryKey(f.properties.cat)), b: f.properties.t === 'event' ? badge(f.properties, tz) : '' }
       }))
     };
   }
@@ -370,8 +374,8 @@
         geo.on('geolocate', (e: { coords: GeolocationCoordinates }) => onlocate?.({ lat: e.coords.latitude, lon: e.coords.longitude }));
         map.addControl(geo, 'bottom-right');
 
-        map.on('style.load', () => {
-          addOverlays();
+        map.on('style.load', async () => {
+          await addOverlays();
           ready = true;
           syncData();
           syncSelected();
@@ -434,6 +438,11 @@
   $effect(() => {
     void data;
     syncData();
+  });
+  $effect(() => {
+    // Repaint the pin images when a category colour is changed in Settings
+    void pinColors.overrides;
+    if (ready) registerPins();
   });
   $effect(() => {
     void selected;
