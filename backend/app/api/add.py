@@ -1,5 +1,6 @@
 """Add a link, text or screenshot. Creates a Source and queues an ingest job."""
 import hashlib
+import logging
 import time
 from collections import deque
 from datetime import timedelta
@@ -7,6 +8,7 @@ from datetime import timedelta
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app import jobs
@@ -14,9 +16,11 @@ from app.api.auth import current_user, require_key, upsert_user, username_from_r
 from app.db.models import Job, Source, User
 from app.db.session import get_db
 from app.ingest import media
-from app.ingest.urls import classify, first_url, normalize
+from app.ingest.urls import classify, first_url, identity_of, is_short_link, normalize
+from app.net import resolve_redirects
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 MAX_TEXT = 8000
 RATE_PER_MIN = 30
@@ -46,6 +50,18 @@ def _rate_limit() -> None:
     _recent.append(now)
 
 
+def link_identity(url: str) -> str | None:
+    """Id of the page behind a link, following share-link redirects, so repeat shares collapse."""
+    target = url
+    if is_short_link(url):
+        try:
+            target = resolve_redirects(url, timeout=6)
+        except Exception as e:  # best effort: ingest still merges true duplicates later
+            log.info("could not resolve %s: %s", url, e)
+            return None
+    return identity_of(target)
+
+
 def add_item(db: Session, body: AddIn, user: User | None) -> AddOut:
     raw = (body.url or body.text or "").strip()
     if not raw:
@@ -56,22 +72,38 @@ def add_item(db: Session, body: AddIn, user: User | None) -> AddOut:
         existing = db.scalars(select(Source).where(Source.url_norm == url_norm)).first()
         if existing:
             return AddOut(status="exists", source_id=str(existing.id), kind=existing.kind)
+        ext_id = link_identity(url)
+        if ext_id:
+            existing = db.scalars(select(Source).where(Source.adapter == "link",
+                                                       Source.external_id == ext_id)).first()
+            if existing:
+                return AddOut(status="exists", source_id=str(existing.id), kind=existing.kind)
     else:
-        kind, url_norm = "text", None
+        kind, url_norm, ext_id = "text", None, None
 
     src = Source(url=url, url_norm=url_norm, kind=kind, caption=raw if kind == "text" else None,
+                 adapter="link" if ext_id else None, external_id=ext_id,
                  raw={"shared_text": raw} if url and raw != url else {},
                  submitted_by=user.id if user else None,
                  status="stub" if kind == "instagram" else "pending",
                  error="Instagram is not supported, saved for manual review" if kind == "instagram" else None)
     db.add(src)
-    db.flush()
-    job = None
-    if kind != "instagram":
-        # Ingest jobs run one at a time in the GPU lane (most of them call the local model)
-        job = jobs.enqueue(db, "ingest", {"source_id": str(src.id)}, source_id=src.id, needs_gpu=True,
-                           submitted_by=user.id if user else None)
-    db.commit()
+    try:
+        db.flush()
+        job = None
+        if kind != "instagram":
+            # Ingest jobs run one at a time in the GPU lane (most of them call the local model)
+            job = jobs.enqueue(db, "ingest", {"source_id": str(src.id)}, source_id=src.id, needs_gpu=True,
+                               submitted_by=user.id if user else None)
+        db.commit()
+    except IntegrityError:
+        # Same link sent twice at once: the unique constraints let only one through
+        db.rollback()
+        existing = db.scalars(select(Source).where(
+            or_(Source.url_norm == url_norm, (Source.adapter == "link") & (Source.external_id == ext_id)))).first()
+        if not existing:
+            raise
+        return AddOut(status="exists", source_id=str(existing.id), kind=existing.kind)
     return AddOut(status="queued" if job else "stub", source_id=str(src.id),
                   job_id=job.id if job else None, kind=kind)
 

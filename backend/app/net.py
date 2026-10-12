@@ -76,9 +76,9 @@ def fetch_text(url: str, client: httpx.Client | None = None) -> tuple[str, str]:
             client.close()
 
 
-def resolve_redirects(url: str) -> str:
+def resolve_redirects(url: str, timeout: float = 15) -> str:
     """Final URL after redirects, without downloading big bodies."""
-    with public_client(timeout=15) as c:
+    with public_client(timeout=timeout) as c:
         with c.stream("GET", url) as r:
             return str(r.url)
 

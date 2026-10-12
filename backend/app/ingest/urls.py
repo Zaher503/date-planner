@@ -69,3 +69,26 @@ def normalize(url: str) -> str:
         host = "www.tiktok.com" if host in ("tiktok.com", "m.tiktok.com") else host
         query = []
     return urlunsplit((scheme, host, path, urlencode(query), ""))
+
+
+# Share links that redirect to the real page; each share gets a fresh code
+SHORT_HOSTS = ("vm.tiktok.com", "vt.tiktok.com", "youtu.be", "maps.app.goo.gl", "goo.gl", "g.co")
+TIKTOK_VIDEO_RE = re.compile(r"/video/(\d+)")
+
+
+def is_short_link(url: str) -> bool:
+    p = urlsplit(url)
+    host = (p.hostname or "").lower()
+    if _host_is(host, "tiktok.com") and p.path.startswith("/t/"):
+        return True
+    return any(_host_is(host, h) for h in SHORT_HOSTS)
+
+
+def identity_of(url: str) -> str | None:
+    """Stable id of the page a link points to (None when the link does not carry one)."""
+    p = urlsplit(url)
+    host = (p.hostname or "").lower()
+    if _host_is(host, "tiktok.com"):
+        m = TIKTOK_VIDEO_RE.search(p.path)
+        return f"tiktok:{m.group(1)}" if m else None
+    return normalize(url)
