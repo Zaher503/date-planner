@@ -40,7 +40,7 @@ git push                                      # deploys itself
 scripts/deploy.bat                            # re-run the deploy of what is on main without a new commit
 ssh zephyrus 'cd /opt/date-planner/deploy && docker compose logs -f --tail 50 worker'
 ssh zephyrus 'cd /opt/date-planner/deploy && docker compose exec db psql -U dates dates'
-curl -s http://192.168.0.172:8820/healthz
+curl -s http://192.168.0.169:8820/healthz
 ```
 
 ## Rollback

@@ -33,7 +33,7 @@ Open https://dates.zkocr.com in Chrome and choose Add to Home Screen. The instal
 .\scripts\add-date.ps1            # uses the clipboard
 ```
 
-Put the key in `scripts/.secret` first (ignored by git). `DATES_URL` overrides the server (for example `http://192.168.0.172:8820` on the LAN).
+Put the key in `scripts/.secret` first (ignored by git). `DATES_URL` overrides the server (for example `http://192.168.0.169:8820` on the LAN).
 
 ## Rotating the key
 

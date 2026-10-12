@@ -18,7 +18,7 @@ dates.zkocr.com {
         request_body {
             max_size 16KB
         }
-        reverse_proxy 192.168.0.103:8820 192.168.0.172:8820 {
+        reverse_proxy 192.168.0.103:8820 192.168.0.169:8820 {
             header_up -X-Authentik-Username
             header_up -X-Authentik-Name
             lb_policy first
@@ -36,7 +36,7 @@ dates.zkocr.com {
         request_body {
             max_size 11MB
         }
-        reverse_proxy 192.168.0.103:8820 192.168.0.172:8820 {
+        reverse_proxy 192.168.0.103:8820 192.168.0.169:8820 {
             header_up -X-Authentik-Username
             header_up -X-Authentik-Name
             lb_policy first
@@ -47,7 +47,7 @@ dates.zkocr.com {
         }
     }
     handle /cal/* {
-        reverse_proxy 192.168.0.103:8820 192.168.0.172:8820 {
+        reverse_proxy 192.168.0.103:8820 192.168.0.169:8820 {
             header_up -X-Authentik-Username
             header_up -X-Authentik-Name
             lb_policy first
@@ -59,7 +59,7 @@ dates.zkocr.com {
     }
     handle {
         import authentik_auth
-        reverse_proxy 192.168.0.103:8820 192.168.0.172:8820 {
+        reverse_proxy 192.168.0.103:8820 192.168.0.169:8820 {
             lb_policy first
             lb_try_duration 3s
             health_uri /healthz

@@ -95,9 +95,9 @@ Discovery dry run (Ticketmaster skips itself until `TICKETMASTER_KEY` is set in 
 Adding a link by hand (the key is `DATES_KEY` in `~/.claude/secrets/homelab.env`):
 
 ```bash
-curl -X POST http://192.168.0.172:8820/api/add -H "X-Dates-Key: $DATES_KEY" -H "Content-Type: application/json" -d '{"url":"https://www.tiktok.com/@user/video/123","user":"zaher"}'
+curl -X POST http://192.168.0.169:8820/api/add -H "X-Dates-Key: $DATES_KEY" -H "Content-Type: application/json" -d '{"url":"https://www.tiktok.com/@user/video/123","user":"zaher"}'
 ```
 
-The API trusts the `X-Authentik-Username` header only from the NAS (192.168.0.70). To call identity-protected routes before Phase 6, go through the NAS (`ssh` to it and `curl -H 'X-Authentik-Username: zaher' http://192.168.0.172:8820/api/review`) or set `DEV_USER=zaher` in `~/dateplanner/.env` temporarily.
+The API trusts the `X-Authentik-Username` header only from the NAS (192.168.0.70). To call identity-protected routes before Phase 6, go through the NAS (`ssh` to it and `curl -H 'X-Authentik-Username: zaher' http://192.168.0.169:8820/api/review`) or set `DEV_USER=zaher` in `~/dateplanner/.env` temporarily.
 
 More in [docs/OPERATIONS.md](docs/OPERATIONS.md).
