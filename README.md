@@ -18,7 +18,7 @@ Runs on the Zephyrus as a Docker Compose stack, all AI local: the LLM (gemma4:e4
 | 8 Date-night planner + calendar | Core merged (OSRM client, picker, opening hours); plan API, ICS feed and UI still to do |
 | 9 Lifecycle, backups, Homarr tile | Homarr tile done (2026-10-10, both boards); widget and the rest not started |
 
-**Next step:** deploy the map pins fix and recheck, try the video slow path, then the unmerged Phase 7/8 branches. See `docs/TODO-ZAHER.md`.
+**Next step:** try the video slow path through the AI hub, then the remaining Phase 7/8 work (iCal feed adapter and plan API are in the tree but not wired up). See `docs/TODO-ZAHER.md`.
 
 Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expected places): 28/28 correct, 0 wrong auto-accepts.
 
