@@ -1,14 +1,14 @@
 name: dates
 
 # Explicit upstream DNS: Docker's embedded DNS went stale after a host network change
-# (SearXNG got SERVFAIL until recreated; Recipe Box's Ollama had the same problem).
+# (SearXNG got SERVFAIL until recreated).
 x-dns: &dns
   dns:
     - 192.168.0.70
     - 1.1.1.1
 
 x-app: &app
-  image: dates-app:local
+  image: ghcr.io/zaher503/date-planner:${DATES_TAG:-latest}
   restart: unless-stopped
   env_file: .env
   <<: *dns
@@ -23,7 +23,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.db
-    image: dates-db:local
+    image: ghcr.io/zaher503/date-planner-db:${DATES_TAG:-latest}
     restart: unless-stopped
     environment:
       POSTGRES_DB: dates
@@ -49,33 +49,24 @@ services:
       - "8820:8820"
     networks:
       - default
-      - recipebox
+      - ai
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8820/healthz', timeout=3)"]
       interval: 10s
       timeout: 5s
       retries: 6
 
+  # Runs the ingest jobs. The models (LLM and Whisper) live in the shared AI hub, so no GPU here.
   worker:
     <<: *app
     command: ["python", "-m", "app.worker"]
-    # Whisper runs here (the slow path); Ollama stays in Recipe Box's container
-    runtime: nvidia
-    environment:
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
     stop_grace_period: 60s
-    volumes:
-      - /srv/dateplanner:/data
-      - /srv/gpu:/locks
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       api:
         condition: service_healthy
     networks:
       - default
-      - recipebox
+      - ai
 
   # Dev instance for UI testing (docs/OPERATIONS.md): database dates_dev, loopback only.
   # DEV_USER skips Authentik, so it must never be set on the public api service.
@@ -90,7 +81,7 @@ services:
       - "127.0.0.1:8821:8820"
     networks:
       - default
-      - recipebox
+      - ai
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8820/healthz', timeout=3)"]
       interval: 10s
@@ -102,22 +93,14 @@ services:
     profiles: ["dev"]
     command: ["python", "-m", "app.worker"]
     stop_grace_period: 60s
-    runtime: nvidia
     environment:
       DATABASE_URL: postgresql+psycopg://dates:${PG_PASSWORD}@db:5432/dates_dev
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-    volumes:
-      - /srv/dateplanner:/data
-      - /srv/gpu:/locks
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     depends_on:
       api-dev:
         condition: service_healthy
     networks:
       - default
-      - recipebox
+      - ai
 
   # Geocoder: prebuilt US database (scripts/photon_import.sh)
   photon:
@@ -161,7 +144,8 @@ services:
 volumes:
   dates-pg:
 
+# Created by the ai-hub stack (https://github.com/Zaher503/ai-hub)
 networks:
-  recipebox:
+  ai:
     external: true
-    name: foodbox_default
+    name: ai

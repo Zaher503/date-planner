@@ -29,6 +29,7 @@ def check_services() -> list[dict]:
         ("osrm-car", f"{s.osrm_car_url}/nearest/v1/driving/-118.3265,34.0461", None),
         ("osrm-foot", f"{s.osrm_foot_url}/nearest/v1/foot/-118.3265,34.0461", None),
         ("searxng", f"{s.searxng_url}/healthz", None),
+        ("ai-hub", f"{s.ollama_url}/healthz", None),
         ("ollama", f"{s.ollama_url}/api/tags", None),
     ]
     with ThreadPoolExecutor(len(probes)) as ex:

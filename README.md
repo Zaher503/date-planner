@@ -2,7 +2,7 @@
 
 Send it a TikTok, an event page, a Google/Apple Maps link or plain text. It works out the place or event (name, address, price, dates, duration) and pins it on a map shared by Zaher and Katherine. Later phases add a map UI, video transcription for videos without captions, and a discovery job that looks for nearby events matching their interests every 3 days.
 
-Runs on the Zephyrus as a Docker Compose stack, all AI local (Ollama gemma4:e4b on the RTX 3070, shared with Recipe Box). No paid services. The full design and the phase list are in [docs/PLAN.md](docs/PLAN.md).
+Runs on the Zephyrus as a Docker Compose stack, all AI local: the LLM (gemma4:e4b) and Whisper come from the shared [ai-hub](https://github.com/Zaher503/ai-hub) (one Ollama, one Whisper and a GPU queue for Dates, Foodbox and the Transcriber on the RTX 3070). Pushes to `main` deploy themselves. No paid services. The full design and the phase list are in [docs/PLAN.md](docs/PLAN.md).
 
 ## Status
 
@@ -12,7 +12,7 @@ Runs on the Zephyrus as a Docker Compose stack, all AI local (Ollama gemma4:e4b 
 | 2 Geo infra (Photon, OSRM car/foot, SearXNG, SoCal map tiles) | Done |
 | 3 Ingestion fast path (TikTok, maps links, web pages, text; resolver; review API) | Done |
 | 4 Map UI (SvelteKit + MapLibre) | Deployed 2026-10-10 (`acc5cca`), not yet checked in a browser |
-| 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Deployed 2026-10-10 (worker on the GPU), no video has gone through it yet |
+| 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Deployed 2026-10-10; Whisper now runs in the shared AI hub |
 | 6 Caddy + Authentik at dates.zkocr.com, iPhone Shortcut | Live 2026-10-11 (Caddy, Cloudflare, Authentik group `dates`: Zaher + Kathy); Shortcut not yet set up on the phones |
 | 7 Interests + discovery (Ticketmaster key set, dry run finds ~760 events / 21 days) | Started (Ticketmaster, RA, Luma, Eventbrite adapters merged; iCal, venue watch, scheduler, inbox, scoring still to do) |
 | 8 Date-night planner + calendar | Core merged (OSRM client, picker, opening hours); plan API, ICS feed and UI still to do |
@@ -44,22 +44,35 @@ Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expec
 | `backend/app/llm/` | `ollama` client, `extract` (prompt + schema), `verify` (no invented numbers) |
 | `backend/app/resolve/` | `candidates` (Photon, Overpass, Nominatim, SearXNG), `scorer`, `resolver` |
 | `backend/app/discover/` | Adapter framework, Ticketmaster adapter, dry-run CLI |
-| `backend/app/gpu.py` | GPU lock shared with Recipe Box and the Transcriber |
+| `backend/app/llm/ollama.py`, `ingest/transcribe.py` | Clients for the AI hub (LLM and Whisper); they report where a call is in the hub's queue |
 | `backend/app/eval.py` | Golden-set accuracy check (writes nothing) |
 | `backend/migrations/` | Alembic migrations |
 | `backend/tests/` | pytest, offline fixtures (real TikTok/page responses, trimmed) |
 | `deploy/` | `compose.yaml`, Dockerfiles, SearXNG settings, `.env.example` |
-| `scripts/` | `deploy.sh`, `init-env.sh`, `photon_import.sh`, `fetch_tiles.sh`, `build_osrm.sh` |
+| `.github/workflows/` | `ci.yml` (tests, frontend build, compose check, image build) and `cd.yml` (publish to GHCR, deploy to the Zephyrus) |
+| `scripts/` | `deploy.bat`, `add-runner.sh`, `init-env.sh`, `photon_import.sh`, `fetch_tiles.sh`, `build_osrm.sh` |
 | `docs/` | `PLAN.md` (design + phases), `OPERATIONS.md` (running it) |
 | `frontend/` | SvelteKit app: map, filters, item list/detail/edit, Add box, settings, PWA shell |
+
+## Where it fits
+
+```
+phone / browser -> Cloudflare -> NAS (Caddy + Authentik) -> api :8820 ----> db (Postgres)
+                                                            worker ------> photon, osrm-car, osrm-foot, searxng
+                                                               |
+                                                               +--> ai-hub gateway :11434 -> ollama, whisper -> RTX 3070
+```
+
+The Dates stack is `db`, `api`, `worker` (plus dev copies `api-dev`/`worker-dev`), `photon`, `osrm-car`, `osrm-foot` and `searxng`, on the Docker network `dates_default`. `api` and `worker` also join the network `ai`, created by the [ai-hub](https://github.com/Zaher503/ai-hub) stack, to reach `http://ai-hub:11434`. Foodbox and the Transcriber use the same hub. Details and rollback in [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Everyday commands
 
 ```bash
-scripts/deploy.sh
+git push                      # CI, then CD: publish the images and update the stack on the Zephyrus
+scripts/deploy.bat            # re-run the deploy without a new commit
 ```
 
-Ships the committed `HEAD` to `~/dateplanner/src` on the Zephyrus and runs `docker compose up -d --build` (uncommitted changes are not deployed). `scripts/deploy.sh worker` rebuilds one service.
+Every push to `main` runs CI (backend tests, frontend check/tests/build, compose check, image build). When it passes, CD publishes `ghcr.io/zaher503/date-planner` and `date-planner-db` and a self-hosted runner on the Zephyrus pulls them and restarts the stack. Uncommitted changes are never deployed.
 
 ```bash
 cd backend && .venv/Scripts/python -m pytest -q tests
@@ -68,13 +81,13 @@ cd backend && .venv/Scripts/python -m pytest -q tests
 Unit tests (offline). Create the venv once with `python -m venv .venv` and `pip install -r requirements.txt pytest`.
 
 ```bash
-ssh zephyrus 'cd ~/dateplanner/src/deploy && docker compose exec -T worker python -m app.eval'
+ssh zephyrus 'cd /opt/date-planner/deploy && docker compose exec -T worker python -m app.eval'
 ```
 
 Golden-set accuracy. Run it after any change to extraction or resolving.
 
 ```bash
-ssh zephyrus 'cd ~/dateplanner/src/deploy && docker compose exec -T worker python -m app.discover.run --dry-run'
+ssh zephyrus 'cd /opt/date-planner/deploy && docker compose exec -T worker python -m app.discover.run --dry-run'
 ```
 
 Discovery dry run (Ticketmaster skips itself until `TICKETMASTER_KEY` is set in `~/dateplanner/.env`).

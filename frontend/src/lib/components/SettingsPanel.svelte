@@ -22,6 +22,7 @@
     'osrm-car': 'Driving routes',
     'osrm-foot': 'Walking routes',
     searxng: 'Web search (SearXNG)',
+    'ai-hub': 'AI hub (queue)',
     ollama: 'Local AI (Ollama)'
   };
 

@@ -17,8 +17,8 @@ Legend: [x] done, [~] done but needs your check, [ ] pending.
 
 ## Pending
 - [ ] **Service worker does not register** in the Claude browser pane ("unknown error occurred when fetching the script", although `/service-worker.js` returns 200). Check in real Chrome on the phone before relying on Add to Home Screen.
-- [ ] **Try the video slow path.** Whisper has never run (`/srv/dateplanner/models` does not exist yet, no media archived). Add one TikTok with no captions; `large-v3-turbo` downloads on first use. Watch `docker compose logs -f worker` in `~/dateplanner/src/deploy`.
+- [ ] **Try the video slow path.** Whisper has never run (`/srv/dateplanner/models` does not exist yet, no media archived). Add one TikTok with no captions; `large-v3-turbo` downloads on first use. Watch `docker compose logs -f worker` in `/opt/date-planner/deploy`.
 - [ ] **"Save to Dates" Shortcut on the phones:** `docs/SHORTCUT.md` (endpoint and key work through https://dates.zkocr.com).
 - [ ] **Still to build (Claude):** iCal, venue watch, SearXNG and Overpass adapters; scheduler and Suggested inbox; interests and scoring; plan CRUD, ICS feed and Plan page; Phase 9 lifecycle and ops.
 - [ ] **After any `.env` change**, recreate every app container, including the dev copies:
-  `ssh zephyrus "cd ~/dateplanner/src/deploy && docker compose --profile dev up -d"`
+  `ssh zephyrus "cd /opt/date-planner/deploy && docker compose --profile dev up -d"`

@@ -1,0 +1,82 @@
+name: CD
+
+# After CI passes on main: publish the images to GHCR, then update the stack on the Zephyrus
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: date-planner
+            dockerfile: deploy/Dockerfile.app
+          - image: date-planner-db
+            dockerfile: deploy/Dockerfile.db
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/zaher503/${{ matrix.image }}:latest
+            ghcr.io/zaher503/${{ matrix.image }}:${{ env.SHA }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,scope=${{ matrix.image }},mode=max
+
+  deploy:
+    needs: publish
+    # Self-hosted runner on the Zephyrus; only ever triggered from main, never from pull requests
+    runs-on: [self-hosted, date-planner]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.SHA }}
+      - name: Update the stack
+        run: |
+          install -d /opt/date-planner
+          rm -rf /opt/date-planner/deploy.new
+          cp -r deploy /opt/date-planner/deploy.new
+          # The real .env stays on the server, outside the repo
+          ln -sf /home/zaher/dateplanner/.env /opt/date-planner/deploy.new/.env
+          rm -rf /opt/date-planner/deploy.old
+          [ -d /opt/date-planner/deploy ] && mv /opt/date-planner/deploy /opt/date-planner/deploy.old
+          mv /opt/date-planner/deploy.new /opt/date-planner/deploy
+          echo "$SHA" > /opt/date-planner/REVISION
+          cd /opt/date-planner/deploy
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          export DATES_TAG=latest
+          docker compose --profile dev pull api db api-dev worker-dev worker
+          docker compose --profile dev up -d --remove-orphans
+          docker image prune -f
+      - name: Health check
+        run: |
+          for i in $(seq 1 40); do
+            curl -fsS http://127.0.0.1:8820/healthz && exit 0
+            sleep 3
+          done
+          docker compose -f /opt/date-planner/deploy/compose.yaml logs --tail 50 api
+          exit 1

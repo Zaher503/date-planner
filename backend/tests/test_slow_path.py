@@ -44,7 +44,7 @@ def test_dedupe_lines_ignores_case_and_punctuation():
 
 
 def test_whisper_junk_is_dropped():
-    seg = lambda t, nsp=0.1, lp=-0.3: SimpleNamespace(text=t, no_speech_prob=nsp, avg_logprob=lp)
+    seg = lambda t, nsp=0.1, lp=-0.3: {"text": t, "no_speech_prob": nsp, "avg_logprob": lp}
     text = clean_segments([seg(" We went to Perch "), seg("Thanks for watching!"), seg("hmm", nsp=0.9),
                            seg("garbled", lp=-1.5), seg("Get the burrata.")])
     assert text == "We went to Perch Get the burrata."

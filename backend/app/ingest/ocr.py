@@ -82,12 +82,12 @@ def read_frames(frames: list[Path], progress=None) -> str:
             progress(i, len(frames))
         try:
             texts.append(str(chat_json(FRAME_SYSTEM, "Text in this video frame:", FRAME_SCHEMA,
-                                       images=[_b64(f)], timeout=120).get("text", "")))
+                                       images=[_b64(f)]).get("text", "")))
         except LLMError as e:
             log.warning("frame %s: %s", f.name, e)
     return dedupe_lines(texts)[:6000]
 
 
 def read_screenshot(image: Path) -> str:
-    out = chat_json(SCREENSHOT_SYSTEM, "Read this screenshot:", FRAME_SCHEMA, images=[_b64(image)], timeout=180)
+    out = chat_json(SCREENSHOT_SYSTEM, "Read this screenshot:", FRAME_SCHEMA, images=[_b64(image)])
     return str(out.get("text", "")).strip()[:6000]

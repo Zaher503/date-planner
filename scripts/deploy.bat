@@ -1,15 +1,13 @@
 @echo off
-rem One-click deploy: ships the committed HEAD to the Zephyrus and rebuilds the stack.
-rem Needs Git for Windows (bash) and working "ssh zephyrus".
+rem Re-run the deploy of what is on main (every push to main already deploys itself).
+rem Needs the GitHub CLI (gh) logged in.
 setlocal
-set "BASH=C:\Program Files\Git\bin\bash.exe"
-if not exist "%BASH%" (
-  echo Git Bash not found at %BASH%
-  pause
-  exit /b 1
-)
 cd /d "%~dp0.."
-"%BASH%" scripts/deploy.sh %*
+gh workflow run CD --repo Zaher503/date-planner
+if errorlevel 1 (echo Could not start the deploy. & pause & exit /b 1)
+echo Started. Watching the run (Ctrl+C to stop watching, the deploy keeps going)...
+timeout /t 5 /nobreak >nul
+gh run watch --repo Zaher503/date-planner --exit-status
 set RC=%ERRORLEVEL%
 echo.
 if %RC%==0 (echo Deploy finished.) else (echo Deploy FAILED with exit code %RC%.)

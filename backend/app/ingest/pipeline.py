@@ -18,10 +18,10 @@ from sqlalchemy.orm import Session
 
 from app import jobs
 from app.db.models import Job, Source
-from app.gpu import gpu_lock, unload_llm
 from app.ingest import maps_links, media, ocr, store
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
+from app.llm.ollama import describe, waiting
 from app.ingest import images, page_images
 from app.ingest.timing import vtt_cues
 from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
@@ -55,8 +55,13 @@ def _json_safe(d: dict) -> dict:
     return {k: (v.isoformat() if isinstance(v, (datetime, date)) else v) for k, v in d.items()}
 
 
+def _in_line(db: Session, job: Job, pct: int):
+    """While the AI hub makes this job wait, show where it is in line."""
+    return waiting(lambda est: jobs.set_stage(db, job, describe(est), pct))
+
+
 def _llm(db: Session, job: Job, fn, *args, **kwargs):
-    with gpu_lock(lambda s: jobs.set_stage(db, job, s, 30)):
+    with _in_line(db, job, 30):
         jobs.set_stage(db, job, "reading with the local model", 35)
         return fn(*args, **kwargs)
 
@@ -135,7 +140,7 @@ def _from_image(db: Session, job: Job, src: Source) -> Gathered:
     path = media.media_root() / rel if rel else None
     if path is None or not path.exists():
         raise Unprocessable("the screenshot file is missing")
-    with gpu_lock(lambda s: jobs.set_stage(db, job, s, 20)):
+    with _in_line(db, job, 20):
         jobs.set_stage(db, job, "reading the screenshot", 25)
         text = ocr.read_screenshot(path)
         src.ocr_text = text or None
@@ -264,10 +269,9 @@ def slow_text(db: Session, job: Job, src: Source, g: Gathered) -> str:
         db.commit()
         video = dl.video
     extra: list[str] = []
-    with gpu_lock(lambda s: jobs.set_stage(db, job, s, 58)):
+    with _in_line(db, job, 58):
         if not src.transcript:
             jobs.set_stage(db, job, "transcribing", 60)
-            unload_llm()  # Whisper and the vision model do not fit on the card together
             try:
                 from app.ingest.transcribe import transcribe
                 said, cues = transcribe(video)

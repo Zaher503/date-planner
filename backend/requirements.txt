@@ -13,8 +13,5 @@ tzdata>=2024.1
 rapidfuzz>=3.10,<4
 trafilatura>=2.0,<3
 python-multipart>=0.0.20,<1
-# Slow path: video download, Whisper on the GPU (CUDA libraries from pip wheels)
+# Slow path: video download (Whisper and the models run in the shared AI hub)
 yt-dlp>=2025.1.1
-faster-whisper>=1.1,<2
-nvidia-cublas-cu12>=12.4,<13
-nvidia-cudnn-cu12>=9.1,<10

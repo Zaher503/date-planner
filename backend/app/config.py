@@ -14,7 +14,8 @@ class Settings(BaseSettings):
     # Lets the API run without Caddy in front (local dev and tests only)
     dev_user: str = ""
 
-    ollama_url: str = "http://recipebox-ollama:11434"
+    # The AI hub gateway: the Ollama API plus Whisper, with one queue for the GPU
+    ollama_url: str = "http://ai-hub:11434"
     llm_model: str = "gemma4:e4b"
     embed_model: str = "nomic-embed-text"
 
