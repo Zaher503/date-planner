@@ -164,4 +164,4 @@ volumes:
 networks:
   recipebox:
     external: true
-    name: recipebox_default
+    name: foodbox_default
