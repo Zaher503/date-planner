@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     osrm_car_url: str = "http://osrm-car:5000"
     osrm_foot_url: str = "http://osrm-foot:5000"
     searxng_url: str = "http://searxng:8080"
+    # Playwright run-server for pages that need a real browser; empty turns the feature off
+    browser_url: str = ""
 
     data_dir: Path = Path("/data")
     # Built SvelteKit app (copied in by deploy/Dockerfile.app)

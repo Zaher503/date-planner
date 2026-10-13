@@ -25,3 +25,34 @@ def test_find_price_follows_ticket_link(monkeypatch):
 def test_enrich_skips_priced_events():
     h = ItemHint(kind="event", name="v", price_min=10)
     assert pricing.enrich([h], "https://venue.com") == 0
+
+
+def test_fetch_falls_through_to_browser(monkeypatch):
+    import httpx
+
+    from app import browser, net
+
+    def refuse(url, client=None):
+        raise httpx.HTTPStatusError("403", request=httpx.Request("GET", url), response=httpx.Response(403))
+
+    monkeypatch.setattr(net, "_fetch_plain", refuse)
+    monkeypatch.setattr(net, "_fetch_impersonated", refuse)
+    monkeypatch.setattr(browser, "available", lambda: True)
+    monkeypatch.setattr(browser, "render", lambda url: (url, "<html>rendered</html>"))
+    assert net.fetch_text("https://x.example/e")[1] == "<html>rendered</html>"
+
+
+def test_fetch_reports_original_refusal_without_browser(monkeypatch):
+    import httpx
+    import pytest
+
+    from app import browser, net
+
+    def refuse(url, client=None):
+        raise httpx.HTTPStatusError("403", request=httpx.Request("GET", url), response=httpx.Response(403))
+
+    monkeypatch.setattr(net, "_fetch_plain", refuse)
+    monkeypatch.setattr(net, "_fetch_impersonated", refuse)
+    monkeypatch.setattr(browser, "available", lambda: False)
+    with pytest.raises(httpx.HTTPStatusError):
+        net.fetch_text("https://x.example/e")

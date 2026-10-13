@@ -7,6 +7,7 @@ can be cached in http_cache to keep request counts low on free public services.
 import hashlib
 import ipaddress
 import json
+import logging
 import socket
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
@@ -20,6 +21,7 @@ from app.db.models import HttpCache
 BROWSER_UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
               "Chrome/126.0 Safari/537.36")
 MAX_BYTES = 8_000_000
+log = logging.getLogger(__name__)
 
 
 class BlockedURL(ValueError):
@@ -90,7 +92,29 @@ def fetch_text(url: str, client: httpx.Client | None = None) -> tuple[str, str]:
         return _fetch_impersonated(url)
     except ImportError:
         pass
+    except httpx.HTTPError as e:
+        if not _is_block(e):
+            raise
+        return _fetch_browser(url, e)
     return _fetch_plain(url, client)
+
+
+def _is_block(e: httpx.HTTPError) -> bool:
+    return isinstance(e, (httpx.TimeoutException, httpx.ConnectError)) or (
+        isinstance(e, httpx.HTTPStatusError) and e.response.status_code in BLOCKED_STATUS)
+
+
+def _fetch_browser(url: str, original: httpx.HTTPError) -> tuple[str, str]:
+    """Last resort: render the page in a real browser, when one is configured."""
+    from app import browser
+
+    if not browser.available():
+        raise original
+    try:
+        return browser.render(url)
+    except Exception as e:  # unreachable browser, bot check, timeout: report the original refusal
+        log.info("browser fetch of %s failed: %s", url, e)
+        raise original from None
 
 
 def _fetch_plain(url: str, client: httpx.Client | None = None) -> tuple[str, str]:

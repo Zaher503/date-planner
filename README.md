@@ -42,6 +42,7 @@ Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expec
 | `backend/app/worker.py`, `tasks.py`, `jobs.py` | Worker: Postgres job queue (SKIP LOCKED), one GPU lane + two CPU lanes, APScheduler |
 | `backend/app/ingest/` | `urls` (normalize/classify), `tiktok`, `maps_links`, `event_page`, `pipeline` (the ingest job), `store` (upsert/merge) |
 | `backend/app/llm/` | `ollama` client, `extract` (prompt + schema), `verify` (no invented numbers) |
+| `backend/app/browser.py` | Drives the `browser` container (Playwright) for pages that block plain fetching or show prices only after a click; every request is checked against private addresses. CAPTCHAs are reported as blocked, never solved |
 | `backend/app/resolve/` | `candidates` (Photon, Overpass, Nominatim, SearXNG), `scorer`, `resolver` |
 | `backend/app/discover/` | Adapter framework, Ticketmaster adapter, dry-run CLI |
 | `backend/app/llm/ollama.py`, `ingest/transcribe.py` | Clients for the AI hub (LLM and Whisper); they report where a call is in the hub's queue |

@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 from sqlalchemy.orm import Session
 
-from app import jobs
+from app import browser, jobs
 from app.db.models import Job, Source
 from app.ingest import maps_links, media, ocr, store
 from app.ingest.event_page import parse_page
@@ -189,6 +189,18 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
         return page.items
     text = "\n\n".join(x for x in (f"Page title: {page.title}" if page.title else None,
                                    page.description, page.text[:6000]) if x)
+    if len(text) < 40 and browser.available():
+        # Pages built by JavaScript have no text until a browser runs them
+        try:
+            final, html = browser.render(final)
+            page = parse_page(final, html)
+            if page.items:
+                _llm(db, job, llm.classify, page.items, context)
+                return page.items
+            text = "\n\n".join(x for x in (f"Page title: {page.title}" if page.title else None,
+                                           page.description, page.text[:6000]) if x)
+        except Exception as e:
+            log.info("browser render of %s failed: %s", final, e)
     if len(text) < 40:
         raise Unprocessable("the page had no readable text (it may need a browser)")
     is_list, hints = _llm(db, job, llm.extract, text)

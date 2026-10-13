@@ -61,6 +61,8 @@ services:
     <<: *app
     command: ["python", "-m", "app.worker"]
     stop_grace_period: 60s
+    environment:
+      BROWSER_URL: ws://browser:3000
     depends_on:
       api:
         condition: service_healthy
@@ -95,6 +97,7 @@ services:
     stop_grace_period: 60s
     environment:
       DATABASE_URL: postgresql+psycopg://dates:${PG_PASSWORD}@db:5432/dates_dev
+      BROWSER_URL: ws://browser:3000
     depends_on:
       api-dev:
         condition: service_healthy
@@ -128,6 +131,20 @@ services:
     volumes:
       - /srv/dateplanner/osrm/foot:/data:ro
     mem_limit: 3g
+
+  # A real browser for pages that block plain fetching or only show prices after a click. The worker
+  # drives it over a websocket and checks every request it makes (app/browser.py), so it is never
+  # pointed at the LAN. Keep the playwright version in sync with backend/requirements.txt.
+  browser:
+    <<: *dns
+    image: mcr.microsoft.com/playwright:v1.49.1-noble
+    restart: unless-stopped
+    init: true
+    ipc: host
+    user: pwuser
+    working_dir: /home/pwuser
+    command: ["npx", "-y", "playwright@1.49.1", "run-server", "--port", "3000", "--host", "0.0.0.0"]
+    mem_limit: 2g
 
   # Private metasearch for venue websites
   searxng:

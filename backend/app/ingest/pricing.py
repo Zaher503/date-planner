@@ -12,6 +12,7 @@ from urllib.parse import urljoin, urlsplit
 from app.ingest.event_page import jsonld_nodes, parse_page
 from app.ingest.items import ItemHint
 from app.llm import verify
+from app import browser
 from app.llm.ollama import LLMError, chat_json
 from app.net import BlockedURL, fetch_text
 
@@ -128,6 +129,50 @@ def find_price(start: str, html: str | None = None) -> tuple[dict | None, str | 
     return None, None
 
 
+PICK_SYSTEM = """You help find what an event costs by pressing buttons on its web page.
+You get a list of clickable things on the page, each with a number and its text. Choose the one most likely to lead to
+ticket prices (Buy Tickets, Book Now, Reserve, Get Tickets, RSVP, See pricing). Never choose anything that logs in, signs up for
+a newsletter, shares, or pays. If nothing is likely to help, answer index -1."""
+PICK_SCHEMA = {"type": "object", "properties": {"index": {"type": "integer"}, "why": {"type": "string"}},
+               "required": ["index", "why"]}
+MAX_CLICKS = 4
+
+
+def browse_for_price(start: str) -> tuple[dict | None, str | None]:
+    """Last resort for pages that only show a price after a click: a real browser, with the local
+    model choosing which button to press (at most four presses)."""
+    if not browser.available():
+        return None, None
+    try:
+        with browser.page() as pg:
+            browser.goto(pg, start)
+            tried: set[str] = set()
+            for _ in range(MAX_CLICKS + 1):
+                price = read_price(pg.content(), pg.url)
+                if price:
+                    return price, pg.url
+                options = [o for o in browser.clickables(pg) if o["text"].lower() not in tried]
+                if not options or _ >= MAX_CLICKS:
+                    return None, None
+                lines = [f"{o['i']}: {o['text']}" + (f" -> {o['href'][:80]}" if o["href"] else "") for o in options]
+                prompt = f"Page: {pg.title()}\n\nClickable things:\n" + "\n".join(lines)
+                try:
+                    pick = chat_json(PICK_SYSTEM, prompt, PICK_SCHEMA)
+                except LLMError:
+                    return None, None
+                chosen = next((o for o in options if o["i"] == pick.get("index")), None)
+                if chosen is None:
+                    return None, None
+                tried.add(chosen["text"].lower())
+                log.info("price hunt: pressing %r (%s)", chosen["text"], pick.get("why"))
+                pg = browser.click(pg, chosen["i"])
+    except (browser.BrowserUnavailable, BlockedURL) as e:
+        log.info("browser price hunt skipped: %s", e)
+    except Exception as e:  # page-level failures (timeouts, closed tabs) just end the hunt
+        log.info("browser price hunt for %s failed: %s", start, e)
+    return None, None
+
+
 def enrich(hints: list[ItemHint], start_url: str | None, html: str | None = None) -> int:
     """Fill the price of events that have none. Returns how many were filled."""
     todo = [h for h in hints if h.kind == "event" and not has_price(h)]
@@ -142,6 +187,8 @@ def enrich(hints: list[ItemHint], start_url: str | None, html: str | None = None
             price, found_at = find_price(url, html if url == start_url else None)
         except BlockedURL:
             continue
+        if not price:
+            price, found_at = browse_for_price(url)
         if not price:
             continue
         for k in ("price_min", "price_max", "is_free", "price_text", "currency"):
