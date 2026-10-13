@@ -157,6 +157,11 @@
   }
 
   function openSettings() {
+    // The button toggles: a second click closes the panel
+    if (panel === 'settings') {
+      nav((sp) => sp.delete('panel'), true);
+      return;
+    }
     nav((sp) => {
       sp.set('panel', 'settings');
       sp.delete('sel');
