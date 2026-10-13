@@ -55,8 +55,45 @@ def public_client(timeout: float = 20, browser: bool = True) -> httpx.Client:
                         event_hooks={"request": [_guard]})
 
 
+BLOCKED_STATUS = {403, 429, 503}
+
+
+def _fetch_impersonated(url: str) -> tuple[str, str]:
+    """Second try for sites that turn away plain HTTP clients by their TLS fingerprint: curl_cffi
+    speaks TLS and HTTP/2 like Chrome. Redirects are followed by hand so each hop is checked."""
+    from curl_cffi import requests as cr
+
+    for _ in range(8):
+        check_url(url)
+        r = cr.get(url, impersonate="chrome", timeout=25, allow_redirects=False, headers={"Accept-Language": "en-US,en;q=0.9"})
+        if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("location"):
+            url = str(httpx.URL(url).join(r.headers["location"]))
+            continue
+        if r.status_code >= 400:
+            raise httpx.HTTPStatusError(f"HTTP {r.status_code}", request=httpx.Request("GET", url),
+                                        response=httpx.Response(r.status_code))
+        return url, r.content[:MAX_BYTES].decode(r.encoding or "utf-8", "replace")
+    raise httpx.TooManyRedirects("too many redirects")
+
+
 def fetch_text(url: str, client: httpx.Client | None = None) -> tuple[str, str]:
-    """GET a public page. Returns (final_url, text). Raises httpx errors on failure."""
+    """GET a public page, retrying as a Chrome look-alike when the site refuses the plain client.
+    Returns (final_url, text). Raises httpx errors on failure."""
+    try:
+        return _fetch_plain(url, client)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code not in BLOCKED_STATUS:
+            raise
+    except (httpx.TimeoutException, httpx.ConnectError):
+        pass
+    try:
+        return _fetch_impersonated(url)
+    except ImportError:
+        pass
+    return _fetch_plain(url, client)
+
+
+def _fetch_plain(url: str, client: httpx.Client | None = None) -> tuple[str, str]:
     own = client is None
     client = client or public_client()
     try:

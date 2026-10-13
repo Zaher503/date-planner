@@ -12,6 +12,8 @@ apscheduler>=3.11,<4
 tzdata>=2024.1
 rapidfuzz>=3.10,<4
 trafilatura>=2.0,<3
+# Chrome-like TLS fingerprint for sites that refuse the plain client (HTTP 403)
+curl_cffi>=0.7,<1
 python-multipart>=0.0.20,<1
 # Slow path: video download (Whisper and the models run in the shared AI hub)
 yt-dlp>=2025.1.1

@@ -22,7 +22,7 @@ from app.ingest import maps_links, media, ocr, store
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
 from app.llm.ollama import describe, waiting
-from app.ingest import images, page_images
+from app.ingest import images, page_images, pricing
 from app.ingest.timing import vtt_cues
 from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
 from app.llm import extract as llm
@@ -172,7 +172,9 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
         final, html = fetch_text(src.url)
     except httpx.HTTPStatusError as e:
         if e.response.status_code in (401, 403, 404, 410, 451):
-            raise Unprocessable(f"the site refused the page (HTTP {e.response.status_code})") from e
+            code = e.response.status_code
+            why = "blocks automated readers" if code in (401, 403) else "has no page there" if code in (404, 410) else "refused the page"
+            raise Unprocessable(f"the site {why} (HTTP {code})") from e
         raise
     page = parse_page(final, html)
     src.title = (page.title or final)[:140]
@@ -336,6 +338,13 @@ def run(db: Session, job: Job) -> dict:
     now = datetime.now(timezone.utc)
     hints = [tidy(h, now) for h in g.hints if h.name or h.event_title]
     src.fetched_at = now
+    if any(h.kind == "event" and not pricing.has_price(h) for h in hints):
+        jobs.set_stage(db, job, "checking ticket prices", 44)
+        try:
+            with _in_line(db, job, 44):
+                pricing.enrich(hints, src.url if src.kind == "event_page" else None)
+        except Exception as e:  # a price is a nicety; the item is saved without it
+            log.warning("price check failed for %s: %s", src.id, e)
     home = store.home_point(db)
     resolved = _resolve_all(db, job, hints, home, (45, 55))
     slow = False
