@@ -8,7 +8,7 @@
   import { pinColors } from '$lib/pincolors.svelte';
   import { badge } from '$lib/format';
   import { baseStyle, FONT, type Theme } from './style';
-  import { HEAD_FROM_TIP_PX, pinSvg, rainbowSvg, rasterise } from './pins';
+  import { HEAD_FROM_TIP_PX, outlineSvg, pinSvg, rainbowSvg, rasterise } from './pins';
 
   interface Props {
     data: MapData | null;
@@ -70,7 +70,7 @@
     if (!map) return;
     const ratio = Math.min(window.devicePixelRatio || 1, 3);
     const edge = theme === 'dark' ? '#16171a' : '#ffffff';
-    const jobs: [string, string][] = [['pin-rainbow', rainbowSvg(edge)]];
+    const jobs: [string, string][] = [['pin-rainbow', rainbowSvg(edge)], ['pin-outline', outlineSvg(theme === 'dark' ? '#ffffff' : '#111111')]];
     for (const cat of CATS) {
       jobs.push([`pin-${cat}`, pinSvg(colorOf(cat), cat, edge)], [`pinb-${cat}`, pinSvg(colorOf(cat), null, edge)]);
     }
@@ -139,16 +139,10 @@
     });
     map.addLayer({
       id: 'selected-ring',
-      type: 'circle',
+      type: 'symbol',
       source: 'items',
       filter: ['==', ['get', 'id'], ''],
-      paint: {
-        'circle-radius': 18,
-        'circle-color': 'rgba(0,0,0,0)',
-        'circle-stroke-width': 3,
-        'circle-stroke-color': dark ? '#ffffff' : '#111111',
-        'circle-translate': [0, -(HEAD_FROM_TIP_PX)]
-      }
+      layout: { 'icon-image': 'pin-outline', 'icon-anchor': 'bottom', 'icon-allow-overlap': true }
     });
     const pinLayout = {
       'icon-image': ['concat', 'pin-', ['get', 'c']],
@@ -385,6 +379,12 @@
           // fires, which left the view unset and the pins unfetched. Hand the view over here as well.
           placeHome();
           emitView();
+        });
+        // Attribution stays (the map data licence requires it) but starts collapsed to the (i) button
+        map.once('load', () => {
+          const a = container?.querySelector('.maplibregl-ctrl-attrib');
+          a?.removeAttribute('open');
+          a?.classList.remove('maplibregl-compact-show');
         });
         map.on('load', () => {
           placeHome();

@@ -69,6 +69,31 @@
     }
   }
 
+  // Several links pasted at once are added one by one
+  const links = $derived([...new Set(text.match(/https?:\/\/[^\s<>"]+/g) ?? [])]);
+  let progress = $state('');
+
+  async function bulk() {
+    let done = 0;
+    const failed: string[] = [];
+    for (const url of links) {
+      progress = `Adding ${done + 1} of ${links.length}`;
+      try {
+        app.track(await api.add(url), label(url));
+      } catch {
+        failed.push(url);
+      }
+      done++;
+    }
+    progress = '';
+    if (failed.length) {
+      text = failed.join('\n');
+      error = `${failed.length} of ${links.length} could not be added. They are left in the box to retry.`;
+    } else {
+      onclose();
+    }
+  }
+
   async function submit(e: SubmitEvent) {
     e.preventDefault();
     const t = text.trim();
@@ -76,6 +101,10 @@
     sending = true;
     error = '';
     try {
+      if (!image && links.length > 1) {
+        await bulk();
+        return;
+      }
       if (image) {
         app.track(await api.addImage(image, image.name || 'screenshot.png'), 'Screenshot');
         setImage(null);
@@ -101,7 +130,7 @@
       <h2>Add a date idea</h2>
       <button type="button" class="icon-btn" aria-label="Close" onclick={onclose}><X size={20} /></button>
     </header>
-    <p class="muted">Paste a TikTok, a Google or Apple Maps link, an event page, a screenshot, or just type a place and what it is.</p>
+    <p class="muted">Paste a TikTok (or a whole list of links), a Google or Apple Maps link, an event page, a screenshot, or just type a place and what it is.</p>
     <textarea
       bind:this={box}
       class="field"
@@ -114,6 +143,7 @@
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) (e.currentTarget.form as HTMLFormElement).requestSubmit();
       }}
     ></textarea>
+    {#if links.length > 1}<p class="muted">{links.length} links found, each will be added as its own idea.</p>{/if}
     {#if preview}
       <div class="shot">
         <img src={preview} alt="Screenshot to add" />
@@ -129,7 +159,7 @@
       <button type="button" class="btn" onclick={() => picker.click()}><ImageIcon size={16} /> Screenshot</button>
       <span class="spacer"></span>
       <button type="button" class="btn" onclick={onclose}>Cancel</button>
-      <button type="submit" class="btn primary" disabled={sending || (!text.trim() && !image)}>{sending ? 'Adding' : 'Add'}</button>
+      <button type="submit" class="btn primary" disabled={sending || (!text.trim() && !image)}>{sending ? (progress || 'Adding') : links.length > 1 ? `Add ${links.length}` : 'Add'}</button>
     </div>
   </form>
 </dialog>

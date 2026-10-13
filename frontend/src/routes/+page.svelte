@@ -542,7 +542,7 @@
         onpointercancel={paneUp}
         ondblclick={() => (setPane(PANE_DEFAULT), savePane())}
         onkeydown={paneKey}
-      ></div>
+      ><span class="grip-handle" aria-hidden="true"></span></div>
     {/if}
 
     {#if !app.desktop && !sel}
@@ -600,15 +600,17 @@
   .top :global(> *) {
     pointer-events: auto;
   }
-  /* Settings: tucked in the top-left corner, fades in when the pointer is near */
+  /* Settings: tucked in the top-right corner, fades in when the pointer is near */
   .settings-zone {
     position: absolute;
     z-index: 26;
     top: 0;
-    left: 0;
+    right: 0;
     width: 72px;
     height: 44px;
-    padding: calc(var(--safe-top) + 3px) 0 0 6px;
+    display: flex;
+    justify-content: flex-end;
+    padding: calc(var(--safe-top) + 3px) 6px 0 0;
   }
   .settings-btn {
     display: grid;
@@ -766,6 +768,25 @@
       background: var(--accent);
       opacity: 0;
       transition: opacity 0.15s;
+    }
+    .grip-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 6px;
+      height: 44px;
+      transform: translate(-50%, -50%);
+      border-radius: 3px;
+      background: var(--text-2);
+      border: 1px solid var(--surface);
+      opacity: 0.55;
+      transition: opacity 0.15s, background 0.15s;
+    }
+    .pane-grip:hover .grip-handle,
+    .pane-grip:focus-visible .grip-handle,
+    .resizing .grip-handle {
+      opacity: 1;
+      background: var(--accent);
     }
     .pane-grip:hover::after,
     .pane-grip:focus-visible::after,

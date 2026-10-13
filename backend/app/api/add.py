@@ -23,7 +23,7 @@ router = APIRouter()
 log = logging.getLogger(__name__)
 
 MAX_TEXT = 8000
-RATE_PER_MIN = 30
+RATE_PER_MIN = 90
 _recent: deque[float] = deque()
 
 

@@ -57,3 +57,11 @@ export function rasterise(svg: string, ratio: number): Promise<ImageData> {
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
   });
 }
+
+// Thick outline that follows the pin's shape, drawn under the selected pin
+export function outlineSvg(color: string): string {
+  return (
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${PIN_W}" height="${PIN_H}" viewBox="0 0 ${PIN_W} ${PIN_H}">` +
+    `<path d="${TEARDROP}" fill="${color}" stroke="${color}" stroke-width="6" stroke-linejoin="round"/></svg>`
+  );
+}
