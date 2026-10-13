@@ -11,7 +11,7 @@
 
   let { occurrences, tz, allDay = false }: Props = $props();
 
-  const today = dayKey(new Date(), tz);
+  const today = $derived(dayKey(new Date(), tz));
   const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
   // Times grouped by calendar day in the event's zone
