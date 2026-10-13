@@ -7,7 +7,7 @@
   import { categoryKey, colorOf, DEFAULT_CATEGORY_COLOR } from '$lib/categories';
   import { pinColors } from '$lib/pincolors.svelte';
   import { badge } from '$lib/format';
-  import { baseStyle, FONT, type Theme } from './style';
+  import { baseStyle, FONT, LIVE_FONT, liveStyle, type Theme } from './style';
   import { HEAD_FROM_TIP_PX, outlineSvg, pinSvg, rainbowSvg, rasterise } from './pins';
 
   interface Props {
@@ -82,8 +82,43 @@
     });
   }
 
+  // True while the view is outside the downloaded region and the live basemap is showing
+  let live = false;
+  let switching = false;
+
+  function outsideRegion(): boolean {
+    if (!map) return false;
+    const c = map.getCenter();
+    const [w, s, e, n] = bounds;
+    return c.lng < w || c.lng > e || c.lat < s || c.lat > n;
+  }
+
+  async function styleFor(wantLive: boolean) {
+    return wantLive ? await liveStyle(theme) : baseStyle(theme, tiles, assets);
+  }
+
+  // Swap between the local tiles and the live basemap as the view crosses the region edge
+  async function syncBasemap() {
+    if (!map || switching) return;
+    const want = outsideRegion();
+    if (want === live) return;
+    switching = true;
+    try {
+      const style = await styleFor(want);
+      if (!map) return;
+      live = want;
+      ready = false;
+      map.setStyle(style, { diff: false });
+    } catch (err) {
+      console.warn('basemap', err);
+    } finally {
+      switching = false;
+    }
+  }
+
   async function addOverlays() {
     if (!map) return;
+    const font = live ? LIVE_FONT : FONT;
     await registerPins();
     if (!map) return;
     const dark = theme === 'dark';
@@ -130,7 +165,7 @@
         'icon-anchor': 'bottom',
         'icon-allow-overlap': true,
         'text-field': ['get', 'point_count_abbreviated'],
-        'text-font': FONT,
+        'text-font': font,
         'text-size': 12,
         'text-offset': numberOffset as never,
         'text-allow-overlap': true
@@ -169,7 +204,7 @@
         ...pinLayout,
         // The date badge sits just under the pin's tip
         'text-field': ['get', 'b'],
-        'text-font': FONT,
+        'text-font': font,
         'text-size': 10.5,
         'text-anchor': 'top',
         'text-offset': [0, 0.15],
@@ -205,7 +240,7 @@
       filter: ['!', ['has', 'point_count']],
       layout: {
         'text-field': ['get', 'title'],
-        'text-font': FONT,
+        'text-font': font,
         'text-size': 12,
         'text-anchor': 'left',
         'text-offset': [1.5, -1.6],
@@ -235,7 +270,7 @@
       id: 'candidate-letters',
       type: 'symbol',
       source: 'candidates',
-      layout: { 'text-field': ['get', 'letter'], 'text-font': FONT, 'text-size': 12, 'text-allow-overlap': true },
+      layout: { 'text-field': ['get', 'letter'], 'text-font': font, 'text-size': 12, 'text-allow-overlap': true },
       paint: { 'text-color': ['case', ['get', 'chosen'], '#ffffff', dark ? '#16171a' : '#ffffff'] }
     });
   }
@@ -344,7 +379,6 @@
         maplibre.addProtocol('pmtiles', protocol.tile);
         styleTheme = theme;
         const start = center ?? (home ? { ...home, zoom: 11 } : { lat: 34.05, lon: -118.25, zoom: 10 });
-        const [w, s, e, n] = bounds;
         map = new maplibre.Map({
           container,
           style: baseStyle(theme, tiles, assets),
@@ -352,10 +386,6 @@
           zoom: start.zoom,
           minZoom: 6,
           maxZoom: 18,
-          maxBounds: [
-            [w - 1.5, s - 1.5],
-            [e + 1.5, n + 1.5]
-          ],
           attributionControl: { compact: true },
           dragRotate: false,
           pitchWithRotate: false,
@@ -390,7 +420,10 @@
           placeHome();
           emitView();
         });
-        map.on('moveend', emitView);
+        map.on('moveend', () => {
+          emitView();
+          syncBasemap();
+        });
         emitView();
         map.on('error', (e) => console.warn('map', e.error?.message ?? e));
 
@@ -468,7 +501,7 @@
     if (map && theme !== styleTheme) {
       styleTheme = theme;
       ready = false;
-      map.setStyle(baseStyle(theme, tiles, assets), { diff: false });
+      styleFor(live).then((st) => map?.setStyle(st, { diff: false })).catch(() => {});
     }
   });
 </script>
