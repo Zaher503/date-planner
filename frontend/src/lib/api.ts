@@ -33,6 +33,7 @@ export interface ItemProps {
   end: string | null;
   all_day: boolean;
   rec: string | null;
+  dates?: number;
   price: string | null;
   free: boolean | null;
   rs: 'ok' | 'needs_review' | 'suggested' | 'dismissed';
@@ -143,6 +144,7 @@ export interface Item {
   ticket_url?: string | null;
   status?: string;
   venue_name?: string | null;
+  occurrences?: { starts_at: string; ends_at: string | null }[];
   place?: { id: string; title: string } | null;
 
   sources: SourceInfo[];

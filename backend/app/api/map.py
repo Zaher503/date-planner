@@ -63,9 +63,12 @@ def event_query(f: Filters, user_id: int, origin) -> Select:
     upcoming = (select(func.min(Occurrence.starts_at))
                 .where(Occurrence.event_id == Event.id, event_end(Occurrence.starts_at, Occurrence.ends_at) > ref)
                 .correlate(Event).scalar_subquery())
+    dates = (select(func.count(Occurrence.id))
+             .where(Occurrence.event_id == Event.id, event_end(Occurrence.starts_at, Occurrence.ends_at) > ref)
+             .correlate(Event).scalar_subquery())
     q = (select(Event.id, Event.title, Event.category, lon.label("lon"), lat.label("lat"),
                 func.coalesce(upcoming, Event.starts_at).label("start"), Event.starts_at, Event.ends_at,
-                Event.all_day, func.coalesce(Event.recurrence_text, Event.rrule).label("rec"),
+                Event.all_day, func.coalesce(Event.recurrence_text, Event.rrule).label("rec"), dates.label("dates"),
                 Event.is_free, Event.price_min, Event.price_max, Event.price_text, Event.currency,
                 Event.review_status, UserItemState.status.label("my"), UserItemState.rating,
                 Event.address_text, Event.venue_name, Event.tags, Event.created_at,
@@ -83,7 +86,7 @@ def _iso(d: datetime | None) -> str | None:
 def place_props(r) -> dict:
     return {
         "id": str(r.id), "t": "place", "title": r.title, "cat": r.category,
-        "start": None, "end": None, "all_day": False, "rec": None,
+        "start": None, "end": None, "all_day": False, "rec": None, "dates": 0,
         "price": place_price_label(r.price_level), "free": r.price_level == 0,
         "rs": r.review_status, "my": r.my, "rating": r.rating,
         "addr": r.address_text, "venue": None,
@@ -101,6 +104,7 @@ def event_props(r) -> dict:
     return {
         "id": str(r.id), "t": "event", "title": r.title, "cat": r.category,
         "start": _iso(r.start), "end": _iso(end), "all_day": bool(r.all_day), "rec": r.rec,
+        "dates": r.dates or 0,
         "price": event_price_label(r.is_free, r.price_min, r.price_max, r.price_text, r.currency),
         "free": bool(r.is_free),
         "rs": r.review_status, "my": r.my, "rating": r.rating,

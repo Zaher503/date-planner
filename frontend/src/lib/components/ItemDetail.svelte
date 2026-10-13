@@ -4,6 +4,7 @@
   import Bookmark from '@lucide/svelte/icons/bookmark';
   import CalendarCheck from '@lucide/svelte/icons/calendar-check';
   import CircleCheck from '@lucide/svelte/icons/circle-check';
+  import CalendarDays from '@lucide/svelte/icons/calendar-days';
   import Clock from '@lucide/svelte/icons/clock';
   import MapPin from '@lucide/svelte/icons/map-pin';
   import Globe from '@lucide/svelte/icons/globe';
@@ -28,6 +29,7 @@
   import { appleMapsUrl, duration, googleMapsUrl, hostOf, longWhen, relativeAgo, when } from '$lib/format';
   import { app } from '$lib/state.svelte';
   import ItemEdit from './ItemEdit.svelte';
+  import OccurrenceCalendar from './OccurrenceCalendar.svelte';
   import Stars from './Stars.svelte';
 
   interface Props {
@@ -337,7 +339,7 @@
 
         <ul class="facts">
           {#if isEvent}
-            {#if item.starts_at}
+            {#if item.starts_at && (item.occurrences?.length ?? 0) <= 1}
               <li>
                 <Clock size={17} />
                 <span>
@@ -347,6 +349,9 @@
                   {/if}
                 </span>
               </li>
+            {/if}
+            {#if (item.occurrences?.length ?? 0) > 1}
+              <li class="cal-row"><CalendarDays size={17} /><OccurrenceCalendar occurrences={item.occurrences ?? []} tz={item.tz ?? tz} allDay={!!item.all_day} /></li>
             {/if}
             {#if item.recurrence_text}
               <li><Repeat size={17} /><span>{item.recurrence_text.replace(/^\w/, (c) => c.toUpperCase())}</span></li>
@@ -806,6 +811,10 @@
     flex: none;
     margin-top: 1px;
     color: var(--text-3);
+  }
+  .cal-row > :global(.cal) {
+    flex: 1;
+    min-width: 0;
   }
   .sub {
     display: block;

@@ -33,7 +33,7 @@
   function subline(p: Row): string {
     const bits: string[] = [];
     if (p.t === 'event') {
-      if (p.start) bits.push(when(p.start, { allDay: p.all_day, tz, now }));
+      if (p.start) bits.push(when(p.start, { allDay: p.all_day, tz, now }) + (p.dates && p.dates > 1 ? ` +${p.dates - 1} more` : ''));
       else if (p.rec) bits.push(p.rec.replace(/^\w/, (c) => c.toUpperCase()));
       if (p.venue && p.venue !== p.title) bits.push(p.venue);
     } else {

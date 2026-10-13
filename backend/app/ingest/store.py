@@ -16,6 +16,7 @@ from app.resolve.resolver import Resolution
 from app.resolve.scorer import OSM_CATEGORY, name_similarity
 
 SAME_PLACE_M = 75
+SAME_SERIES = 0.85  # title match that makes another date at the same venue part of one event
 DEFAULT_MINUTES = {"live_music": 180, "show": 150, "comedy": 120, "festival": 240, "market": 240,
                    "class": 120, "sports": 180, "nightlife": 240, "activity": 120, "arts": 120}
 PLACE_REVIEW_FLAGS = {"not a specific venue"}
@@ -110,6 +111,13 @@ def _event_minutes(hint: ItemHint) -> tuple[int | None, bool]:
     return DEFAULT_MINUTES.get(hint.category or "", 120), True
 
 
+def _series_match(db: Session, place: Place, title: str) -> Event | None:
+    """An event at this venue with the same title: this date belongs to it."""
+    rows = db.scalars(select(Event).where(Event.place_id == place.id, Event.starts_at.is_not(None),
+                                          Event.review_status != "dismissed")).all()
+    return next((e for e in rows if name_similarity(e.title, title) >= SAME_SERIES), None)
+
+
 def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, user_id: int | None,
                  origin: str = "manual") -> tuple[Event, bool]:
     title = hint.event_title or hint.name
@@ -119,6 +127,10 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
     else:
         q = q.where(Event.starts_at.is_(None))
     event = next((e for e in db.scalars(q).all() if name_similarity(e.title, title) >= 0.6), None)
+    another_date = False
+    if event is None and hint.starts_at:
+        event = _series_match(db, place, title)
+        another_date = event is not None
     created = event is None
     minutes, estimated = _event_minutes(hint)
     review = place.review_status == "needs_review" or bool(EVENT_REVIEW_FLAGS & set(hint.flags))
@@ -131,8 +143,12 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         db.add(event)
     _set(event, "category", hint.category or place.category)
     _set(event, "description", hint.description)
+    end = hint.ends_at or (hint.starts_at + timedelta(minutes=minutes) if hint.starts_at and minutes else None)
+    if (not created and hint.starts_at and event.starts_at and hint.starts_at < event.starts_at
+            and not {"starts_at", "ends_at"} & set(event.user_overrides or {})):
+        event.starts_at, event.ends_at = hint.starts_at, end  # the event shows its earliest date
     _set(event, "starts_at", hint.starts_at)
-    _set(event, "ends_at", hint.ends_at or (hint.starts_at + timedelta(minutes=minutes) if hint.starts_at and minutes else None))
+    _set(event, "ends_at", end)
     _set(event, "duration_min", minutes)
     if created:
         event.duration_estimated = estimated
@@ -144,6 +160,10 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
     if "tags" not in event.user_overrides:
         event.tags = list(dict.fromkeys([*(event.tags or []), *hint.tags]))[:12]
     db.flush()
+    if another_date:
+        # Another date of an event we already have is one more occurrence, not a second event
+        db.execute(insert(Occurrence).values(event_id=event.id, starts_at=hint.starts_at, ends_at=end)
+                   .on_conflict_do_nothing(constraint="uq_occurrence"))
     if event.starts_at:
         db.execute(insert(Occurrence).values(event_id=event.id, starts_at=event.starts_at, ends_at=event.ends_at)
                    .on_conflict_do_nothing(constraint="uq_occurrence"))

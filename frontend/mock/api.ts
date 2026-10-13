@@ -70,7 +70,7 @@ function detail(id: string) {
   };
   return p.t === 'place'
     ? { ...base, website: 'https://example.com', phone: null, opening_hours: 'Mo-Su 16:00-01:00', open_now: true, price_level: 2, closed: false, events: [] }
-    : { ...base, starts_at: p.start, ends_at: p.end, duration_min: p.start ? 180 : null, duration_estimated: true, all_day: false, recurrence_text: p.rec, tz: 'America/Los_Angeles', price_min: 15, price_max: null, currency: 'USD', is_free: false, price_text: null, ticket_url: null, status: 'scheduled', venue_name: p.venue, place: null };
+    : { ...base, starts_at: p.start, ends_at: p.end, duration_min: p.start ? 180 : null, duration_estimated: true, all_day: false, recurrence_text: p.rec, tz: 'America/Los_Angeles', price_min: 15, price_max: null, currency: 'USD', is_free: false, price_text: null, ticket_url: null, status: 'scheduled', venue_name: p.venue, place: null, occurrences: p.start ? [0, 7, 14, 21, 35].map((d) => ({ starts_at: new Date(Date.parse(p.start!) + d * 86400000).toISOString(), ends_at: null })) : [] };
 }
 
 function feature(it: { p: Props; lat: number; lon: number }) {

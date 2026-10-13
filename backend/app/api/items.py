@@ -32,6 +32,7 @@ ItemType = Literal["place", "event"]
 REPROCESSABLE = {"tiktok", "youtube", "gmaps", "applemaps", "event_page", "text", "image"}
 CAPTION_CHARS = 4000
 MAX_TAGS = 20
+MAX_OCCURRENCES = 400
 NOT_NULL = {"title", "tags", "lat", "lon", "closed", "all_day", "status", "review_status"}
 
 
@@ -128,6 +129,9 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "price_min": _num(item.price_min), "price_max": _num(item.price_max), "currency": item.currency,
             "is_free": item.is_free, "price_text": item.price_text, "ticket_url": item.ticket_url,
             "status": item.status, "venue_name": item.venue_name,
+            "occurrences": [{"starts_at": _iso(o.starts_at), "ends_at": _iso(o.ends_at)} for o in db.scalars(
+                select(Occurrence).where(Occurrence.event_id == item.id).order_by(Occurrence.starts_at)
+                .limit(MAX_OCCURRENCES)).all()],
             "place": {"id": str(place.id), "title": place.name} if place else None,
         })
         if place is not None and place.review_status == "needs_review":
@@ -284,7 +288,7 @@ def _event_times(ev: Event, cols: dict) -> None:
         raise HTTPException(400, "price_max is below price_min")
 
 
-def _after_event_change(db: Session, ev: Event, changed: set[str], sent: set[str]) -> None:
+def _after_event_change(db: Session, ev: Event, changed: set[str], sent: set[str], old_start: datetime | None) -> None:
     if not changed & {"starts_at", "ends_at"}:
         return
     if ev.starts_at and ev.ends_at:
@@ -292,10 +296,12 @@ def _after_event_change(db: Session, ev: Event, changed: set[str], sent: set[str
         if "ends_at" in sent:
             ev.duration_estimated = False
     if not ev.rrule:
-        # A one-off event has exactly one occurrence
-        db.execute(delete(Occurrence).where(Occurrence.event_id == ev.id))
+        # Move the occurrence that was the event's own date; other dates of the event stay
+        if old_start is not None:
+            db.execute(delete(Occurrence).where(Occurrence.event_id == ev.id, Occurrence.starts_at == old_start))
         if ev.starts_at:
-            db.add(Occurrence(event_id=ev.id, starts_at=ev.starts_at, ends_at=ev.ends_at))
+            db.execute(insert(Occurrence).values(event_id=ev.id, starts_at=ev.starts_at, ends_at=ev.ends_at)
+                       .on_conflict_do_update(constraint="uq_occurrence", set_={"ends_at": ev.ends_at}))
 
 
 def _after_place_change(db: Session, place: Place, changed: set[str], was_review: bool) -> None:
@@ -326,9 +332,10 @@ def patch_item(type_: ItemType, item_id: uuid.UUID, body: dict = Body(...), db: 
     if isinstance(item, Event):
         _event_times(item, cols)
     was_review = item.review_status == "needs_review"
+    old_start = item.starts_at if isinstance(item, Event) else None
     changed = apply_changes(item, cols)
     if isinstance(item, Event):
-        _after_event_change(db, item, changed, sent)
+        _after_event_change(db, item, changed, sent, old_start)
     else:
         _after_place_change(db, item, changed, was_review)
     if changed:
