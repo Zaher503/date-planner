@@ -132,6 +132,16 @@ class AppState {
     setTimeout(() => this.dismiss(key), DONE_TOAST_MS);
   }
 
+  // Adopt every active job (a bulk import queues them on the server after the request returns)
+  watch() {
+    let n = 0;
+    const tick = () => {
+      this.poll(true);
+      if (++n < 6) setTimeout(tick, 2500);
+    };
+    tick();
+  }
+
   async poll(initial = false) {
     if (this.#timer) {
       clearTimeout(this.#timer);

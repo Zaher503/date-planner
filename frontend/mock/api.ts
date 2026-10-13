@@ -162,9 +162,13 @@ export function mockApi(): Plugin {
           jobs.push({ id, started });
           return send(200, { status: 'queued', source_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', job_id: id, kind: 'tiktok' });
         }
+        if (path === '/api/ui/add-bulk') {
+          for (let i = 0; i < 8; i++) jobs.push({ id: ++jobId, started: Date.now() + i * 4000 });
+          return send(200, { accepted: 8 });
+        }
         if (path === '/api/jobs') {
           const out = jobs.map((j) => {
-            const age = (Date.now() - (j.started as number)) / 1000;
+            const age = Math.max(0, (Date.now() - (j.started as number)) / 1000);
             const done = age > 7;
             return {
               id: j.id, type: 'ingest', status: done ? 'done' : 'running', stage: age < 3 ? 'reading the link' : 'finding place 1 of 1',

@@ -71,27 +71,12 @@
 
   // Several links pasted at once are added one by one
   const links = $derived([...new Set(text.match(/https?:\/\/[^\s<>"]+/g) ?? [])]);
-  let progress = $state('');
 
   async function bulk() {
-    let done = 0;
-    const failed: string[] = [];
-    for (const url of links) {
-      progress = `Adding ${done + 1} of ${links.length}`;
-      try {
-        app.track(await api.add(url), label(url));
-      } catch {
-        failed.push(url);
-      }
-      done++;
-    }
-    progress = '';
-    if (failed.length) {
-      text = failed.join('\n');
-      error = `${failed.length} of ${links.length} could not be added. They are left in the box to retry.`;
-    } else {
-      onclose();
-    }
+    const res = await api.addBulk(links);
+    app.info(`Importing ${res.accepted} links`, 'They are read in the background. Open the queue to follow them.');
+    app.watch();
+    onclose();
   }
 
   async function submit(e: SubmitEvent) {
@@ -159,7 +144,7 @@
       <button type="button" class="btn" onclick={() => picker.click()}><ImageIcon size={16} /> Screenshot</button>
       <span class="spacer"></span>
       <button type="button" class="btn" onclick={onclose}>Cancel</button>
-      <button type="submit" class="btn primary" disabled={sending || (!text.trim() && !image)}>{sending ? (progress || 'Adding') : links.length > 1 ? `Add ${links.length}` : 'Add'}</button>
+      <button type="submit" class="btn primary" disabled={sending || (!text.trim() && !image)}>{sending ? 'Adding' : links.length > 1 ? `Add ${links.length}` : 'Add'}</button>
     </div>
   </form>
 </dialog>

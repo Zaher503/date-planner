@@ -5,7 +5,7 @@ import time
 from collections import deque
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import jobs
 from app.api.auth import current_user, require_key, upsert_user, username_from_request
 from app.db.models import Job, Source, User
-from app.db.session import get_db
+from app.db.session import SessionLocal, get_db
 from app.ingest import media
 from app.ingest.urls import classify, first_url, identity_of, is_short_link, normalize
 from app.net import resolve_redirects
@@ -124,6 +124,35 @@ def add_with_key(body: AddIn, request: Request, db: Session = Depends(get_db)):
 def add_from_ui(body: AddIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
     _rate_limit()
     return add_item(db, body, user)
+
+
+class BulkIn(BaseModel):
+    urls: list[str] = Field(max_length=100)
+
+
+class BulkOut(BaseModel):
+    accepted: int
+
+
+def _add_many(urls: list[str], user_id) -> None:
+    """Runs after the response: each link gets its own session so one bad link cannot stop the rest."""
+    for url in urls:
+        try:
+            with SessionLocal() as db:
+                user = db.get(User, user_id) if user_id else None
+                add_item(db, AddIn(url=url[:4000]), user)
+        except Exception as e:
+            log.warning("bulk add of %s failed: %s", url, e)
+
+
+@router.post("/api/ui/add-bulk", response_model=BulkOut)
+def add_bulk_from_ui(body: BulkIn, tasks: BackgroundTasks, user: User = Depends(current_user)):
+    """Take a whole list at once; the links are saved and queued in the background."""
+    urls = list(dict.fromkeys(u.strip() for u in body.urls if u.strip()))
+    if not urls:
+        raise HTTPException(400, "send at least one link")
+    tasks.add_task(_add_many, urls, user.id)
+    return BulkOut(accepted=len(urls))
 
 
 @router.get("/api/jobs")

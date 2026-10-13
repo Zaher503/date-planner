@@ -242,6 +242,7 @@ export const api = {
     const t = text.trim();
     return request<AddResult>('POST', '/api/ui/add', /^https?:\/\/\S+$/i.test(t) ? { url: t } : { text: t });
   },
+  addBulk: (urls: string[]) => request<{ accepted: number }>('POST', '/api/ui/add-bulk', { urls }),
   addImage: async (file: Blob, name = 'screenshot') => {
     const form = new FormData();
     form.append('file', file, name);
