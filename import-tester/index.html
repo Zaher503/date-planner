@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import tester</title>
+<style>
+  body { font: 14px/1.45 system-ui, sans-serif; max-width: 980px; margin: 24px auto; padding: 0 16px; color: #222; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  #status { font-size: 12px; color: #666; margin-bottom: 14px; }
+  .ok { color: #178a3c; } .bad { color: #c0392b; }
+  form { display: flex; gap: 8px; }
+  input { flex: 1; padding: 8px 10px; font-size: 14px; }
+  button { padding: 8px 18px; font-size: 14px; cursor: pointer; }
+  #stage { margin: 14px 0 6px; color: #555; min-height: 1.4em; }
+  .card { border: 1px solid #ddd; border-radius: 6px; padding: 10px 12px; margin: 10px 0; }
+  .card h3 { margin: 0 0 6px; font-size: 15px; }
+  .tag { display: inline-block; background: #eef; border-radius: 4px; padding: 0 6px; margin-right: 4px; font-size: 12px; }
+  .flag { background: #fee; }
+  table { border-collapse: collapse; width: 100%; }
+  td { vertical-align: top; padding: 2px 8px 2px 0; border-top: 1px solid #f0f0f0; }
+  td:first-child { color: #777; white-space: nowrap; width: 1%; }
+  pre { background: #f6f6f6; padding: 10px; overflow: auto; max-height: 360px; font-size: 12px; white-space: pre-wrap; }
+  details { margin: 8px 0; }
+  summary { cursor: pointer; color: #555; }
+  .err { color: #c0392b; font-weight: 600; }
+</style>
+</head>
+<body>
+<h1>Import tester</h1>
+<div id="status">checking services...</div>
+<form id="f">
+  <input id="url" placeholder="Paste a link (event page, TikTok, YouTube, Google or Apple Maps)" autofocus>
+  <button id="go">Import</button>
+</form>
+<div id="stage"></div>
+<div id="out"></div>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+fetch('/api/status').then(r => r.json()).then(s => {
+  const part = (name, x, extra) => `<span class="${x.ok ? 'ok' : 'bad'}">${name}: ${x.ok ? 'ok' : 'off'}</span>${extra ? ' (' + esc(extra) + ')' : ''}`;
+  $('status').innerHTML = part('AI model', s.llm, s.llm.note || s.llm.model) + ' &middot; ' +
+    part('real browser', s.browser, s.browser.ok ? '' : 'pages that need JS / bot walls will fail') + ' &middot; ' + part('search', s.searxng) + ' &middot; ' + part('geocoder', s.photon) + ' &middot; ' + part('TikTok login', s.tiktok_cookies, s.tiktok_cookies.ok ? 'cookies.txt loaded' : 'no cookies.txt');
+});
+
+function cell(v) {
+  if (v === null || v === undefined || v === '' || (Array.isArray(v) && !v.length)) return '<span style="color:#aaa">NA</span>';
+  if (Array.isArray(v)) return v.map(x => `<span class="tag">${esc(x)}</span>`).join('');
+  return esc(v);
+}
+
+function venueBlock(v) {
+  if (!v) return '';
+  if (v.error) return `<details open><summary>Website lookup</summary><p class="err">${esc(v.error)}</p></details>`;
+  const loc = v.location || {};
+  const rows = [
+    ['website', v.website], ['why this site', v.site_pick_why], ['search', v.search_query], ['site note', v.site_note],
+    ['address', v.address], ['phone', v.phone], ['hours (OSM)', v.opening_hours], ['hours (as written)', v.hours_text],
+    ['is free', v.is_free], ['price notes', v.price_text], ['price level', v.price_level],
+    ['sources', v.sources ? Object.entries(v.sources).map(([k, x]) => k + ': ' + (x || 'NA')).join(' | ') : null],
+    ['lat / lon', loc.lat != null ? loc.lat + ', ' + loc.lon : null], ['location from', loc.method],
+    ['evidence', (loc.evidence || []).map(e => `${e.method}: ${e.lat}, ${e.lon}${e.matched ? ' (' + e.matched + ')' : ''}`)],
+    ['sources agree within km', loc.agreement_km],
+    ['pages read', (v.pages || []).map(p => p.url + ' [' + p.via + ']')],
+    ['pages failed', (v.pages_failed || []).map(p => p.url + ' ' + p.why)],
+    ['rejected sites', (v.site_rejected || []).map(p => p.url + ': ' + p.why)],
+    ['flags', v.flags],
+  ];
+  const tiers = (v.price_tiers || []).length ? v.price_tiers.map(t => `<span class="tag">${esc(t.label)}: ${t.price == null ? 'NA' : '$' + esc(t.price)}${t.note ? ' (' + esc(t.note) + ')' : ''}</span>`).join('') : cell(null);
+  const imgs = (v.images || []).length ? `<div>${v.images.map(u => `<a href="${esc(u)}" target="_blank"><img src="${esc(u)}" style="height:70px;margin:2px;border-radius:4px" loading="lazy" referrerpolicy="no-referrer"></a>`).join('')}</div>` : cell(null);
+  return `<details open><summary>Website lookup (${v.elapsed}s)</summary><table>` +
+    rows.map(([k, x]) => `<tr><td>${k}</td><td>${cell(x)}</td></tr>`).join('') +
+    `<tr><td>price tiers</td><td>${tiers}</td></tr><tr><td>images (${(v.images || []).length})</td><td>${imgs}</td></tr></table>` +
+    `<details><summary>Search results</summary><pre>${esc((v.search_results || []).map(r => (r.aggregator ? '[skip] ' : '') + r.title + ' - ' + r.url).join('\n'))}</pre></details></details>`;
+}
+
+function render(job) {
+  const r = job.result;
+  let h = `<p>${job.status === 'failed' ? `<span class="err">Failed:</span> ${esc(job.error)}` :
+    `<b>${r.items.length} item(s)</b> from a <b>${esc(r.kind)}</b> link${r.title ? ' &mdash; ' + esc(r.title) : ''}`} <span style="color:#888">(${job.elapsed}s)</span></p>`;
+  if (r) {
+    if (r.note) h += `<p class="err">${esc(r.note)}</p>`;
+    for (const it of r.items) {
+      h += `<div class="card"><h3>${esc(it.kind)}: ${esc(it.event_title || it.name)}${it.event_title ? ' @ ' + esc(it.name) : ''}</h3><table>` +
+        Object.entries(it).filter(([k]) => k !== 'venue').map(([k, v]) => `<tr><td>${k}</td><td>${cell(v)}</td></tr>`).join('') + `</table>${venueBlock(it.venue)}</div>`;
+    }
+    h += `<details><summary>Text the model read</summary><pre>${esc(r.extracted_text || '(none)')}</pre></details>`;
+    h += `<details><summary>Source data</summary><pre>${esc(JSON.stringify(r.source, null, 2))}</pre></details>`;
+    h += `<details><summary>Raw items JSON</summary><pre>${esc(JSON.stringify(r.items, null, 2))}</pre></details>`;
+  }
+  h += `<details ${job.status === 'failed' ? 'open' : ''}><summary>Log (${job.logs.length})</summary><pre>${esc(job.logs.join('\n') || '(empty)')}</pre></details>`;
+  h += `<details><summary>Stages</summary><pre>${esc(job.stages.map(s => `${s.t}s  ${s.pct}%  ${s.stage}`).join('\n'))}</pre></details>`;
+  $('out').innerHTML = h;
+}
+
+$('f').onsubmit = async e => {
+  e.preventDefault();
+  const url = $('url').value.trim();
+  if (!url) return;
+  $('go').disabled = true; $('out').innerHTML = ''; $('stage').textContent = 'starting...';
+  const res = await fetch('/api/import', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url})});
+  if (!res.ok) { $('stage').innerHTML = `<span class="err">${esc((await res.json()).detail)}</span>`; $('go').disabled = false; return; }
+  const {id} = await res.json();
+  const tick = async () => {
+    const job = await (await fetch('/api/import/' + id)).json();
+    $('stage').textContent = job.status === 'running' ? `${job.stage} (${job.pct}%) - ${job.elapsed}s` : '';
+    if (job.status === 'running') return setTimeout(tick, 600);
+    $('go').disabled = false; render(job);
+  };
+  tick();
+};
+</script>
+</body>
+</html>
