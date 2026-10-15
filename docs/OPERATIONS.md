@@ -23,6 +23,12 @@ Dates has no models and no GPU of its own. The worker calls the hub ([ai-hub](ht
 ssh zephyrus 'curl -s localhost:11434/queue'       # who is running, who is waiting, estimates
 ```
 
+## Website lookup (import)
+
+After a link is placed on the map, the ingest job reads each venue's own website: SearXNG finds it, the model picks the official site, and the home page, contact/hours pages and up to two ticket-vendor pages are read. Hours, phone, price tiers (`places.price_tiers`), the hours as worded (`hours_text`) and photos are filled in only where empty, and every value must appear in the page text. If the site gives a map pin within 1.5 km of the map match, the pin moves to it; farther away it only adds a review flag. A venue already stored with a website and hours or prices is not read again. It needs SearXNG (`SEARXNG_URL`); the real browser (`BROWSER_URL`) is used for JavaScript pages when configured.
+
+`import-tester/` (run `run.bat` on Windows) runs the same code on one link without the database, to see what an import would find.
+
 ## First deploy (new machine)
 
 ```bash

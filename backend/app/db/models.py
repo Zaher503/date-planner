@@ -94,7 +94,10 @@ class Place(TimestampMixin, Base):
     website: Mapped[str | None] = mapped_column(Text)
     phone: Mapped[str | None] = mapped_column(Text)
     opening_hours: Mapped[str | None] = mapped_column(Text)  # OSM opening_hours syntax
+    hours_text: Mapped[str | None] = mapped_column(Text)  # hours as the venue words them
     price_level: Mapped[int | None] = mapped_column(SmallInteger)
+    price_text: Mapped[str | None] = mapped_column(Text)
+    price_tiers: Mapped[list[dict]] = mapped_column(JSONB, server_default="[]")  # [{label, price, note}]
     description: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     embedding = mapped_column(Vector(EMBED_DIM))

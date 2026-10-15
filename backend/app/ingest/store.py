@@ -90,6 +90,10 @@ def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | No
     _set(place, "website", hint.website or extra.get("website"))
     _set(place, "phone", hint.phone or extra.get("phone"))
     _set(place, "opening_hours", hint.opening_hours or extra.get("opening_hours"))
+    _set(place, "hours_text", hint.hours_text)
+    if hint.kind == "place":
+        _set(place, "price_tiers", hint.price_tiers)
+        _set(place, "price_text", hint.price_text)
     _set(place, "price_level", hint.price_level if hint.price_level is not None else extra.get("price_level"))
     _set(place, "description", hint.description if hint.kind == "place" else None)
     if cand.osm_type and cand.osm_id and place.osm_id is None:

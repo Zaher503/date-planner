@@ -7,12 +7,12 @@ collected -> the address is geocoded. Nothing is invented: unsupported values ar
 """
 import html as htmllib
 import logging
-import os
 import re
 import time
 from urllib.parse import urljoin, urlsplit
 
 from lxml import html as lxml_html
+from sqlalchemy.orm import Session
 
 from app import browser, hours
 from app.ingest.event_page import parse_page
@@ -26,9 +26,8 @@ from app.resolve import candidates as cands
 from app.resolve import resolver
 from app.resolve.candidates import km
 
-log = logging.getLogger("venue")
+log = logging.getLogger(__name__)
 REGION = "Los Angeles"
-HOME = (float(os.environ.get("HOME_LAT", "34.0522")), float(os.environ.get("HOME_LON", "-118.2437")))
 MAX_EXTRA_PAGES = 4
 MAX_IMAGES = 12
 PAGE_TEXT = 4500
@@ -96,11 +95,11 @@ def known_site(hint: ItemHint, out: dict) -> tuple[str, str] | None:
     return final, html
 
 
-def find_site(hint: ItemHint, out: dict) -> tuple[str, str] | None:
+def find_site(db: Session | None, hint: ItemHint, out: dict) -> tuple[str, str] | None:
     """(final url, html) of the venue's official site, or None."""
     where = hint.inside or hint.area or REGION
     q = f"{hint.name} {where}".strip()
-    results = [r for r in cands.searx(None, q) if r.get("url")]
+    results = [r for r in cands.searx(db, q) if r.get("url")]
     out["search_query"] = q
     out["search_results"] = [{"title": r.get("title"), "url": r["url"], "aggregator": bool(cands.AGGREGATORS.search(r["url"]))}
                              for r in results]
@@ -298,7 +297,8 @@ def read_facts(pages: list[dict], out: dict) -> dict:
     return facts
 
 
-def locate(hint: ItemHint, address: str | None, jsonld: ItemHint | None, mp, out: dict) -> dict:
+def locate(db: Session | None, home: tuple[float, float], hint: ItemHint, address: str | None,
+           jsonld: ItemHint | None, mp, out: dict) -> dict:
     """Best point for the venue and the evidence for it."""
     evidence = []
     if jsonld and jsonld.lat is not None:
@@ -307,7 +307,7 @@ def locate(hint: ItemHint, address: str | None, jsonld: ItemHint | None, mp, out
         evidence.append({"method": f"site {m[2]}", "lat": m[0], "lon": m[1]})
     if address:
         try:
-            c = resolver._geocode_address(None, address, HOME, hint.area)
+            c = resolver._geocode_address(db, address, home, hint.area)
         except Exception as e:
             c = None
             out["flags"].append(f"geocoder failed: {type(e).__name__}")
@@ -323,13 +323,14 @@ def locate(hint: ItemHint, address: str | None, jsonld: ItemHint | None, mp, out
             "agreement_km": round(far, 3)}
 
 
-def lookup(hint: ItemHint, stage=lambda s: None) -> dict:
+def lookup(db: Session | None, hint: ItemHint, home: tuple[float, float], stage=lambda s: None) -> dict:
+    """Everything the venue's own website says. Never raises for web problems: gaps come back as flags."""
     t0 = time.time()
     out: dict = {"name": hint.name, "flags": [], "pages": [], "website": None}
     stage(f"finding the website of {hint.name}")
-    site = known_site(hint, out) or find_site(hint, out)
+    site = known_site(hint, out) or find_site(db, hint, out)
     if site is None:
-        out["location"] = locate(hint, hint.address, None, [], out)
+        out["location"] = locate(db, home, hint, hint.address, None, [], out)
         out["elapsed"] = round(time.time() - t0, 1)
         return out
     url, home_html = site
@@ -395,9 +396,20 @@ def lookup(hint: ItemHint, stage=lambda s: None) -> dict:
     out["images"] = list(dict.fromkeys(images))[:MAX_IMAGES]
     mp = next((m for m in (map_point(b) for b in htmls.values()) if m), None)
     mp2 = next((m for m in (maps_point(b, out) for b in list(htmls.values())[:1]) if m), None)
-    out["location"] = locate(hint, address or hint.address, jsonld, [m for m in (mp, mp2) if m], out)
+    out["location"] = locate(db, home, hint, address or hint.address, jsonld, [m for m in (mp, mp2) if m], out)
     out["elapsed"] = round(time.time() - t0, 1)
     return out
+
+
+def site_pin(v: dict) -> tuple[float, float, str] | None:
+    """A point the venue's own site vouches for: structured data or its map link, else an exact-house
+    geocode of the address the site states. None when the site gave nothing usable."""
+    ev = (v.get("location") or {}).get("evidence") or []
+    own = next((e for e in ev if e["method"].startswith("site ")), None)
+    if own:
+        return own["lat"], own["lon"], own["method"]
+    exact = next((e for e in ev if "exact house" in e["method"]), None)
+    return (exact["lat"], exact["lon"], exact["method"]) if exact else None
 
 
 def apply(hint: ItemHint, v: dict) -> None:
@@ -409,17 +421,12 @@ def apply(hint: ItemHint, v: dict) -> None:
     fill("website", v.get("website"))
     fill("phone", v.get("phone"))
     fill("opening_hours", v.get("opening_hours"))
+    fill("hours_text", v.get("hours_text"))
     fill("address", v.get("address"))
-    fill("images", v.get("images"))
     fill("price_level", v.get("price_level"))
-    loc = v.get("location") or {}
-    if hint.lat is None and loc.get("lat") is not None:
-        hint.lat, hint.lon = loc["lat"], loc["lon"]
-        hint.flags.append(f"location from {loc['method']}")
-    prices = [t["price"] for t in v.get("price_tiers", []) if t.get("price") is not None]
     if hint.kind == "place":
-        if prices and hint.price_min is None:
-            hint.price_min, hint.price_max = min(prices), max(prices)
+        fill("images", v.get("images"))
+        fill("price_tiers", v.get("price_tiers"))
+        fill("price_text", v.get("price_text"))
         if v.get("is_free") and hint.is_free is None:
             hint.is_free = True
-        fill("price_text", v.get("price_text"))

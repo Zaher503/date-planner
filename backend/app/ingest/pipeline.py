@@ -22,11 +22,12 @@ from app.ingest import maps_links, media, ocr, store
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
 from app.llm.ollama import describe, waiting
-from app.ingest import images, page_images, pricing
+from app.ingest import images, page_images, pricing, venue
 from app.ingest.timing import vtt_cues
 from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
 from app.llm import extract as llm
 from app.net import BlockedURL, fetch_text
+from app.resolve.candidates import km
 from app.resolve.resolver import resolve
 from app.resolve.scorer import name_similarity
 
@@ -268,6 +269,44 @@ def _resolve_all(db: Session, job: Job, hints: list[ItemHint], home, pct: tuple[
     return out
 
 
+# A website's own pin only replaces the map match when both are in the same neighborhood
+SITE_PIN_MAX_KM = 1.5
+
+
+def _look_up_sites(db: Session, job: Job, resolved: list, home, pct: tuple[int, int]) -> None:
+    """Read each placed venue's own website: hours, phone, price tiers, photos and its own pin.
+    Fills the hints in place; a venue we already know in full is not read again."""
+    lo, hi = pct
+    looked: dict[tuple, dict] = {}
+    for i, (hint, res) in enumerate(resolved):
+        if res.best is None or too_vague(res) or not hint.name:
+            continue
+        key = (hint.name.lower(), round(res.best.lat, 3), round(res.best.lon, 3))
+        if key not in looked:
+            known = store.find_place(db, res.best, hint.name)
+            if known is not None and known.website and (known.opening_hours or known.price_tiers):
+                looked[key] = {}
+                continue
+            jobs.set_stage(db, job, f"reading the website of {hint.name}", lo + int((hi - lo) * i / len(resolved)))
+            try:
+                looked[key] = venue.lookup(db, hint, home)
+            except Exception as e:  # the web is flaky; the item is saved without the extras
+                log.warning("website lookup for %r failed: %s", hint.name, e)
+                looked[key] = {}
+        v = looked[key]
+        if not v:
+            continue
+        venue.apply(hint, v)
+        pin = venue.site_pin(v)
+        if pin and res.method != "pin":
+            gap = km(res.best.lat, res.best.lon, pin[0], pin[1])
+            if gap <= SITE_PIN_MAX_KM:
+                res.best.lat, res.best.lon = pin[0], pin[1]
+                res.best.extra = {**res.best.extra, "site_pin": pin[2], "site_pin_moved_km": round(gap, 3)}
+            else:
+                hint.flags.append(f"website pin is {gap:.1f} km from the map match")
+
+
 def slow_text(db: Session, job: Job, src: Source, g: Gathered) -> str:
     """Download the video, transcribe it when there were no captions, read on-screen text.
     Returns the extra text (empty when nothing new was found). The video stays archived."""
@@ -370,6 +409,8 @@ def run(db: Session, job: Job) -> dict:
                 second = _resolve_all(db, job, again, home, (86, 92))
                 if strength(second) >= strength(resolved):
                     hints, resolved = again, second
+
+    _look_up_sites(db, job, resolved, home, (90, 93))
 
     if not hints:
         src.status, src.error = "failed", "no place or event found in this link"

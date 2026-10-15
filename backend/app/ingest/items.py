@@ -32,10 +32,12 @@ class ItemHint:
     currency: str | None = None
     is_free: bool | None = None
     price_text: str | None = None
+    price_tiers: list[dict] = field(default_factory=list)  # [{label, price, note}] from the venue's site
     ticket_url: str | None = None
     website: str | None = None
     phone: str | None = None
     opening_hours: str | None = None  # OSM syntax
+    hours_text: str | None = None  # hours as the venue words them
     price_level: int | None = None
     tags: list[str] = field(default_factory=list)
     image_url: str | None = None
