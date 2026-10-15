@@ -14,7 +14,7 @@ from app.ingest.items import ItemHint
 from app.resolve.candidates import Candidate
 from app.resolve.resolver import Resolution
 from app.resolve.scorer import OSM_CATEGORY, name_similarity
-from app.textclean import strip_emoji
+from app.textclean import clean_name, strip_emoji
 
 SAME_PLACE_M = 75
 SAME_SERIES = 0.85  # title match that makes another date at the same venue part of one event
@@ -65,7 +65,7 @@ def _place_name(hint: ItemHint, cand: Candidate) -> str:
     # Prefer the official spelling when it clearly is the same place
     if cand.kind == "poi" and cand.name and name_similarity(hint.name, cand.name) >= 0.8:
         return cand.name
-    return hint.name or cand.name
+    return clean_name(hint.name) or cand.name
 
 
 def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | None, origin: str = "manual",

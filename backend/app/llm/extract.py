@@ -4,6 +4,7 @@ from zoneinfo import ZoneInfo
 
 from app.ingest.items import CATEGORIES, ItemHint
 from app.llm import verify
+from app.textclean import clean_name
 from app.llm.ollama import chat_json
 
 MAX_ITEMS = 15
@@ -96,7 +97,7 @@ def name_ok(inside: str, name: str) -> bool:
 
 
 def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
-    name = _s(raw.get("name")) or ""
+    name = clean_name(_s(raw.get("name")))
     area = _s(raw.get("area"))
     if not name and not area:
         return None
@@ -105,7 +106,7 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
     hint = ItemHint(
         kind=raw.get("kind") or "place",
         name=name or area,
-        event_title=(raw.get("event_title") or "").strip() or None,
+        event_title=clean_name(raw.get("event_title")) or None,
         address=(raw.get("address") or "").strip() or None,
         area=area,
         inside=raw.get("inside") if raw.get("inside") and name_ok(raw.get("inside"), name) else None,

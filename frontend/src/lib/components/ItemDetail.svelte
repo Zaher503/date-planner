@@ -118,6 +118,8 @@
   const isEvent = $derived(item?.type === 'event');
   const unsure = $derived(!!item && item.candidates.length > 0 && (item.review_status === 'needs_review' || isEvent));
   const hidden = $derived(item?.review_status === 'dismissed');
+  const needsCheck = $derived(item?.review_status === 'needs_review');
+  const reasons = $derived(item?.review_reasons ?? []);
   const venueName = $derived.by(() => {
     const v = item?.venue_name?.trim();
     if (!isEvent || !v || v === item?.title || v === item?.place?.title) return null;
@@ -220,6 +222,11 @@
     }
   }
 
+  // The person looked and it is fine: the warning goes away
+  async function dismissReview() {
+    await save({ review_status: 'ok' });
+  }
+
   async function toggleHidden() {
     if (!item) return;
     await save({ review_status: hidden ? 'ok' : 'dismissed' });
@@ -276,7 +283,10 @@
 
       {#if unsure}
         <section class="banner review">
-          <div class="banner-title"><TriangleAlert size={16} /> Not sure this pin is right</div>
+          <div class="banner-title"><TriangleAlert size={16} /> {needsCheck ? 'Needs a check' : 'Not sure this pin is right'}</div>
+          {#if reasons.length}
+            <ul class="reasons">{#each reasons as r (r)}<li>{r}</li>{/each}</ul>
+          {/if}
           <p>Pick the right place. The letters are shown on the map.</p>
           <ul class="cands">
             {#each item.candidates as c, i (c.id)}
@@ -297,6 +307,16 @@
           <div class="review-actions">
             <button class="btn small primary" disabled={!!busy} onclick={() => choose(null)}>The current pin is right</button>
             <button class="btn small" disabled={!!busy} onclick={onmovepin}><MapPin size={14} /> Put it somewhere else</button>
+            <button class="btn small" disabled={!!busy || saving} onclick={dismissReview}>Dismiss the warning</button>
+          </div>
+        </section>
+      {:else if needsCheck}
+        <section class="banner review">
+          <div class="banner-title"><TriangleAlert size={16} /> Needs a check</div>
+          <ul class="reasons">{#each reasons as r (r)}<li>{r}</li>{/each}</ul>
+          <div class="review-actions">
+            <button class="btn small primary" disabled={!!busy || saving} onclick={dismissReview}>Looks fine, dismiss</button>
+            <button class="btn small" onclick={() => (editing = true)}><Pencil size={14} /> Edit</button>
           </div>
         </section>
       {/if}
@@ -696,6 +716,15 @@
     font-weight: 650;
     color: var(--ok);
   }
+  .reasons {
+    margin: 6px 0 8px;
+    padding-left: 18px;
+    font-size: 13.5px;
+    color: var(--text);
+  }
+  .reasons li + li {
+    margin-top: 3px;
+  }
   .review-actions {
     display: flex;
     flex-wrap: wrap;
@@ -870,9 +899,11 @@
     color: var(--text-3);
     cursor: pointer;
   }
-  .cal-toggle:hover,
-  .cal-toggle[aria-expanded='false'] {
+  .cal-toggle:hover {
     color: var(--accent);
+  }
+  .cal-toggle[aria-expanded='false'] {
+    color: var(--text);
   }
   .cal-row > :global(.cal) {
     flex: 1;
@@ -918,9 +949,11 @@
     height: 15px;
     margin: 0;
   }
-  .icon-toggle:hover,
-  .icon-toggle[aria-expanded='false'] {
+  .icon-toggle:hover {
     color: var(--accent);
+  }
+  .icon-toggle[aria-expanded='false'] {
+    color: var(--text);
   }
   .hours {
     margin-top: 4px;
@@ -1068,6 +1101,9 @@
   .toggle :global(svg) {
     transition: transform 0.15s;
     transform: rotate(-90deg);
+  }
+  .toggle[aria-expanded='false'] {
+    color: var(--text);
   }
   .toggle :global(svg.flip) {
     transform: none;

@@ -12,7 +12,8 @@ const seed: [Props, number, number][] = [
   [{ id: '11111111-1111-4111-8111-111111111111', t: 'place', title: 'Perch', cat: 'bar', price: '$$', rs: 'ok', tags: ['rooftop', 'views', 'french'], addr: '448 S Hill St, Los Angeles', thumb: false }, 34.0489, -118.2513],
   [{ id: '22222222-2222-4222-8222-222222222222', t: 'place', title: 'Mother of Pearl', cat: 'bar', price: '$$', rs: 'ok', tags: ['cocktails'], addr: '1600 Pacific Coast Hwy', thumb: false }, 34.0, -118.48],
   [{ id: '33333333-3333-4333-8333-333333333333', t: 'place', title: 'Venice Canals', cat: 'outdoors', price: 'Free', free: true, rs: 'needs_review', tags: ['walk', 'canal'], addr: 'Venice, Los Angeles', thumb: false }, 33.985, -118.4695],
-  [{ id: '44444444-4444-4444-8444-444444444444', t: 'event', title: 'Rooftop jazz night', cat: 'live_music', price: '$15', rs: 'ok', tags: ['jazz', 'rooftop'], venue: 'Perch', start: iso(30), end: iso(33), thumb: false }, 34.049, -118.2515],
+  [{ id: '44444444-4444-4444-8444-444444444444', t: 'event', title: 'Rooftop jazz night', cat: 'live_music', price: '$15', rs: 'ok', tags: ['jazz', 'rooftop'], venue: 'Perch', place_id: '11111111-1111-4111-8111-111111111111', start: iso(30), end: iso(33), thumb: false }, 34.049, -118.2515],
+  [{ id: 'aaaaaaaa-0000-4000-8000-000000000001', t: 'event', title: 'Wine tasting night', cat: 'live_music', price: '$30', rs: 'needs_review', tags: ['wine'], venue: 'Perch', place_id: '11111111-1111-4111-8111-111111111111', start: iso(6), end: iso(9), thumb: false }, 34.0489, -118.2513],
   [{ id: '55555555-5555-4555-8555-555555555555', t: 'event', title: 'Melrose Trading Post', cat: 'market', price: '$5', rs: 'ok', tags: ['market', 'vintage'], venue: 'Fairfax High School', rec: 'every Sunday', thumb: false }, 34.0835, -118.3617],
   [{ id: '66666666-6666-4666-8666-666666666666', t: 'place', title: 'El Matador Beach', cat: 'beach', price: 'Free', free: true, rs: 'ok', tags: ['beach', 'sunset'], addr: 'Malibu', thumb: false }, 34.0382, -118.8747],
   [{ id: '77777777-7777-4777-8777-777777777777', t: 'place', title: 'Videre', cat: 'restaurant', price: '$$$', rs: 'suggested', tags: ['dining'], addr: 'Pasadena', thumb: false }, 34.1458, -118.1505],
@@ -57,7 +58,7 @@ function detail(id: string) {
   const base = {
     id, type: p.t, title: p.title, category: p.cat, description: 'Sample item from the offline mock.', tags: p.tags,
     lat: it.lat, lon: it.lon, address_text: p.addr ?? null, review_status: p.rs, confidence: 0.8, origin: 'manual',
-    created_at: iso(-50), updated_at: iso(-2), edited: [], price_label: p.price ?? null,
+    created_at: iso(-50), updated_at: iso(-2), edited: [], review_reasons: p.rs === 'needs_review' ? ['No date was found for this event.', 'The map pin for the venue is not certain. Open the venue to confirm it.'] : [], price_label: p.price ?? null,
     sources: [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', kind: 'tiktok', url: 'https://www.tiktok.com/@someone/video/1', title: 'Date ideas in LA', caption: 'Five rooftop bars', thumb: null, video: null, created_at: iso(-50), fetched_at: iso(-50), submitted_by: 'Zaher' }],
     me: it.me, others: [{ user: 'Katherine', status: 'want', rating: null, notes: 'Go at sunset' }],
     candidates: p.rs === 'needs_review'

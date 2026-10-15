@@ -46,6 +46,7 @@ export interface ItemProps {
   thumb_src?: string | null;
   hero?: number | null;
   tags: string[];
+  place_id?: string | null;
 }
 
 export interface MapFeature {
@@ -62,6 +63,8 @@ export interface MapData {
 export interface ListItem extends ItemProps {
   lat: number;
   lon: number;
+  /** Set on a place that holds several events: they are listed under it. */
+  group?: { count: number; next: string | null; allDay: boolean };
 }
 
 export interface Candidate {
@@ -162,6 +165,7 @@ export interface Item {
   place?: { id: string; title: string } | null;
 
   sources: SourceInfo[];
+  review_reasons: string[];
   images: ItemImage[];
   me: MyState | null;
   others: { user: string; status: MyStatus | null; rating: number | null; notes: string | null }[];

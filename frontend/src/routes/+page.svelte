@@ -309,8 +309,37 @@
       if (lon < w || lon > e || lat < s || lat > n) continue;
       out.push({ ...f.properties, lat, lon });
     }
-    return out.sort(byName);
+    return group(out.sort(byName));
   });
+
+  // A place with several events is one row named after the place: "N events here", the soonest date up front
+  function group(list: ListItem[]): ListItem[] {
+    const events = new Map<string, ListItem[]>();
+    for (const r of list) if (r.t === 'event' && r.place_id) events.set(r.place_id, [...(events.get(r.place_id) ?? []), r]);
+    const many = new Map([...events].filter(([, evs]) => evs.length > 1));
+    if (!many.size) return list;
+    const soonest = (evs: ListItem[]) => {
+      const floor = Date.now() - 3 * 3600e3;
+      const next = evs.filter((e) => e.start && Date.parse(e.start) >= floor).sort((a, b) => Date.parse(a.start!) - Date.parse(b.start!))[0];
+      return { count: evs.length, next: next?.start ?? null, allDay: next?.all_day ?? false };
+    };
+    const out: ListItem[] = [];
+    const placed = new Set<string>();
+    for (const r of list) {
+      if (r.t === 'event' && r.place_id && many.has(r.place_id)) continue;
+      if (r.t === 'place' && many.has(r.id)) {
+        out.push({ ...r, group: soonest(many.get(r.id)!) });
+        placed.add(r.id);
+      } else out.push(r);
+    }
+    // The venue itself is outside this list (another filter or view): show it from its events
+    for (const [pid, evs] of many) {
+      if (placed.has(pid)) continue;
+      const first = evs.find((e) => e.hero || e.thumb_src) ?? evs[0];
+      out.push({ ...first, t: 'place', id: pid, title: first.venue ?? first.title, start: null, end: null, rec: null, dates: 0, price: null, group: soonest(evs) });
+    }
+    return out.sort(byName);
+  }
 
   // Opening an item zooms the map onto it. Coming back shows the list as it was, the item scrolled to the
   // top, until the map is moved by hand.
@@ -320,7 +349,7 @@
 
   const counts = $derived({
     places: rows.filter((r) => r.t === 'place').length,
-    events: rows.filter((r) => r.t === 'event').length
+    events: rows.reduce((n, r) => n + (r.t === 'event' ? 1 : (r.group?.count ?? 0)), 0)
   });
 
   // Item detail

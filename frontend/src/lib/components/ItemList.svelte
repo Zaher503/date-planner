@@ -88,8 +88,12 @@
         <span class="text">
           <span class="title">{p.title}</span>
           <span class="sub">
-            {#if p.rec && !p.start}<Repeat size={12} />{/if}
-            {subline(p)}
+            {#if p.group}
+              {p.group.count} events here{#if p.group.next} · next <b class="next">{when(p.group.next, { allDay: p.group.allDay, tz, now })}</b>{/if}
+            {:else}
+              {#if p.rec && !p.start}<Repeat size={12} />{/if}
+              {subline(p)}
+            {/if}
           </span>
         </span>
         <span class="meta">
@@ -113,6 +117,10 @@
 </div>
 
 <style>
+  .next {
+    color: var(--accent);
+    font-weight: 650;
+  }
   .scroller {
     height: 100%;
     overflow-y: auto;

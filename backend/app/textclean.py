@@ -19,3 +19,10 @@ def strip_emoji(text: str | None) -> str | None:
     out = re.sub(r"[ \t]+([,.;:!?])", r"\1", out)
     out = "\n".join(line.strip() for line in out.split("\n")).strip()
     return out or None
+
+
+def clean_name(name: str | None) -> str:
+    """A venue or event name as written in a caption, without the punctuation around it ("Bacari W Adams?")."""
+    out = (name or "").strip()
+    out = re.sub(r"^[\s\"'\u201c\u2018#@*]+|[\s\"'\u201d\u2019?!,:;*]+$", "", out)
+    return re.sub(r"\s{2,}", " ", out)

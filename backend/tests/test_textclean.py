@@ -18,3 +18,12 @@ def test_plain_text_is_untouched():
 def test_empty_and_emoji_only():
     assert strip_emoji(None) is None
     assert strip_emoji("🎃🍂") is None
+
+
+def test_clean_name_drops_punctuation_around_a_caption_name():
+    from app.textclean import clean_name
+
+    assert clean_name("Bacari W Adams?") == "Bacari W Adams"
+    assert clean_name('  "Perch"! ') == "Perch"
+    assert clean_name("Joe's Pizza Co.") == "Joe's Pizza Co."
+    assert clean_name(None) == ""

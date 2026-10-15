@@ -91,6 +91,48 @@ def _candidates(db: Session, place_id) -> list[dict]:
     return out
 
 
+REVIEW_TEXT = {
+    "not a specific venue": "The link names an area or an activity, not one venue, so the pin is a guess.",
+    "removed unverified date": "A date was read from the link but could not be found in its text, so it was dropped.",
+    "removed unverified time": "A start time was read from the link but could not be found in its text, so it was dropped.",
+    "event with no date": "No date was found for this event.",
+    "recurring series, dates unclear": "This runs for a long stretch, so the individual dates are unclear. It is shown as an ongoing series.",
+    "start time has no time zone": "The page gave a start time without a time zone, so Los Angeles time was assumed.",
+}
+
+
+def review_reasons(db: Session, item: Place | Event) -> list[str]:
+    """Plain-language reasons this item is marked for a check, from what was recorded when it was read."""
+    if item.review_status != "needs_review":
+        return []
+    out: list[str] = []
+    link = _link_col(item)
+    for pos, src in db.execute(select(ItemSource.position, Source).join(Source, Source.id == ItemSource.source_id)
+                               .where(link == item.id)).all():
+        hints = (src.raw or {}).get("hints") or []
+        flags = hints[pos].get("flags", []) if 0 <= pos < len(hints) and isinstance(hints[pos], dict) else []
+        for f in flags:
+            text = REVIEW_TEXT.get(f) or (f[0].upper() + f[1:] + "." if f else None)
+            if text and text not in out and (isinstance(item, Event) or f not in EVENT_ONLY):
+                out.append(text)
+    if isinstance(item, Event):
+        if item.recurrence_text and item.recurrence_text.lower().startswith("ongoing until") \
+                and REVIEW_TEXT["recurring series, dates unclear"] not in out:
+            out.append(REVIEW_TEXT["recurring series, dates unclear"])
+        if not item.starts_at and not item.recurrence_text and REVIEW_TEXT["event with no date"] not in out:
+            out.append(REVIEW_TEXT["event with no date"])
+        place = db.get(Place, item.place_id) if item.place_id else None
+        if place is not None and place.review_status == "needs_review":
+            out.append(f"The map pin for {place.name} is not certain. Open the venue to confirm it.")
+    elif len(db.scalars(select(Candidate.id).where(Candidate.place_id == item.id).limit(2)).all()) > 1:
+        out.append("The map search found more than one possible match and none was a clear winner. Pick the right one below.")
+    return out or ["It was marked for a check when it was added, and no specific reason was recorded."]
+
+
+EVENT_ONLY = {"removed unverified date", "removed unverified time", "event with no date",
+              "recurring series, dates unclear", "start time has no time zone"}
+
+
 def detail(db: Session, item: Place | Event, user: User) -> dict:
     is_place = isinstance(item, Place)
     lat, lon = _latlon(item.geom)
@@ -102,6 +144,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
         "confidence": item.confidence, "origin": item.origin,
         "created_at": _iso(item.created_at), "updated_at": _iso(item.updated_at),
         "edited": sorted((item.user_overrides or {}).keys()),
+        "review_reasons": review_reasons(db, item),
     }
     review_place = None
     if is_place:

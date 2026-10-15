@@ -83,7 +83,7 @@ def event_query(f: Filters, user_id: int, origin) -> Select:
                 Event.all_day, func.coalesce(Event.recurrence_text, Event.rrule).label("rec"), dates.label("dates"),
                 Event.is_free, Event.price_min, Event.price_max, Event.price_text, Event.currency,
                 Event.review_status, UserItemState.status.label("my"), UserItemState.rating,
-                Event.address_text, Event.venue_name, Event.tags, Event.created_at,
+                Event.address_text, Event.venue_name, Event.place_id, Event.tags, Event.created_at,
                 func.ST_Distance(Event.geom, origin).label("dist"), _thumb_src(Event).label("thumb_src"),
                 _hero(Event).label("hero"), _first_image(Event).label("first_image"))
          .outerjoin(UserItemState, my_state(Event, user_id))
@@ -121,7 +121,7 @@ def event_props(r) -> dict:
         "price": event_price_label(r.is_free, r.price_min, r.price_max, r.price_text, r.currency),
         "free": bool(r.is_free),
         "rs": r.review_status, "my": r.my, "rating": r.rating,
-        "addr": r.address_text, "venue": r.venue_name,
+        "addr": r.address_text, "venue": r.venue_name, "place_id": str(r.place_id) if r.place_id else None,
         "dist_m": round(r.dist) if r.dist is not None else None,
         "thumb": r.thumb_src is not None or _hero_id(r) is not None,
         **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
