@@ -1,13 +1,7 @@
 # Date planner
 
-## Versioning (every push and merge)
+## Versioning
 
-The site shows a faded version at the bottom left, like `v0.16 10-14-18:42` (version, then the build time in Los Angeles as MM-DD-HH:MM). The number comes from `frontend/VERSION`; the time is stamped when the UI is built.
+The site shows a faded version at the bottom left, like `v0.26 10-14-18:42` (version, then the build time in Los Angeles as MM-DD-HH:MM). The number comes from `frontend/VERSION`; the time is stamped when the UI is built.
 
-Before every push (and when merging a PR), raise `frontend/VERSION` by an amount that matches the change. Two decimals, never lower it:
-
-- small fix, copy or style tweak: +0.01 to +0.02
-- new feature or notable behavior change: +0.03 to +0.09
-- major feature, big rework or schema change: +0.10 or more
-
-Say the old and new number in the commit message or PR description. If a PR already raised it, a merge only needs another bump when other work landed on `main` in between.
+CD adds 0.1 to `frontend/VERSION` on every deploy to `main`, builds the images with the new number, and commits it back to `main` (`Bump version to vX.XX [skip ci]`). Do not edit `frontend/VERSION` by hand or bump it in a PR; the bot's commit would conflict with it. The number only shows on a deployed build; the dev and mock servers show whatever is in the file.
