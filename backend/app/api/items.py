@@ -107,7 +107,8 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
         events = db.scalars(select(Event).where(Event.place_id == item.id, Event.review_status != "dismissed")
                             .order_by(Event.starts_at.asc().nulls_last()).limit(50)).all()
         out.update({
-            "price_label": place_price_label(item.price_level),
+            "price_label": place_price_label(item.price_level, item.price_tiers),
+            "price_text": item.price_text, "price_tiers": item.price_tiers or [], "hours_text": item.hours_text,
             "website": item.website, "phone": item.phone, "opening_hours": item.opening_hours,
             "open_now": is_open(item.opening_hours, datetime.now(_tz())),
             "price_level": item.price_level, "closed": item.closed,

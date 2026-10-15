@@ -56,7 +56,16 @@ def event_price_label(is_free: bool | None, price_min, price_max, price_text: st
     return text if text and len(text) <= MAX_PRICE_TEXT else None
 
 
-def place_price_label(price_level: int | None) -> str | None:
-    if price_level is None:
+def tiers_label(tiers: list[dict] | None) -> str | None:
+    """'$23-32' from the venue's price tiers."""
+    prices = [t["price"] for t in tiers or [] if isinstance(t.get("price"), (int, float))]
+    if not prices:
         return None
+    lo, hi = min(prices), max(prices)
+    return f"${_money(lo)}" if lo == hi else f"${_money(lo)}-{_money(hi)}"
+
+
+def place_price_label(price_level: int | None, tiers: list[dict] | None = None) -> str | None:
+    if price_level is None:
+        return tiers_label(tiers)
     return "Free" if price_level == 0 else "$" * price_level

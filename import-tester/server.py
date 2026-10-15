@@ -18,7 +18,6 @@ from types import SimpleNamespace
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "backend"))
-sys.path.insert(0, str(HERE))
 os.environ.setdefault("DATA_DIR", str(HERE / ".data"))
 os.environ.setdefault("OLLAMA_URL", "http://127.0.0.1:11434")
 
@@ -34,9 +33,10 @@ from app.db.models import Source  # noqa: E402
 from app.ingest import pipeline, pricing, tiktok  # noqa: E402
 from app.ingest.urls import classify, first_url, normalize  # noqa: E402
 from app.net import BlockedURL  # noqa: E402
-import venue  # noqa: E402
+from app.ingest import venue  # noqa: E402
 
 log = logging.getLogger("import-tester")
+HOME = (float(os.environ.get("HOME_LAT", "34.0522")), float(os.environ.get("HOME_LON", "-118.2437")))
 JOBS: dict[str, dict] = {}
 
 
@@ -154,7 +154,7 @@ def run_import(url: str, state: dict) -> dict:
         if key not in looked:
             pct = 55 + int(40 * i / max(len(hints), 1))
             try:
-                looked[key] = venue.lookup(h, lambda msg, pct=pct: jobs.set_stage(db, job, msg, pct))
+                looked[key] = venue.lookup(None, h, HOME, lambda msg, pct=pct: jobs.set_stage(db, job, msg, pct))
             except Exception as e:
                 log.warning("venue lookup for %s failed: %s", h.name, e, exc_info=True)
                 looked[key] = {"name": h.name, "error": f"{type(e).__name__}: {e}", "flags": []}

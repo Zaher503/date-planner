@@ -367,11 +367,23 @@
                 <span class="sub mono">{item.opening_hours}</span>
               </span>
             </li>
+          {:else if item.hours_text}
+            <li><Clock size={17} /><span class="sub">{item.hours_text}</span></li>
           {/if}
           {#if item.price_label || item.price_text}
             <li>
               <Ticket size={17} />
               <span>{item.price_label ?? ''}{#if item.price_text && item.price_text !== item.price_label}<span class="sub">{item.price_text}</span>{/if}</span>
+            </li>
+          {/if}
+          {#if item.price_tiers?.length}
+            <li class="tiers">
+              <span></span>
+              <span>
+                {#each item.price_tiers as t}
+                  <span class="sub">{t.label}: {t.price == null ? 'ask' : '$' + t.price}{t.note ? ` (${t.note})` : ''}</span>
+                {/each}
+              </span>
             </li>
           {/if}
           <li>
@@ -811,6 +823,10 @@
     flex: none;
     margin-top: 1px;
     color: var(--text-3);
+  }
+  .tiers > :first-child {
+    flex: none;
+    width: 17px;
   }
   .cal-row > :global(.cal) {
     flex: 1;

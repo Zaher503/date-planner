@@ -124,6 +124,8 @@ export interface Item {
   website?: string | null;
   phone?: string | null;
   opening_hours?: string | null;
+  hours_text?: string | null;
+  price_tiers?: { label: string; price: number | null; note: string | null }[];
   open_now?: boolean | null;
   price_level?: number | null;
   closed?: boolean;

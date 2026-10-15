@@ -88,6 +88,8 @@ All optional. Lists are comma separated.
 
   "website": "...", "phone": "...", "opening_hours": "Mo-Su 16:00-01:00", "open_now": true,
   "price_level": 2, "closed": false,
+  "hours_text": "6 to 10 pm Wed-Thu", "price_text": "Price depends on group size",
+  "price_tiers": [{"label": "Adult", "price": 21, "note": null}],
   "events": [{"id": "uuid", "title": "...", "starts_at": "...", "recurrence_text": null}],
 
   "starts_at": null, "ends_at": null, "duration_min": null, "duration_estimated": false,
