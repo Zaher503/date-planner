@@ -64,7 +64,7 @@ phone / browser -> Cloudflare -> NAS (Caddy + Authentik) -> api :8820 ----> db (
                                                                +--> ai-hub gateway :11434 -> ollama, whisper -> RTX 3070
 ```
 
-The Dates stack is `db`, `api`, `worker` (plus dev copies `api-dev`/`worker-dev`), `photon`, `osrm-car`, `osrm-foot` and `searxng`, on the Docker network `dates_default`. `api` and `worker` also join the network `ai`, created by the [ai-hub](https://github.com/Zaher503/ai-hub) stack, to reach `http://ai-hub:11434`. Foodbox and the Transcriber use the same hub. Details and rollback in [docs/OPERATIONS.md](docs/OPERATIONS.md).
+The Dates stack is `db`, `api`, `worker`, `photon`, `osrm-car`, `osrm-foot` and `searxng`, on the Docker network `dates_default`. `api` and `worker` also join the network `ai`, created by the [ai-hub](https://github.com/Zaher503/ai-hub) stack, to reach `http://ai-hub:11434`. Foodbox and the Transcriber use the same hub. Details and rollback in [docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ## Everyday commands
 

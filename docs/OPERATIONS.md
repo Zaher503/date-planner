@@ -2,7 +2,7 @@
 
 ## How it is deployed
 
-Every push to `main` deploys itself: `.github/workflows/ci.yml` (backend tests, frontend check/tests/build, compose validation, image build) and then `cd.yml`, which publishes `ghcr.io/zaher503/date-planner` and `ghcr.io/zaher503/date-planner-db` and runs the update on the Zephyrus through a self-hosted runner (label `date-planner`, installed in `/opt/actions-runner-date-planner`). The runner copies `deploy/` to `/opt/date-planner/deploy`, links the real `.env`, pulls the images, runs `docker compose --profile dev up -d` (the api runs the migrations at start) and health-checks `http://127.0.0.1:8820/healthz`.
+Every push to `main` deploys itself: `.github/workflows/ci.yml` (backend tests, frontend check/tests/build, compose validation, image build) and then `cd.yml`, which publishes `ghcr.io/zaher503/date-planner` and `ghcr.io/zaher503/date-planner-db` and runs the update on the Zephyrus through a self-hosted runner (label `date-planner`, installed in `/opt/actions-runner-date-planner`). The runner copies `deploy/` to `/opt/date-planner/deploy`, links the real `.env`, pulls the images, runs `docker compose up -d --remove-orphans` (the api runs the migrations at start) and health-checks `http://127.0.0.1:8820/healthz`.
 
 ## Where things live (Zephyrus)
 
@@ -57,25 +57,21 @@ Migrations only go forward on deploy. To undo one: `docker compose exec api alem
 
 ## Dev instance (UI testing)
 
-`api-dev` and `worker-dev` (compose profile `dev`) run the same image against the database `dates_dev` (a copy of prod on the same Postgres server). `api-dev` signs every request in as `zaher` through `DEV_USER` and is published only on the Zephyrus loopback, port 8821. `worker-dev` processes adds made from the dev UI; it uses the same AI hub as the prod worker and runs its own scheduler against `dates_dev`. The deploy keeps them up to date.
+The dev copy runs on the desktop, not on the Zephyrus, and the deploy does not touch it. `dev/compose.yaml` builds the app from this checkout and runs `db`, `api-dev` and `worker-dev` against their own empty local database. `api-dev` signs every request in as `zaher` through `DEV_USER` and is published only on `127.0.0.1:8821`.
 
 ```bash
-ssh -L 8821:127.0.0.1:8821 zephyrus      # then open http://localhost:8821
-ssh zephyrus 'cd /opt/date-planner/deploy && docker compose --profile dev stop api-dev worker-dev'
+docker compose -f dev/compose.yaml up -d --build      # then open http://localhost:8821
+docker compose -f dev/compose.yaml down               # add -v to throw the dev data away
 ```
 
-**`DEV_USER` must never be set on the public `api` service** (nor in `~/dateplanner/.env`, which every service reads): it skips the Authentik check entirely. It is safe on `api-dev` only because that port is bound to 127.0.0.1.
+The prod stack no longer has dev services. The first deploy after they were dropped removed the `api-dev` and `worker-dev` containers; the `dates_dev` database is still inside the prod Postgres and can be dropped with `docker compose exec db dropdb -U dates dates_dev`.
 
-Refresh `dates_dev` from prod (throws away dev changes):
-
-```bash
-ssh zephyrus 'cd /opt/date-planner/deploy && docker compose --profile dev stop api-dev worker-dev && docker compose exec -T db sh -c "dropdb -U dates --if-exists dates_dev && createdb -U dates dates_dev && pg_dump -U dates dates | psql -q -U dates dates_dev" && docker compose --profile dev up -d'
-```
+**`DEV_USER` must never be set on the public `api` service** (nor in `~/dateplanner/.env`, which every service reads): it skips the Authentik check entirely.
 
 ## After any `.env` change
 
-Recreate every app container, including the dev copies:
+Recreate every app container:
 
 ```bash
-ssh zephyrus 'cd /opt/date-planner/deploy && docker compose --profile dev up -d --force-recreate api worker api-dev worker-dev'
+ssh zephyrus 'cd /opt/date-planner/deploy && docker compose up -d --force-recreate api worker'
 ```

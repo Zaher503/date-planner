@@ -111,8 +111,10 @@ jobs:
           cd /opt/date-planner/deploy
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           export DATES_TAG=latest
-          docker compose --profile dev pull api db api-dev worker-dev worker
-          docker compose --profile dev up -d --remove-orphans
+          # The dev copies moved to the desktop (dev/compose.yaml); remove the ones left on this host
+          docker rm -f dates-api-dev-1 dates-worker-dev-1 2>/dev/null || true
+          docker compose pull api db worker
+          docker compose up -d --remove-orphans
           docker image prune -f
       - name: Health check
         run: |

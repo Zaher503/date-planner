@@ -1,0 +1,58 @@
+name: dates-dev
+
+# Dev copy for UI testing on the desktop (docs/OPERATIONS.md). Not deployed: the Zephyrus runs deploy/compose.yaml.
+# Its own empty database; DEV_USER skips Authentik, so the port is bound to the loopback only.
+# Run: docker compose -f dev/compose.yaml up -d --build
+
+x-app: &app
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile.app
+  environment: &env
+    DATABASE_URL: postgresql+psycopg://dates:dev@db:5432/dates
+    DATA_DIR: /data
+    DEV_USER: zaher
+  volumes:
+    - dev-data:/data
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  db:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.db
+    environment:
+      POSTGRES_DB: dates
+      POSTGRES_USER: dates
+      POSTGRES_PASSWORD: dev
+    volumes:
+      - dev-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dates -d dates"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api-dev:
+    <<: *app
+    command: ["sh", "/app/start-api.sh"]
+    ports:
+      - "127.0.0.1:8821:8820"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8820/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  worker-dev:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      api-dev:
+        condition: service_healthy
+
+volumes:
+  dev-pg:
+  dev-data:

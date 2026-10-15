@@ -22,5 +22,5 @@ Legend: [x] done, [~] done but needs your check, [ ] pending.
 - [ ] **Try the video slow path.** Whisper runs in the AI hub now (large-v3, already cached, nothing downloads). Add one TikTok with no captions and watch `docker compose logs -f worker` in `/opt/date-planner/deploy` and `curl -s localhost:11434/queue` on the Zephyrus.
 - [ ] **"Save to Dates" Shortcut on the phones:** `docs/SHORTCUT.md` (endpoint and key work through https://dates.zkocr.com).
 - [ ] **Still to build (Claude):** iCal, venue watch, SearXNG and Overpass adapters; scheduler and Suggested inbox; interests and scoring; plan CRUD, ICS feed and Plan page; Phase 9 lifecycle and ops.
-- [ ] **After any `.env` change**, recreate every app container, including the dev copies:
-  `ssh zephyrus "cd /opt/date-planner/deploy && docker compose --profile dev up -d --force-recreate api worker api-dev worker-dev"`
+- [ ] **After any `.env` change**, recreate every app container:
+  `ssh zephyrus "cd /opt/date-planner/deploy && docker compose up -d --force-recreate api worker"`
