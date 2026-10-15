@@ -10,7 +10,7 @@ from fastapi.exceptions import RequestValidationError
 from geoalchemy2.shape import from_shape, to_shape
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from shapely.geometry import Point
-from sqlalchemy import delete, exists, select, text, update
+from sqlalchemy import delete, exists, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -107,6 +107,10 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
     if is_place:
         events = db.scalars(select(Event).where(Event.place_id == item.id, Event.review_status != "dismissed")
                             .order_by(Event.starts_at.asc().nulls_last()).limit(50)).all()
+        dates = dict(db.execute(select(Occurrence.event_id, func.count(Occurrence.id))
+                                .where(Occurrence.event_id.in_([e.id for e in events]),
+                                       Occurrence.starts_at >= datetime.now(_tz()))
+                                .group_by(Occurrence.event_id)).all()) if events else {}
         out.update({
             "price_label": place_price_label(item.price_level, item.price_tiers),
             "price_text": item.price_text, "price_tiers": item.price_tiers or [], "hours_text": item.hours_text,
@@ -114,7 +118,8 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "open_now": is_open(item.opening_hours, datetime.now(_tz())),
             "price_level": item.price_level, "closed": item.closed,
             "events": [{"id": str(e.id), "title": e.title, "starts_at": _iso(e.starts_at),
-                        "recurrence_text": e.recurrence_text,
+                        "ends_at": _iso(e.ends_at), "all_day": e.all_day, "duration_min": e.duration_min,
+                        "tz": e.tz, "dates": dates.get(e.id, 0), "recurrence_text": e.recurrence_text,
                         "price_label": event_price_label(e.is_free, e.price_min, e.price_max, e.price_text,
                                                          e.currency)} for e in events],
         })
@@ -149,7 +154,8 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
         "thumb": f"/api/thumb/{s.id}" if (image_url(s.raw) or s.kind == "image"
                                           or (s.id, "thumb") in archived) else None,
         "video": f"/api/media/{s.id}/video" if (s.id, "video") in archived else None,
-        "created_at": _iso(s.created_at), "submitted_by": names.get(s.submitted_by),
+        "created_at": _iso(s.created_at), "fetched_at": _iso(s.fetched_at),
+        "submitted_by": names.get(s.submitted_by),
     } for s in sources]
     pics = db.scalars(select(ItemImage).where((ItemImage.place_id if is_place else ItemImage.event_id) == item.id)
                       .order_by(ItemImage.source_id, ItemImage.rank)).all()

@@ -93,11 +93,11 @@ export function badge(p: { start: string | null; rec: string | null }, tz = DEFA
 
 export function relativeAgo(iso: string, now = new Date()): string {
   const s = Math.round((now.getTime() - new Date(iso).getTime()) / 1000);
+  const n = (v: number, unit: string) => `${v} ${unit}${v === 1 ? '' : 's'} ago`;
   if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  const d = Math.floor(s / 86400);
-  return d === 1 ? 'yesterday' : `${d} days ago`;
+  if (s < 3600) return n(Math.floor(s / 60), 'minute');
+  if (s < 86400) return n(Math.floor(s / 3600), 'hour');
+  return n(Math.floor(s / 86400), 'day');
 }
 
 export function hostOf(url: string | null | undefined): string {
@@ -153,4 +153,47 @@ export function fromLocalInput(value: string, tz = DEFAULT_TZ): string | null {
   // Second pass settles times near a DST change
   ms = guess - tzOffsetMs(ms, tz);
   return new Date(ms).toISOString();
+}
+
+const WEEK = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
+const WEEK_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+function clock(h: number, m: number): string {
+  const h12 = h % 12 || 12;
+  return `${h12}${m ? ':' + String(m).padStart(2, '0') : ''} ${h % 24 < 12 ? 'AM' : 'PM'}`;
+}
+
+/** OSM opening_hours ("Mo-Fr 09:00-17:00; Sa off") as table rows, days with the same hours merged; null when not understood. */
+export function hoursTable(oh: string | null | undefined): { days: string; hours: string }[] | null {
+  if (!oh) return null;
+  const text = oh.trim();
+  const week: (string | null)[] = Array(7).fill(null);
+  if (text === '24/7') week.fill('Open 24 hours');
+  else {
+    for (const rule of text.split(/;|,\s*(?=(?:Mo|Tu|We|Th|Fr|Sa|Su))/)) {
+      const m = rule.trim().match(/^((?:Mo|Tu|We|Th|Fr|Sa|Su)(?:\s*-\s*(?:Mo|Tu|We|Th|Fr|Sa|Su))?(?:\s*,\s*(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:\s*-\s*(?:Mo|Tu|We|Th|Fr|Sa|Su))?)*)\s+(.+)$/);
+      if (!m) return null;
+      const spans = m[2].trim().toLowerCase() === 'off' || m[2].trim().toLowerCase() === 'closed' ? [] : m[2].split(',').map((x) => x.trim());
+      const label: string[] = [];
+      for (const span of spans) {
+        const t = span.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+        if (!t) return null;
+        label.push(`${clock(+t[1], +t[2])} to ${clock(+t[3], +t[4])}`);
+      }
+      const value = label.length ? label.join(', ') : 'Closed';
+      for (const part of m[1].split(',')) {
+        const [a, b] = part.split('-').map((x) => WEEK.indexOf(x.trim()));
+        const end = b === undefined ? a : b;
+        for (let k = a; k <= a + ((end - a + 7) % 7); k++) week[k % 7] = value;
+      }
+    }
+  }
+  const rows: { days: string; hours: string }[] = [];
+  for (let i = 0; i < 7; ) {
+    let j = i;
+    while (j + 1 < 7 && week[j + 1] === week[i]) j++;
+    rows.push({ days: i === j ? WEEK_NAMES[i] : `${WEEK_NAMES[i]} to ${WEEK_NAMES[j]}`, hours: week[i] ?? 'Not listed' });
+    i = j + 1;
+  }
+  return rows;
 }

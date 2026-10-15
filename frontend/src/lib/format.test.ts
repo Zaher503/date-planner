@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badge, dayKey, distance, duration, fromLocalInput, longWhen, toLocalInput, when } from './format';
+import { badge, hoursTable, relativeAgo, dayKey, distance, duration, fromLocalInput, longWhen, toLocalInput, when } from './format';
 
 const tz = 'America/Los_Angeles';
 // Friday 2026-10-09 10:00 in Los Angeles
@@ -57,5 +57,35 @@ describe('datetime-local in the app time zone', () => {
   it('handles empty values', () => {
     expect(toLocalInput(null, tz)).toBe('');
     expect(fromLocalInput('', tz)).toBeNull();
+  });
+});
+
+describe('hours table', () => {
+  it('merges days with the same hours', () => {
+    expect(hoursTable('Mo 11:00-22:00; Tu 11:00-22:00; We 11:00-22:00; Th 11:00-22:00; Fr 09:30-23:00; Sa 09:30-23:00; Su 09:30-22:00')).toEqual([
+      { days: 'Mon to Thu', hours: '11 AM to 10 PM' },
+      { days: 'Fri to Sat', hours: '9:30 AM to 11 PM' },
+      { days: 'Sun', hours: '9:30 AM to 10 PM' }
+    ]);
+  });
+  it('handles ranges, off days and 24/7', () => {
+    expect(hoursTable('Mo-Fr 09:00-17:00; Sa,Su off')).toEqual([
+      { days: 'Mon to Fri', hours: '9 AM to 5 PM' },
+      { days: 'Sat to Sun', hours: 'Closed' }
+    ]);
+    expect(hoursTable('24/7')).toEqual([{ days: 'Mon to Sun', hours: 'Open 24 hours' }]);
+  });
+  it('gives up on what it cannot read', () => {
+    expect(hoursTable('Mo-Fr sunrise-sunset')).toBeNull();
+    expect(hoursTable(null)).toBeNull();
+  });
+});
+
+describe('relative time', () => {
+  const now = new Date('2026-10-15T12:00:00Z');
+  it('spells out the unit', () => {
+    expect(relativeAgo('2026-10-15T11:55:00Z', now)).toBe('5 minutes ago');
+    expect(relativeAgo('2026-10-15T11:00:00Z', now)).toBe('1 hour ago');
+    expect(relativeAgo('2026-10-12T12:00:00Z', now)).toBe('3 days ago');
   });
 });

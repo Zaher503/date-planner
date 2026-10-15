@@ -11,6 +11,7 @@
   import Phone from '@lucide/svelte/icons/phone';
   import Ticket from '@lucide/svelte/icons/ticket';
   import Tag from '@lucide/svelte/icons/tag';
+  import FileText from '@lucide/svelte/icons/file-text';
   import Repeat from '@lucide/svelte/icons/repeat';
   import Pencil from '@lucide/svelte/icons/pencil';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
@@ -25,7 +26,7 @@
   import Play from '@lucide/svelte/icons/play';
   import { api, type Item, type ItemType, type MyState, type MyStatus } from '$lib/api';
   import { colorOf, labelOf } from '$lib/categories';
-  import { appleMapsUrl, duration, googleMapsUrl, hostOf, longWhen, relativeAgo, when } from '$lib/format';
+  import { duration, googleMapsUrl, hostOf, hoursTable, longWhen, relativeAgo, when } from '$lib/format';
   import { app } from '$lib/state.svelte';
   import ItemEdit from './ItemEdit.svelte';
   import OccurrenceCalendar from './OccurrenceCalendar.svelte';
@@ -65,6 +66,9 @@
       editing = startEditing;
       playing = false;
       calOpen = true;
+      hoursOpen = false;
+      descOpen = true;
+      tagsOpen = false;
       showOriginal = false;
       showSources = false;
       confirmDelete = false;
@@ -78,6 +82,19 @@
   const videoSource = $derived(item?.sources.find((s) => s.video) ?? null);
   let playing = $state(false);
   let calOpen = $state(true);
+  let hoursOpen = $state(false);
+  let descOpen = $state(true);
+  let tagsOpen = $state(false);
+  const TAGS_SHOWN = 3;
+  const hoursRows = $derived(hoursTable(item?.opening_hours));
+  // When the link was last read, newest source first
+  const lastRead = $derived.by(() => {
+    const times = (item?.sources ?? []).map((s) => s.fetched_at ?? s.created_at).filter(Boolean).sort();
+    const t = times[times.length - 1];
+    if (!t) return 'Not read yet';
+    const at = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(t));
+    return `Last read ${at} (${relativeAgo(t)})`;
+  });
   const pics = $derived(item?.images ?? []);
   const hero = $derived(pics.find((i) => i.chosen) ?? null);
   // The link's own thumbnail is the default hero until a picture is picked; with none, the first picture is
@@ -359,11 +376,21 @@
               <li><Clock size={17} /><span class="muted">Date not known</span></li>
             {/if}
           {:else if item.opening_hours}
-            <li>
-              <Clock size={17} />
+            <li class="hours-row">
+              <button class="icon-toggle" aria-expanded={hoursOpen} aria-label={hoursOpen ? 'Hide the hours' : 'Show the hours'} title={hoursOpen ? 'Hide the hours' : 'Show the hours'} onclick={() => (hoursOpen = !hoursOpen)}><Clock size={17} /></button>
               <span>
-                {#if item.open_now === true}<span class="open">Open now</span>{:else if item.open_now === false}<span class="closed">Closed now</span>{/if}
-                <span class="sub mono">{item.opening_hours}</span>
+                {#if item.open_now === true}<span class="open">Open now</span>{:else if item.open_now === false}<span class="closed">Closed now</span>{:else if !hoursOpen}<span class="sub">Hours</span>{/if}
+                {#if hoursOpen}
+                  {#if hoursRows}
+                    <table class="hours">
+                      <tbody>
+                        {#each hoursRows as r (r.days)}<tr><th>{r.days}</th><td>{r.hours}</td></tr>{/each}
+                      </tbody>
+                    </table>
+                  {:else}
+                    <span class="sub mono">{item.opening_hours}</span>
+                  {/if}
+                {/if}
               </span>
             </li>
           {:else if item.hours_text}
@@ -389,11 +416,9 @@
             <MapPin size={17} />
             <span>
               {#if venueName}<strong class="venue">{venueName}</strong>{/if}
-              {#if item.address_text}{item.address_text}{:else if !venueName}{(isEvent ? item.venue_name : null) ?? 'No address yet'}{/if}
-              <span class="maplinks">
-                <a href={appleMapsUrl(item.lat, item.lon, item.title, item.address_text)} target="_blank" rel="noopener noreferrer">Apple Maps</a>
-                <a href={googleMapsUrl(item.lat, item.lon, item.title, item.address_text)} target="_blank" rel="noopener noreferrer">Google Maps</a>
-              </span>
+              <a class="addr" href={googleMapsUrl(item.lat, item.lon, item.title, item.address_text)} target="_blank" rel="noopener noreferrer" title="Open in Google Maps">
+                {#if item.address_text}{item.address_text}{:else if !venueName}{(isEvent ? item.venue_name : null) ?? 'No address yet'}{:else}Open in Google Maps{/if}
+              </a>
             </span>
           </li>
           {#if item.website}
@@ -408,7 +433,33 @@
         </ul>
 
         {#if item.description}
-          <p class="desc">{item.description}</p>
+          <div class="fact">
+            <button class="icon-toggle" aria-expanded={descOpen} aria-label={descOpen ? 'Collapse the description' : 'Show the description'} title={descOpen ? 'Collapse the description' : 'Show the description'} onclick={() => (descOpen = !descOpen)}><FileText size={17} /></button>
+            <p class="desc" class:clamped={!descOpen}>{item.description}</p>
+          </div>
+        {/if}
+
+        {#if item.events?.length}
+          <section>
+            <h3>Events here ({item.events.length})</h3>
+            <ul class="linked">
+              {#each item.events as ev (ev.id)}
+                {@const bits = [
+                  ev.starts_at ? when(ev.starts_at, { tz: ev.tz ?? tz, allDay: ev.all_day }) : ev.recurrence_text,
+                  ev.dates > 1 ? `${ev.dates} dates` : '',
+                  ev.duration_min && !ev.all_day ? duration(ev.duration_min) : '',
+                  ev.price_label
+                ].filter(Boolean)}
+                <li class="ev-row">
+                  <button class="ev-open" onclick={() => onselect('event', ev.id)}>
+                    <span>{ev.title}</span>
+                    <span class="sub">{bits.join(' · ') || 'Date not known'}</span>
+                  </button>
+                  <button class="ev-edit" aria-label="Edit {ev.title}" title="Edit" onclick={() => onselect('event', ev.id, true)}><Pencil size={15} /></button>
+                </li>
+              {/each}
+            </ul>
+          </section>
         {/if}
 
         {#if originalText}
@@ -421,7 +472,11 @@
         {/if}
 
         {#if item.tags.length}
-          <div class="tags"><Tag size={15} />{#each item.tags as t (t)}<span class="tag">{t}</span>{/each}</div>
+          <div class="tags" class:one-line={!tagsOpen}>
+            <button class="icon-toggle small" aria-expanded={tagsOpen} aria-label={tagsOpen ? 'Show fewer tags' : 'Show all tags'} title={tagsOpen ? 'Show fewer tags' : 'Show all tags'} onclick={() => (tagsOpen = !tagsOpen)}><Tag size={15} /></button>
+            {#each tagsOpen ? item.tags : item.tags.slice(0, TAGS_SHOWN) as t (t)}<span class="tag">{t}</span>{/each}
+            {#if !tagsOpen && item.tags.length > TAGS_SHOWN}<button class="tag more" onclick={() => (tagsOpen = true)}>+{item.tags.length - TAGS_SHOWN}</button>{/if}
+          </div>
         {/if}
 
         <section>
@@ -446,28 +501,11 @@
           </section>
         {/if}
 
-        {#if item.events?.length}
-          <section>
-            <h3>Events here</h3>
-            <ul class="linked">
-              {#each item.events as ev (ev.id)}
-                <li class="ev-row">
-                  <button class="ev-open" onclick={() => onselect('event', ev.id)}>
-                    <span>{ev.title}</span>
-                    <span class="sub">{[ev.starts_at ? when(ev.starts_at, { tz }) : ev.recurrence_text, ev.price_label].filter(Boolean).join(' · ')}</span>
-                  </button>
-                  <button class="ev-edit" aria-label="Edit {ev.title}" title="Edit" onclick={() => onselect('event', ev.id, true)}><Pencil size={15} /></button>
-                </li>
-              {/each}
-            </ul>
-          </section>
-        {/if}
-
         {#if actionError}<p class="error">{actionError}</p>{/if}
 
         <div class="actions">
           <button class="btn small" onclick={() => (editing = true)}><Pencil size={15} /> Edit</button>
-          <button class="btn small" disabled={!!busy} onclick={reprocess}><RefreshCw size={15} class={busy === 'reprocess' ? 'spin' : ''} /> Reread link</button>
+          <button class="btn small" disabled={!!busy} onclick={reprocess} title={lastRead}><RefreshCw size={15} class={busy === 'reprocess' ? 'spin' : ''} /> Reread link</button>
           <button class="btn small" disabled={!!busy} onclick={toggleHidden}>
             {#if hidden}<Eye size={15} /> Show again{:else}<EyeOff size={15} /> Hide{/if}
           </button>
@@ -480,7 +518,7 @@
         {#if item.sources.length}
           <div class="saved-from">
             <button class="chip" aria-expanded={showSources} onclick={() => (showSources = !showSources)}>
-              <Link size={13} /> Saved from {item.sources.length === 1 ? sourceLabel(item.sources[0].kind) : `${item.sources.length} links`}
+              <Link size={13} /> {item.sources.length === 1 ? 'Source' : `Sources (${item.sources.length})`}
             </button>
             {#if showSources}
               <ul class="sources">
@@ -857,15 +895,72 @@
     color: var(--danger);
     font-weight: 650;
   }
-  .maplinks {
-    display: flex;
-    gap: 14px;
-    margin-top: 3px;
-    font-size: 13px;
-    font-weight: 600;
+  .addr {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
-  .maplinks a {
-    text-decoration: none;
+  .icon-toggle {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    margin-top: 1px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .icon-toggle.small {
+    width: 15px;
+    height: 15px;
+    margin: 0;
+  }
+  .icon-toggle:hover,
+  .icon-toggle[aria-expanded='false'] {
+    color: var(--accent);
+  }
+  .hours {
+    margin-top: 4px;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .hours th {
+    padding: 1px 14px 1px 0;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-2);
+    white-space: nowrap;
+  }
+  .hours td {
+    padding: 1px 0;
+  }
+  .fact {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .fact .desc {
+    flex: 1;
+    min-width: 0;
+  }
+  .desc.clamped {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .tags.one-line {
+    flex-wrap: nowrap;
+    overflow: hidden;
+  }
+  .tag.more {
+    border: none;
+    cursor: pointer;
+    flex: none;
   }
   .desc {
     margin: 0;

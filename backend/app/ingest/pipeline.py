@@ -242,7 +242,8 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
         h.recurrence = h.recurrence or f"ongoing until {h.ends_at.date().isoformat()}"
         h.starts_at = h.ends_at = None
         h.flags.append("recurring series, dates unclear")
-    if h.kind == "event" and not h.starts_at and not h.recurrence:
+    venue_event = bool(h.event_title and h.name and h.name.strip().lower() != h.event_title.strip().lower())
+    if h.kind == "event" and not h.starts_at and not h.recurrence and not venue_event:
         h.kind = "place"
         h.flags = [f for f in h.flags if f != "event with no date"]
     if not h.name and h.event_title:
@@ -373,14 +374,23 @@ def _earlier(db: Session, src: Source) -> dict[int, tuple[Place | None, Event | 
     return out
 
 
-def _same_item(hint: ItemHint, place: Place | None, event: Event | None, only: bool) -> bool:
-    """A reread updates what it made before. With one item in and one out that is the same listing
-    whatever the page now calls it; with several, the name has to still match."""
-    if only:
-        return True
-    names = [hint.name, hint.event_title]
-    known = [event.title if event else None, place.name if place else None]
-    return any(a and b and name_similarity(a, b) >= 0.5 for a in names for b in known)
+def _like(a: str | None, b: str | None) -> bool:
+    return bool(a and b and name_similarity(a, b) >= 0.5)
+
+
+def _reuse(db: Session, hint: ItemHint, before: tuple[Place | None, Event | None] | None,
+           only: bool) -> tuple[Place | None, Event | None]:
+    """What a reread updates instead of creating again. With one item in and one out it is the same
+    listing whatever the page now calls it; with several, the name has to still match. An event is
+    never tied to a place that only carries the event's own name."""
+    place, event = before or (None, None)
+    if hint.kind == "event":
+        if event is not None and (only or _like(hint.event_title or hint.name, event.title)):
+            return db.get(Place, event.place_id), event
+        return (place if place is not None and _like(hint.name, place.name) else None), None
+    if place is not None and (_like(hint.name, place.name) or (only and event is None)):
+        return place, None
+    return None, None
 
 
 def run(db: Session, job: Job) -> dict:
@@ -451,13 +461,9 @@ def run(db: Session, job: Job) -> dict:
         if too_vague(res):
             results.append({"name": hint.event_title or hint.name, "error": "too vague to pin (only a city)"})
             continue
-        was_place, was_event = None, None
         only = len(earlier) == 1 and len(resolved) == 1
         before = next(iter(earlier.values())) if only else earlier.get(i)
-        if before and _same_item(hint, before[0], before[1], only):
-            was_place, was_event = before
-            if was_place is None and was_event is not None:
-                was_place = db.get(Place, was_event.place_id)
+        was_place, was_event = _reuse(db, hint, before, only)
         place, place_new = store.upsert_place(db, hint, res, src.submitted_by, existing=was_place)
         store.save_candidates(db, src, place, i, res)
         row = {"type": "place", "id": str(place.id), "name": place.name, "new": place_new,

@@ -16,6 +16,7 @@ Rules:
 - name: the business, venue or landmark exactly as written (fix obvious speech-to-text spelling only). For an event, name is the venue and event_title is the event.
 - If an entry is an activity with no named venue (for example "bike by the beach"), set specific to false and put the area it mentions (for example "Venice") in area.
 - address: only if the text gives a street address. area: neighborhood or city if mentioned.
+- A venue page or listing that shows several events or classes at one venue gets one item per event: kind "event", name is the venue, event_title is that event, each with its own dates, times and price. Never put an event's title in name.
 - inside: if the place is inside another named venue (a bar inside a hotel, a stall inside a market), the host venue's name, else null.
 - A location tag or hashtag that is only a neighborhood or city is not an item.
 - Dates as YYYY-MM-DD, times as 24h HH:MM. Today is {today}. The post was published {posted}. Resolve "this Friday" from the publish date. Leave dates empty unless the text states them.

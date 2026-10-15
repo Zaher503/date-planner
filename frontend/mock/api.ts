@@ -58,7 +58,7 @@ function detail(id: string) {
     id, type: p.t, title: p.title, category: p.cat, description: 'Sample item from the offline mock.', tags: p.tags,
     lat: it.lat, lon: it.lon, address_text: p.addr ?? null, review_status: p.rs, confidence: 0.8, origin: 'manual',
     created_at: iso(-50), updated_at: iso(-2), edited: [], price_label: p.price ?? null,
-    sources: [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', kind: 'tiktok', url: 'https://www.tiktok.com/@someone/video/1', title: 'Date ideas in LA', caption: 'Five rooftop bars', thumb: null, video: null, created_at: iso(-50), submitted_by: 'Zaher' }],
+    sources: [{ id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', kind: 'tiktok', url: 'https://www.tiktok.com/@someone/video/1', title: 'Date ideas in LA', caption: 'Five rooftop bars', thumb: null, video: null, created_at: iso(-50), fetched_at: iso(-50), submitted_by: 'Zaher' }],
     me: it.me, others: [{ user: 'Katherine', status: 'want', rating: null, notes: 'Go at sunset' }],
     candidates: p.rs === 'needs_review'
       ? [

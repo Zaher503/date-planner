@@ -22,6 +22,7 @@ EVENT_TYPES = {
     "comedyevent", "literaryevent", "screeningevent", "foodevent", "sportsevent", "socialevent", "visualartsevent",
     "businessevent", "childrensevent", "educationevent", "hackathon", "publicationevent",
 }
+MAX_EVENTS = 25
 DAYS = {"monday": "Mo", "tuesday": "Tu", "wednesday": "We", "thursday": "Th", "friday": "Fr",
         "saturday": "Sa", "sunday": "Su"}
 PLACE_CATEGORY = {
@@ -235,14 +236,38 @@ def place_item(node: dict, page_url: str) -> ItemHint:
     )
 
 
+def _is_event(n: dict) -> bool:
+    return any(t.endswith("event") or t in EVENT_TYPES for t in _types(n))
+
+
+def _nested_events(places: list[dict]) -> list[dict]:
+    """Events a venue lists inside itself (its "event" / "subEvent" property), located at that venue."""
+    out = []
+    for p in places:
+        for key in ("event", "events", "subEvent"):
+            inner = p.get(key)
+            for e in inner if isinstance(inner, list) else [inner] if inner else []:
+                if isinstance(e, dict) and _is_event({"@type": e.get("@type") or "Event"}):
+                    out.append({**e, "@type": e.get("@type") or "Event",
+                                "location": e.get("location") or {k: v for k, v in p.items() if k not in
+                                                                  ("event", "events", "subEvent")}})
+    return out
+
+
 def items_from_jsonld(nodes: list[dict], page_url: str) -> list[ItemHint]:
-    events = [n for n in nodes if any(t.endswith("event") or t in EVENT_TYPES for t in _types(n))]
-    if events:
-        items = [event_item(n, page_url) for n in events[:10]]
-        return [i for i in items if i and (i.event_title or i.name)]
     places = [n for n in nodes if set(_types(n)) & PLACE_TYPES]
     # A LocalBusiness/Restaurant node is only useful with an address or coordinates
     places = [n for n in places if n.get("address") or n.get("geo")]
+    events = [n for n in nodes if _is_event(n)] + _nested_events(places)
+    if events:
+        # An event with no location of its own happens at the venue the page is about
+        here = places[0] if len(places) == 1 else None
+        items = []
+        for n in events[:MAX_EVENTS]:
+            if here is not None and not n.get("location"):
+                n = {**n, "location": {k: v for k, v in here.items() if k not in ("event", "events", "subEvent")}}
+            items.append(event_item(n, page_url))
+        return [i for i in items if i and (i.event_title or i.name)]
     return [place_item(places[0], page_url)] if places else []
 
 

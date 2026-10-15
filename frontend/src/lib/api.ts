@@ -84,6 +84,7 @@ export interface SourceInfo {
   thumb: string | null;
   video: string | null;
   created_at: string;
+  fetched_at: string | null;
   submitted_by: string | null;
 }
 
@@ -129,7 +130,18 @@ export interface Item {
   open_now?: boolean | null;
   price_level?: number | null;
   closed?: boolean;
-  events?: { id: string; title: string; starts_at: string | null; recurrence_text: string | null; price_label: string | null }[];
+  events?: {
+    id: string;
+    title: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    all_day: boolean;
+    duration_min: number | null;
+    tz: string;
+    dates: number;
+    recurrence_text: string | null;
+    price_label: string | null;
+  }[];
   // Event
   starts_at?: string | null;
   ends_at?: string | null;

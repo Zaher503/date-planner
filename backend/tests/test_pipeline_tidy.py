@@ -42,3 +42,18 @@ def test_prune_vague_items_in_single_place_posts():
     hints = [ItemHint("place", "Downtown LA", flags=["not a specific venue"]), ItemHint("place", "Pacific Seas")]
     assert [h.name for h in prune(hints, is_list=False)] == ["Pacific Seas"]
     assert len(prune(hints, is_list=True)) == 2
+
+
+def test_dateless_event_at_a_venue_stays_an_event():
+    h = tidy(ItemHint("event", "Academy Museum", event_title="Cup Candle Making"), NOW)
+    assert h.kind == "event" and h.event_title == "Cup Candle Making"
+
+
+def test_reread_never_ties_an_event_to_a_place_named_after_it():
+    from types import SimpleNamespace as NS
+    from app.ingest.pipeline import _reuse
+
+    place = NS(name="Cup Candle Making", id=1)
+    hint = ItemHint("event", "Academy Museum", event_title="Cup Candle Making")
+    assert _reuse(None, hint, (place, None), True) == (None, None)
+    assert _reuse(None, ItemHint("place", "Cup Candle Making"), (place, None), True) == (place, None)

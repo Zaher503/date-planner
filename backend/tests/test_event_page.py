@@ -65,3 +65,25 @@ def test_event_subtype_festival():
     e = parse_page("https://example.com/x", html).items[0]
     assert e.kind == "event" and e.name == "Catch One" and e.event_title == "Haunted Mansion"
     assert e.starts_at is not None and e.price_max == 65.87
+
+
+def test_venue_page_lists_each_event_inside_it():
+    from app.ingest.event_page import items_from_jsonld
+
+    venue = {"@type": "Museum", "name": "Academy Museum", "address": "6067 Wilshire Blvd, Los Angeles, CA",
+             "event": [{"@type": "Event", "name": "Cup Candle Making", "startDate": "2026-10-20T18:00:00-07:00"},
+                       {"@type": "EducationEvent", "name": "Film Editing Workshop",
+                        "startDate": "2026-10-22T10:00:00-07:00"}]}
+    items = items_from_jsonld([venue], "https://example.com/events")
+    assert [i.event_title for i in items] == ["Cup Candle Making", "Film Editing Workshop"]
+    assert {i.name for i in items} == {"Academy Museum"}
+    assert all(i.address and "Wilshire" in i.address for i in items)
+
+
+def test_event_without_a_location_uses_the_page_venue():
+    from app.ingest.event_page import items_from_jsonld
+
+    nodes = [{"@type": "Museum", "name": "Academy Museum", "address": "6067 Wilshire Blvd"},
+             {"@type": "Event", "name": "Vampire Day", "startDate": "2026-10-31T10:00:00-07:00"}]
+    items = items_from_jsonld(nodes, "https://example.com")
+    assert len(items) == 1 and items[0].name == "Academy Museum" and items[0].event_title == "Vampire Day"
