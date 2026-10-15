@@ -25,7 +25,7 @@
     padding?: { top: number; bottom: number; left: number; right: number };
     picking?: boolean;
     onpick?: (pos: { lat: number; lon: number }) => void;
-    onview?: (bbox: [number, number, number, number], center: { lat: number; lon: number; zoom: number }) => void;
+    onview?: (bbox: [number, number, number, number], center: { lat: number; lon: number; zoom: number }, user: boolean) => void;
     onselect?: (t: ItemType, id: string) => void;
     oncandidate?: (id: number) => void;
     onlocate?: (pos: { lat: number; lon: number }) => void;
@@ -59,6 +59,12 @@
   let ready = $state(false);
   let failed = $state('');
   let styleTheme: Theme | null = null;
+
+  // The wide view the map opens on, centred on home
+  const HOME_ZOOM = 11;
+  const HOME_ICON =
+    '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>';
+  let resetting = false;
 
   const EMPTY_FC = { type: 'FeatureCollection' as const, features: [] };
 
@@ -329,11 +335,11 @@
     (map.getSource('circle') as GeoJSONSource | undefined)?.setData((circle ? circlePolygon(circle) : EMPTY_FC) as never);
   }
 
-  function emitView() {
+  function emitView(user = false) {
     if (!map) return;
     const b = map.getBounds();
     const c = map.getCenter();
-    onview?.([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], { lat: c.lat, lon: c.lng, zoom: map.getZoom() });
+    onview?.([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()], { lat: c.lat, lon: c.lng, zoom: map.getZoom() }, user);
   }
 
   function placeHome() {
@@ -353,6 +359,15 @@
   export function flyTo(lon: number, lat: number, zoom?: number) {
     if (!map) return;
     map.flyTo({ center: [lon, lat], zoom: Math.max(zoom ?? map.getZoom(), 14), padding, speed: 1.6 });
+  }
+
+  /** Back to the wide view with home in the middle. */
+  export function resetView() {
+    if (!map) return;
+    const start = home ? { ...home, zoom: HOME_ZOOM } : { lat: 34.05, lon: -118.25, zoom: 10 };
+    resetting = true;
+    setTimeout(() => (resetting = false), 3000);
+    map.flyTo({ center: [start.lon, start.lat], zoom: start.zoom, padding, speed: 1.6 });
   }
 
   export function fitPoints(points: { lat: number; lon: number }[]) {
@@ -378,7 +393,7 @@
         const protocol = new Protocol();
         maplibre.addProtocol('pmtiles', protocol.tile);
         styleTheme = theme;
-        const start = center ?? (home ? { ...home, zoom: 11 } : { lat: 34.05, lon: -118.25, zoom: 10 });
+        const start = center ?? (home ? { ...home, zoom: HOME_ZOOM } : { lat: 34.05, lon: -118.25, zoom: 10 });
         map = new maplibre.Map({
           container,
           style: baseStyle(theme, tiles, assets),
@@ -397,6 +412,25 @@
         const geo = new maplibre.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: false });
         geo.on('geolocate', (e: { coords: GeolocationCoordinates }) => onlocate?.({ lat: e.coords.latitude, lon: e.coords.longitude }));
         map.addControl(geo, 'bottom-right');
+        map.addControl(
+          {
+            onAdd() {
+              const el = document.createElement('div');
+              el.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+              const b = document.createElement('button');
+              b.type = 'button';
+              b.className = 'reset-view';
+              b.title = 'Reset the view';
+              b.setAttribute('aria-label', 'Reset the view to home');
+              b.innerHTML = `<span class="maplibregl-ctrl-icon" aria-hidden="true">${HOME_ICON}</span>`;
+              b.addEventListener('click', () => resetView());
+              el.appendChild(b);
+              return el;
+            },
+            onRemove() {}
+          },
+          'bottom-right'
+        );
 
         map.on('style.load', async () => {
           await addOverlays();
@@ -420,8 +454,9 @@
           placeHome();
           emitView();
         });
-        map.on('moveend', () => {
-          emitView();
+        map.on('moveend', (e: { originalEvent?: unknown }) => {
+          emitView(!!e.originalEvent || resetting);
+          resetting = false;
           syncBasemap();
         });
         emitView();
@@ -547,6 +582,13 @@
   }
   :global([data-theme='dark'] .maplibregl-ctrl-icon) {
     filter: invert(1);
+  }
+  :global(.reset-view .maplibregl-ctrl-icon) {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    background-image: none;
   }
   :global(.maplibregl-ctrl-attrib) {
     font-size: 11px;

@@ -7,9 +7,10 @@
     occurrences: { starts_at: string; ends_at: string | null }[];
     tz: string;
     allDay?: boolean;
+    collapsed?: boolean;
   }
 
-  let { occurrences, tz, allDay = false }: Props = $props();
+  let { occurrences, tz, allDay = false, collapsed = false }: Props = $props();
 
   const today = $derived(dayKey(new Date(), tz));
   const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
@@ -69,7 +70,8 @@
   const pickedTimes = $derived((picked && byDay.get(picked)) || []);
 </script>
 
-<div class="cal">
+<div class="cal" class:collapsed>
+  {#if !collapsed}
   <div class="head">
     <button class="nav" aria-label="Previous month" disabled={!hasBefore} onclick={() => shift(-1)}><ChevronLeft size={18} /></button>
     <strong>{title}</strong>
@@ -95,6 +97,7 @@
       {/if}
     {/each}
   </div>
+  {/if}
   <p class="picked-line">
     {#if picked}
       <strong>{longDay(picked)}</strong>{#if pickedTimes.some(Boolean)}<span class="sub"> · {pickedTimes.join(', ')}</span>{/if}
@@ -164,6 +167,9 @@
   .day.picked {
     background: var(--accent);
     color: var(--on-accent);
+  }
+  .collapsed .picked-line {
+    margin-top: 0;
   }
   .picked-line {
     margin: 8px 0 0;

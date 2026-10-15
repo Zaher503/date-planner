@@ -132,6 +132,7 @@
 
   // A filter change shows its results, so an open detail closes
   function setFilters(f: Filters) {
+    restore = null;
     nav((sp) => {
       for (const k of FILTER_KEYS) sp.delete(k);
       for (const [k, v] of filterParams(f)) sp.set(k, v);
@@ -143,6 +144,8 @@
 
   function select(t: ItemType, id: string, edit = false) {
     openEdit = edit;
+    if (!sel && rows.length) frozen = rows;
+    restore = null;
     const push = !sel;
     nav((sp) => {
       sp.set('sel', `${t}:${id}`);
@@ -151,8 +154,12 @@
     if (!app.desktop && snap === 'peek') snap = 'half';
   }
 
-  function closeDetail() {
+  function closeDetail(gone = false) {
     picking = false;
+    if (sel && frozen.length) {
+      const id = sel.id;
+      restore = { rows: gone ? frozen.filter((r) => r.id !== id) : frozen, top: id };
+    }
     nav((sp) => sp.delete('sel'));
   }
 
@@ -224,7 +231,7 @@
     const fresh = key !== lastListKey;
     lastListKey = key;
     api
-      .list(`${key}&limit=200&sort=date`)
+      .list(`${key}&limit=200&sort=name`)
       .then((r) => {
         if (apiQuery(filters, { me }) !== key || app.version !== version) return;
         globalList = r.items;
@@ -290,29 +297,26 @@
     );
   });
 
-  // Rows for the list: features in view, upcoming events first, then places nearest the map centre
-  const rows = $derived.by((): ListItem[] => {
+  // Rows for the list: features in view, alphabetical
+  const byName = (a: ListItem, b: ListItem) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }) || a.t.localeCompare(b.t);
+  const liveRows = $derived.by((): ListItem[] => {
     if (listMode && globalList) return globalList;
     if (!mapData || !view) return [];
     const [w, s, e, n] = view.bbox;
-    const c = view.center;
-    const now = Date.now();
-    const out: (ListItem & { _k: number })[] = [];
+    const out: ListItem[] = [];
     for (const f of mapData.features) {
       const [lon, lat] = f.geometry.coordinates;
       if (lon < w || lon > e || lat < s || lat > n) continue;
-      const p = f.properties;
-      let k: number;
-      if (p.t === 'event' && p.start) {
-        const t = Date.parse(p.start);
-        k = t >= now - 3 * 3600e3 ? t : 9e15 + (now - t);
-      } else if (p.t === 'event') k = 8e15;
-      else k = 8.5e15 + ((lat - c.lat) ** 2 + ((lon - c.lon) * Math.cos((c.lat * Math.PI) / 180)) ** 2) * 1e12;
-      out.push({ ...p, lat, lon, _k: k });
+      out.push({ ...f.properties, lat, lon });
     }
-    out.sort((a, b) => a._k - b._k);
-    return out;
+    return out.sort(byName);
   });
+
+  // Opening an item zooms the map onto it. Coming back shows the list as it was, the item scrolled to the
+  // top, until the map is moved by hand.
+  let frozen: ListItem[] = [];
+  let restore = $state<{ rows: ListItem[]; top: string } | null>(null);
+  const rows = $derived(restore?.rows ?? liveRows);
 
   const counts = $derived({
     places: rows.filter((r) => r.t === 'place').length,
@@ -454,7 +458,10 @@
         {padding}
         {picking}
         onpick={onPick}
-        onview={(bbox, center) => (view = { bbox, center })}
+        onview={(bbox, center, user) => {
+          view = { bbox, center };
+          if (user) restore = null;
+        }}
         onselect={select}
         oncandidate={onCandidate}
         onlocate={(pos) => (me = pos)}
@@ -503,11 +510,11 @@
           loading={itemLoading}
           error={itemError}
           {tz}
-          onclose={closeDetail}
+          onclose={() => closeDetail()}
           onselect={select}
           startEditing={openEdit}
           onchanged={(it) => (item = it)}
-          ondeleted={closeDetail}
+          ondeleted={() => closeDetail(true)}
           onfly={flyToItem}
           onmovepin={() => {
             picking = true;
@@ -517,7 +524,7 @@
       {:else if panel === 'settings'}
         <SettingsPanel onclose={() => nav((sp) => sp.delete('panel'))} />
       {:else if rows.length}
-        <ItemList items={rows} {units} {tz} selected={null} onselect={select} />
+        <ItemList items={rows} {units} {tz} selected={null} topId={restore?.top ?? null} onselect={select} />
       {:else}
         <div class="empty">
           {#if mapData && mapData.features.length === 0 && JSON.stringify(filters) === JSON.stringify({ ...EMPTY, near: filters.near })}

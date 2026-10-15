@@ -39,7 +39,7 @@ describe('format', () => {
   });
 
   it('makes pin badges', () => {
-    expect(badge({ start: '2026-10-18T03:00:00Z', rec: null }, tz)).toBe('17');
+    expect(badge({ start: '2026-10-18T03:00:00Z', rec: null }, tz)).toBe('Oct 17');
     expect(badge({ start: null, rec: 'every Sunday' }, tz)).toBe('Su');
     expect(badge({ start: null, rec: 'monthly' }, tz)).toBe('R');
     expect(badge({ start: null, rec: null }, tz)).toBe('');

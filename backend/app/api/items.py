@@ -24,6 +24,7 @@ from app.db.models import (
 from app.db.session import get_db
 from app.hours import is_open
 from app.ingest import media
+from app.textclean import strip_emoji
 
 router = APIRouter()
 
@@ -96,7 +97,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
     out = {
         "id": str(item.id), "type": "place" if is_place else "event",
         "title": item.name if is_place else item.title, "category": item.category,
-        "description": item.description, "tags": list(item.tags or []), "lat": lat, "lon": lon,
+        "description": strip_emoji(item.description), "tags": list(item.tags or []), "lat": lat, "lon": lon,
         "address_text": item.address_text, "review_status": item.review_status,
         "confidence": item.confidence, "origin": item.origin,
         "created_at": _iso(item.created_at), "updated_at": _iso(item.updated_at),
@@ -144,7 +145,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
         select(Media).where(Media.source_id.in_([s.id for s in sources]))).all()} if sources else set()
     out["sources"] = [{
         "id": str(s.id), "kind": s.kind, "url": s.url, "title": s.title,
-        "caption": (s.caption or "")[:CAPTION_CHARS] or None,
+        "caption": strip_emoji((s.caption or "")[:CAPTION_CHARS]),
         "thumb": f"/api/thumb/{s.id}" if (image_url(s.raw) or s.kind == "image"
                                           or (s.id, "thumb") in archived) else None,
         "video": f"/api/media/{s.id}/video" if (s.id, "video") in archived else None,
@@ -242,6 +243,8 @@ def patch_changes(kind: str, sent: dict) -> dict:
             continue
         if isinstance(v, str):
             v = v.strip() or None
+        if k == "description":
+            v = strip_emoji(v)
         if k == "title" and v is None:
             raise HTTPException(400, "title cannot be empty")
         if k == "tags":

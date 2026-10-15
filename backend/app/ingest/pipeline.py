@@ -14,10 +14,11 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import browser, jobs
-from app.db.models import Job, Source
+from app.db.models import Event, ItemSource, Job, Place, Source
 from app.ingest import maps_links, media, ocr, store
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
@@ -359,6 +360,29 @@ def _extract_again(db: Session, job: Job, g: Gathered, extra: str) -> list[ItemH
     return prune(hints, is_list)
 
 
+def _earlier(db: Session, src: Source) -> dict[int, tuple[Place | None, Event | None]]:
+    """What this link produced the last time it was read, by position in the link."""
+    out: dict[int, tuple[Place | None, Event | None]] = {}
+    for link in db.scalars(select(ItemSource).where(ItemSource.source_id == src.id)).all():
+        place, event = out.get(link.position, (None, None))
+        if link.place_id:
+            place = db.get(Place, link.place_id)
+        if link.event_id:
+            event = db.get(Event, link.event_id)
+        out[link.position] = (place, event)
+    return out
+
+
+def _same_item(hint: ItemHint, place: Place | None, event: Event | None, only: bool) -> bool:
+    """A reread updates what it made before. With one item in and one out that is the same listing
+    whatever the page now calls it; with several, the name has to still match."""
+    if only:
+        return True
+    names = [hint.name, hint.event_title]
+    known = [event.title if event else None, place.name if place else None]
+    return any(a and b and name_similarity(a, b) >= 0.5 for a in names for b in known)
+
+
 def run(db: Session, job: Job) -> dict:
     src = db.get(Source, uuid.UUID(job.payload["source_id"]))
     if src is None:
@@ -417,6 +441,7 @@ def run(db: Session, job: Job) -> dict:
         db.commit()
         return {"items": [], "error": src.error, "slow_path": slow}
 
+    earlier = _earlier(db, src)
     results = []
     for i, (hint, res) in enumerate(resolved):
         jobs.set_stage(db, job, "saving", 93 + int(6 * i / len(resolved)))
@@ -426,13 +451,20 @@ def run(db: Session, job: Job) -> dict:
         if too_vague(res):
             results.append({"name": hint.event_title or hint.name, "error": "too vague to pin (only a city)"})
             continue
-        place, place_new = store.upsert_place(db, hint, res, src.submitted_by)
+        was_place, was_event = None, None
+        only = len(earlier) == 1 and len(resolved) == 1
+        before = next(iter(earlier.values())) if only else earlier.get(i)
+        if before and _same_item(hint, before[0], before[1], only):
+            was_place, was_event = before
+            if was_place is None and was_event is not None:
+                was_place = db.get(Place, was_event.place_id)
+        place, place_new = store.upsert_place(db, hint, res, src.submitted_by, existing=was_place)
         store.save_candidates(db, src, place, i, res)
         row = {"type": "place", "id": str(place.id), "name": place.name, "new": place_new,
                "confidence": res.confidence, "review": place.review_status == "needs_review",
                "method": res.method, "flags": hint.flags}
         if hint.kind == "event":
-            event, event_new = store.upsert_event(db, hint, place, res, src.submitted_by)
+            event, event_new = store.upsert_event(db, hint, place, res, src.submitted_by, existing=was_event)
             store.link(db, src, event=event, position=i, confidence=res.confidence)
             images.page_images(db, src, hint, place=place, event=event, multi=len(resolved) > 1)
             row.update(type="event", id=str(event.id), event_title=event.title, new=event_new,

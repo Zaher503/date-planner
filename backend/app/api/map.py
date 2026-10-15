@@ -44,13 +44,25 @@ def _hero(model):
             .correlate(model).scalar_subquery())
 
 
+def _first_image(model):
+    """Id of the item's first picture, the hero when none was picked and no link has a thumbnail."""
+    col = ItemImage.place_id if model is Place else ItemImage.event_id
+    return (select(ItemImage.id).where(col == model.id).order_by(ItemImage.source_id, ItemImage.rank).limit(1)
+            .correlate(model).scalar_subquery())
+
+
+def _hero_id(r) -> int | None:
+    return r.hero or (r.first_image if r.thumb_src is None else None)
+
+
 def place_query(f: Filters, user_id: int, origin) -> Select:
     lon, lat = _lonlat(Place)
     q = (select(Place.id, Place.name.label("title"), Place.category, lon.label("lon"), lat.label("lat"),
                 Place.price_level, Place.review_status, UserItemState.status.label("my"),
                 UserItemState.rating, Place.address_text, Place.tags, Place.opening_hours,
                 Place.created_at, func.ST_Distance(Place.geom, origin).label("dist"),
-                _thumb_src(Place).label("thumb_src"), _hero(Place).label("hero"))
+                _thumb_src(Place).label("thumb_src"), _hero(Place).label("hero"),
+                _first_image(Place).label("first_image"))
          .outerjoin(UserItemState, my_state(Place, user_id))
          .where(*common_conditions(Place, f, lon, lat, origin), *place_conditions(f)))
     return q
@@ -73,7 +85,7 @@ def event_query(f: Filters, user_id: int, origin) -> Select:
                 Event.review_status, UserItemState.status.label("my"), UserItemState.rating,
                 Event.address_text, Event.venue_name, Event.tags, Event.created_at,
                 func.ST_Distance(Event.geom, origin).label("dist"), _thumb_src(Event).label("thumb_src"),
-                _hero(Event).label("hero"))
+                _hero(Event).label("hero"), _first_image(Event).label("first_image"))
          .outerjoin(UserItemState, my_state(Event, user_id))
          .where(*common_conditions(Event, f, lon, lat, origin), *event_conditions(f)))
     return q
@@ -91,8 +103,9 @@ def place_props(r) -> dict:
         "rs": r.review_status, "my": r.my, "rating": r.rating,
         "addr": r.address_text, "venue": None,
         "dist_m": round(r.dist) if r.dist is not None else None,
-        "thumb": r.thumb_src is not None or r.hero is not None,
-        **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}), **({"hero": r.hero} if r.hero else {}),
+        "thumb": r.thumb_src is not None or _hero_id(r) is not None,
+        **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
+        **({"hero": _hero_id(r)} if _hero_id(r) else {}),
         "tags": list(r.tags or [])[:MAX_TAGS],
     }
 
@@ -110,8 +123,9 @@ def event_props(r) -> dict:
         "rs": r.review_status, "my": r.my, "rating": r.rating,
         "addr": r.address_text, "venue": r.venue_name,
         "dist_m": round(r.dist) if r.dist is not None else None,
-        "thumb": r.thumb_src is not None or r.hero is not None,
-        **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}), **({"hero": r.hero} if r.hero else {}),
+        "thumb": r.thumb_src is not None or _hero_id(r) is not None,
+        **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
+        **({"hero": _hero_id(r)} if _hero_id(r) else {}),
         "tags": list(r.tags or [])[:MAX_TAGS],
     }
 

@@ -14,6 +14,7 @@ from app.ingest.items import ItemHint
 from app.resolve.candidates import Candidate
 from app.resolve.resolver import Resolution
 from app.resolve.scorer import OSM_CATEGORY, name_similarity
+from app.textclean import strip_emoji
 
 SAME_PLACE_M = 75
 SAME_SERIES = 0.85  # title match that makes another date at the same venue part of one event
@@ -38,6 +39,8 @@ def _pt(lat: float, lon: float):
 
 def _set(obj, field: str, value, *, overwrite: bool = False) -> None:
     """Fill a field unless the user edited it; only replace existing values when asked."""
+    if field == "description":
+        value = strip_emoji(value)
     if value in (None, "", []) or field in (obj.user_overrides or {}):
         return
     if overwrite or getattr(obj, field) in (None, "", []):
@@ -65,10 +68,13 @@ def _place_name(hint: ItemHint, cand: Candidate) -> str:
     return hint.name or cand.name
 
 
-def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | None, origin: str = "manual") -> tuple[Place, bool]:
+def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | None, origin: str = "manual",
+                 existing: Place | None = None) -> tuple[Place, bool]:
+    """existing: the place a link read before (a reread). It is updated in place, pin and name included as is."""
     cand = res.best
     name = _place_name(hint, cand)
-    place = find_place(db, cand, name)
+    place = existing or find_place(db, cand, name)
+    refresh = existing is not None
     created = place is None
     review = res.needs_review or bool(PLACE_REVIEW_FLAGS & set(hint.flags))
     if created:
@@ -82,20 +88,21 @@ def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | No
         place.confidence = res.confidence
 
     extra = cand.extra or {}
-    _set(place, "category", hint.category or OSM_CATEGORY.get(cand.osm_value or "") or "other")
+    _set(place, "category", hint.category or OSM_CATEGORY.get(cand.osm_value or "") or "other", overwrite=refresh)
     new_addr = cand.address_text or hint.address
     # A house-numbered address replaces a street-only one from an earlier, vaguer source
     precise = bool(new_addr and re.match(r"\s*\d", new_addr)) and not re.match(r"\s*\d", place.address_text or "")
     _set(place, "address_text", new_addr, overwrite=precise)
-    _set(place, "website", hint.website or extra.get("website"))
-    _set(place, "phone", hint.phone or extra.get("phone"))
-    _set(place, "opening_hours", hint.opening_hours or extra.get("opening_hours"))
-    _set(place, "hours_text", hint.hours_text)
+    _set(place, "website", hint.website or extra.get("website"), overwrite=refresh)
+    _set(place, "phone", hint.phone or extra.get("phone"), overwrite=refresh)
+    _set(place, "opening_hours", hint.opening_hours or extra.get("opening_hours"), overwrite=refresh)
+    _set(place, "hours_text", hint.hours_text, overwrite=refresh)
     if hint.kind == "place":
-        _set(place, "price_tiers", hint.price_tiers)
-        _set(place, "price_text", hint.price_text)
-    _set(place, "price_level", hint.price_level if hint.price_level is not None else extra.get("price_level"))
-    _set(place, "description", hint.description if hint.kind == "place" else None)
+        _set(place, "price_tiers", hint.price_tiers, overwrite=refresh)
+        _set(place, "price_text", hint.price_text, overwrite=refresh)
+    _set(place, "price_level", hint.price_level if hint.price_level is not None else extra.get("price_level"),
+         overwrite=refresh)
+    _set(place, "description", hint.description if hint.kind == "place" else None, overwrite=refresh)
     if cand.osm_type and cand.osm_id and place.osm_id is None:
         clash = db.scalars(select(Place.id).where(Place.osm_type == cand.osm_type, Place.osm_id == cand.osm_id)).first()
         if clash is None:
@@ -123,18 +130,25 @@ def _series_match(db: Session, place: Place, title: str) -> Event | None:
 
 
 def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, user_id: int | None,
-                 origin: str = "manual") -> tuple[Event, bool]:
+                 origin: str = "manual", existing: Event | None = None) -> tuple[Event, bool]:
+    """existing: the event a link read before (a reread). It is updated in place, never matched again."""
     title = hint.event_title or hint.name
-    q = select(Event).where(Event.place_id == place.id)
-    if hint.starts_at:
-        q = q.where(Event.starts_at.between(hint.starts_at - timedelta(minutes=60), hint.starts_at + timedelta(minutes=60)))
-    else:
-        q = q.where(Event.starts_at.is_(None))
-    event = next((e for e in db.scalars(q).all() if name_similarity(e.title, title) >= 0.6), None)
+    refresh = existing is not None
+    event = existing
     another_date = False
-    if event is None and hint.starts_at:
-        event = _series_match(db, place, title)
-        another_date = event is not None
+    if event is None:
+        q = select(Event).where(Event.place_id == place.id)
+        if hint.starts_at:
+            q = q.where(Event.starts_at.between(hint.starts_at - timedelta(minutes=60),
+                                                hint.starts_at + timedelta(minutes=60)))
+        else:
+            q = q.where(Event.starts_at.is_(None))
+        event = next((e for e in db.scalars(q).all() if name_similarity(e.title, title) >= 0.6), None)
+        if event is None and hint.starts_at:
+            event = _series_match(db, place, title)
+            another_date = event is not None
+    elif hint.starts_at and event.starts_at != hint.starts_at:
+        another_date = True  # the link now shows a date the event did not have
     created = event is None
     minutes, estimated = _event_minutes(hint)
     review = place.review_status == "needs_review" or bool(EVENT_REVIEW_FLAGS & set(hint.flags))
@@ -145,8 +159,8 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
                       confidence=res.confidence, tags=[], user_overrides={},
                       tz=hint.tz or "America/Los_Angeles")
         db.add(event)
-    _set(event, "category", hint.category or place.category)
-    _set(event, "description", hint.description)
+    _set(event, "category", hint.category or place.category, overwrite=refresh)
+    _set(event, "description", hint.description, overwrite=refresh)
     end = hint.ends_at or (hint.starts_at + timedelta(minutes=minutes) if hint.starts_at and minutes else None)
     if (not created and hint.starts_at and event.starts_at and hint.starts_at < event.starts_at
             and not {"starts_at", "ends_at"} & set(event.user_overrides or {})):
@@ -158,9 +172,9 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         event.duration_estimated = estimated
         event.all_day = hint.all_day
         event.status = hint.status
-    _set(event, "recurrence_text", hint.recurrence)
+    _set(event, "recurrence_text", hint.recurrence, overwrite=refresh)
     for f in ("price_min", "price_max", "currency", "is_free", "price_text", "ticket_url"):
-        _set(event, f, getattr(hint, f))
+        _set(event, f, getattr(hint, f), overwrite=refresh)
     if "tags" not in event.user_overrides:
         event.tags = list(dict.fromkeys([*(event.tags or []), *hint.tags]))[:12]
     db.flush()

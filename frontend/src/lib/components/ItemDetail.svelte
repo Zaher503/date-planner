@@ -13,7 +13,6 @@
   import Tag from '@lucide/svelte/icons/tag';
   import Repeat from '@lucide/svelte/icons/repeat';
   import Pencil from '@lucide/svelte/icons/pencil';
-  import ImageIcon from '@lucide/svelte/icons/image';
   import RefreshCw from '@lucide/svelte/icons/refresh-cw';
   import Trash2 from '@lucide/svelte/icons/trash-2';
   import EyeOff from '@lucide/svelte/icons/eye-off';
@@ -65,7 +64,7 @@
       lastId = id;
       editing = startEditing;
       playing = false;
-      showPics = false;
+      calOpen = true;
       showOriginal = false;
       showSources = false;
       confirmDelete = false;
@@ -78,10 +77,15 @@
   const thumbSource = $derived(item?.sources.find((s) => s.thumb) ?? null);
   const videoSource = $derived(item?.sources.find((s) => s.video) ?? null);
   let playing = $state(false);
-  let showPics = $state(false);
+  let calOpen = $state(true);
   const pics = $derived(item?.images ?? []);
   const hero = $derived(pics.find((i) => i.chosen) ?? null);
-  const heroSrc = $derived(hero?.url ?? videoSource?.thumb ?? null);
+  // The link's own thumbnail is the default hero until a picture is picked; with none, the first picture is
+  const linkThumb = $derived(thumbSource?.thumb ?? videoSource?.thumb ?? null);
+  const linkIsHero = $derived(!hero && !!linkThumb);
+  const heroPic = $derived(hero ?? (linkThumb ? null : (pics[0] ?? null)));
+  const heroSrc = $derived(heroPic?.url ?? linkThumb);
+  const canChange = $derived(pics.length + (linkThumb ? 1 : 0) > 1);
   const stamp = (s: number | null) => (s == null ? '' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 
   async function pickImage(id: number | null) {
@@ -288,42 +292,34 @@
           <video class="player" src="{videoSource.video}{hero?.kind === 'frame' && hero.at != null ? `#t=${hero.at}` : ''}" poster={heroSrc ?? undefined} controls autoplay playsinline></video>
         {:else if videoSource}
           <button class="media" onclick={() => (playing = true)}>
-            {#if heroSrc}<img src={heroSrc} alt="" loading="lazy" />{:else}<span class="noimg"></span>{/if}
+            {#if heroSrc}<img src={heroSrc} alt="" />{:else}<span class="noimg"></span>{/if}
             <span class="play"><Play size={26} /></span>
             <span class="media-label">Saved copy of the {sourceLabel(videoSource.kind)} video</span>
           </button>
         {:else if thumbSource}
           <a class="media" href={thumbSource.url ?? undefined} target="_blank" rel="noopener noreferrer">
-            <img src={hero?.url ?? thumbSource.thumb} alt="" loading="lazy" />
+            {#if heroSrc}<img src={heroSrc} alt="" />{/if}
             <span class="media-label"><ExternalLink size={13} /> Open on {sourceLabel(thumbSource.kind)}</span>
           </a>
-        {:else if hero}
-          <div class="media"><img src={hero.url} alt="" loading="lazy" /></div>
+        {:else if heroSrc}
+          <div class="media"><img src={heroSrc} alt="" /></div>
         {/if}
 
-        {#if pics.length > 1 || (pics.length === 1 && !hero)}
-          <button class="pics-toggle" onclick={() => (showPics = !showPics)} aria-expanded={showPics}>
-            <ImageIcon size={14} /> {showPics ? 'Hide pictures' : 'Change picture'}
-          </button>
-          {#if showPics}
-            <div class="pics" role="group" aria-label="Choose a picture">
-              {#if heroSrc || thumbSource}
-                {@const first = thumbSource?.thumb ?? videoSource?.thumb}
-                {#if first}
-                  <button class="pic" class:on={!hero} disabled={busy === 'image'} onclick={() => pickImage(null)} title="Link thumbnail">
-                    <img src={first} alt="Link thumbnail" loading="lazy" />
-                  </button>
-                {/if}
-              {/if}
-              {#each pics as p (p.id)}
-                <button class="pic" class:on={p.chosen} disabled={busy === 'image'} onclick={() => pickImage(p.id)}
-                  title={p.at != null ? `Video at ${stamp(p.at)}` : 'Photo from the page'}>
-                  <img src={p.url} alt="Option" loading="lazy" />
-                  {#if p.at != null}<span class="pic-time">{stamp(p.at)}</span>{/if}
-                </button>
-              {/each}
-            </div>
-          {/if}
+        {#if canChange}
+          <div class="pics" role="group" aria-label="Choose the main picture">
+            {#if linkThumb}
+              <button class="pic" class:on={linkIsHero} disabled={busy === 'image'} onclick={() => pickImage(null)} title="Link thumbnail">
+                <img src={linkThumb} alt="Link thumbnail" loading="lazy" />
+              </button>
+            {/if}
+            {#each pics as p (p.id)}
+              <button class="pic" class:on={heroPic?.id === p.id} disabled={busy === 'image'} onclick={() => pickImage(p.id)}
+                title={p.at != null ? `Video at ${stamp(p.at)}` : 'Photo from the page'}>
+                <img src={p.url} alt="Option" loading="lazy" />
+                {#if p.at != null}<span class="pic-time">{stamp(p.at)}</span>{/if}
+              </button>
+            {/each}
+          </div>
         {/if}
 
         <div class="mine">
@@ -351,7 +347,10 @@
               </li>
             {/if}
             {#if (item.occurrences?.length ?? 0) > 1}
-              <li class="cal-row"><CalendarDays size={17} /><OccurrenceCalendar occurrences={item.occurrences ?? []} tz={item.tz ?? tz} allDay={!!item.all_day} /></li>
+              <li class="cal-row">
+                <button class="cal-toggle" aria-expanded={calOpen} aria-label={calOpen ? 'Collapse the calendar' : 'Show the calendar'} title={calOpen ? 'Collapse the calendar' : 'Show the calendar'} onclick={() => (calOpen = !calOpen)}><CalendarDays size={17} /></button>
+                <OccurrenceCalendar occurrences={item.occurrences ?? []} tz={item.tz ?? tz} allDay={!!item.all_day} collapsed={!calOpen} />
+              </li>
             {/if}
             {#if item.recurrence_text}
               <li><Repeat size={17} /><span>{item.recurrence_text.replace(/^\w/, (c) => c.toUpperCase())}</span></li>
@@ -670,7 +669,9 @@
     border-radius: 14px;
     overflow: hidden;
     background: var(--surface-2);
+    aspect-ratio: 16 / 9;
     max-height: 260px;
+    flex: none;
   }
   button.media {
     border: none;
@@ -701,9 +702,11 @@
     background: #000;
   }
   .media img {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
-    max-height: 260px;
+    height: 100%;
     object-fit: cover;
   }
   .media-label {
@@ -720,24 +723,12 @@
     font-size: 12px;
     font-weight: 600;
   }
-  .pics-toggle {
-    align-self: flex-start;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    border: none;
-    background: none;
-    padding: 2px 0;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--text-2);
-    cursor: pointer;
-  }
   .pics {
     display: flex;
     gap: 8px;
     overflow-x: auto;
     padding-bottom: 4px;
+    flex: none;
   }
   .pic {
     position: relative;
@@ -827,6 +818,23 @@
   .tiers > :first-child {
     flex: none;
     width: 17px;
+  }
+  .cal-toggle {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    margin-top: 1px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--text-3);
+    cursor: pointer;
+  }
+  .cal-toggle:hover,
+  .cal-toggle[aria-expanded='false'] {
+    color: var(--accent);
   }
   .cal-row > :global(.cal) {
     flex: 1;

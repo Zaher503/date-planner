@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import Bookmark from '@lucide/svelte/icons/bookmark';
   import CalendarCheck from '@lucide/svelte/icons/calendar-check';
   import CircleCheck from '@lucide/svelte/icons/circle-check';
@@ -15,9 +16,11 @@
     selected: string | null;
     onselect: (t: ItemType, id: string) => void;
     onhover?: (id: string | null) => void;
+    /** Row to scroll to the top when the list opens (coming back from its detail). */
+    topId?: string | null;
   }
 
-  let { items, units, tz, selected, onselect, onhover }: Props = $props();
+  let { items, units, tz, selected, onselect, onhover, topId = null }: Props = $props();
 
   const ROW = 68;
   const OVERSCAN = 6;
@@ -42,6 +45,14 @@
     if (p.price) bits.push(p.price);
     return bits.join(' · ');
   }
+
+  onMount(() => {
+    const i = topId ? items.findIndex((x) => x.id === topId) : -1;
+    if (i > 0) {
+      scroller.scrollTop = i * ROW;
+      scrollTop = scroller.scrollTop;
+    }
+  });
 
   // Keep the selected row in view when it is picked on the map
   $effect(() => {

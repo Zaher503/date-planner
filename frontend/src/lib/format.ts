@@ -79,10 +79,10 @@ export function duration(minutes: number | null | undefined): string {
   return m ? `${h} h ${m} min` : `${h} h`;
 }
 
-/** Short text for the event pin badge: day of month, weekday for recurring, blank when unknown. */
+/** Short text for the event pin badge: month and day of the next date, weekday for recurring, blank when unknown. */
 export function badge(p: { start: string | null; rec: string | null }, tz = DEFAULT_TZ): string {
   if (p.start) {
-    return new Intl.DateTimeFormat('en-US', { timeZone: tz, day: 'numeric' }).format(new Date(p.start));
+    return new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short', day: 'numeric' }).format(new Date(p.start));
   }
   if (p.rec) {
     const m = p.rec.toLowerCase().match(/\b(mon|tue|wed|thu|fri|sat|sun)(day|s|\b)/);
