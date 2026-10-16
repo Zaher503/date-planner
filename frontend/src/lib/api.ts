@@ -207,6 +207,29 @@ export interface ServiceHealth {
   detail: string | null;
 }
 
+/** The Authentik sign-in ran out: the proxy answers every request with a redirect to the login site. */
+export class SessionExpired extends Error {
+  constructor() {
+    super('Your sign-in expired.');
+  }
+}
+
+const SIGN_IN_KEY = 'dates.signInAt';
+const SIGN_IN_GAP_MS = 60_000;
+
+/** Reload once so the browser itself follows the login redirect. Returns false when it already tried a moment ago. */
+export function signInAgain(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem(SIGN_IN_KEY) || 0);
+    if (Date.now() - last < SIGN_IN_GAP_MS) return false;
+    sessionStorage.setItem(SIGN_IN_KEY, String(Date.now()));
+  } catch {
+    // storage can be blocked: reload anyway, once per page load
+  }
+  location.reload();
+  return true;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -222,8 +245,14 @@ async function request<T>(method: string, path: string, body?: unknown, signal?:
     headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
     signal,
-    credentials: 'same-origin'
+    credentials: 'same-origin',
+    // A redirect to the login site cannot be followed by fetch; see it instead of failing with "Failed to fetch"
+    redirect: 'manual'
   });
+  if (res.type === 'opaqueredirect') {
+    signInAgain();
+    throw new SessionExpired();
+  }
   if (!res.ok) {
     let msg = `${res.status} ${res.statusText}`;
     try {

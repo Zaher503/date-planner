@@ -6,6 +6,7 @@
 // App shell offline cache. The API and the map tiles always go to the network
 // (tiles are HTTP range reads of one big file, which the browser caches itself).
 import { build, files, version } from '$service-worker';
+import { bypassesWorker, mayServeShell } from './lib/sw-routes';
 
 const sw = self as unknown as ServiceWorkerGlobalScope;
 const SHELL = `shell-${version}`;
@@ -36,7 +37,7 @@ sw.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin !== location.origin) return;
   const path = url.pathname;
-  if (path.startsWith('/api/') || path.startsWith('/cal/') || path === '/healthz' || path.endsWith('.pmtiles')) return;
+  if (bypassesWorker(path)) return;
 
   // Glyphs and sprites never change: cache first
   if (path.startsWith('/tiles/assets/')) {
@@ -58,10 +59,10 @@ sw.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Pages: network first so a new deploy shows up, the cached shell when offline
+  // Pages: network first so a new deploy shows up, the cached shell only when offline
   if (req.mode === 'navigate') {
     event.respondWith(
-      fetch(req).catch(async () => (await caches.match('/')) ?? Response.error())
+      fetch(req).catch(async () => (mayServeShell(navigator.onLine) ? await caches.match('/') : undefined) ?? Response.error())
     );
   }
 });

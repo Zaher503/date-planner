@@ -1,6 +1,6 @@
 // Shared app state: settings, facets, live job progress and a data version for refetches
 
-import { api, type AddResult, type Facets, type Job, type Settings } from './api';
+import { api, SessionExpired, type AddResult, type Facets, type Job, type Settings } from './api';
 
 export interface Toast {
   key: string;
@@ -21,6 +21,8 @@ class AppState {
   settings = $state<Settings | null>(null);
   facets = $state<Facets>({ tags: [], categories: [] });
   loadError = $state('');
+  // The sign-in ran out (as opposed to the server being down)
+  signedOut = $state(false);
   // Bumped when items change (job finished, edit, delete) so the map refetches
   version = $state(0);
   toasts = $state<Toast[]>([]);
@@ -33,6 +35,7 @@ class AppState {
     try {
       this.settings = await api.settings();
     } catch (e) {
+      this.signedOut = e instanceof SessionExpired;
       this.loadError = e instanceof Error ? e.message : String(e);
       return;
     }

@@ -464,8 +464,13 @@
 {#if app.loadError}
   <div class="fatal">
     <h1>Dates</h1>
-    <p>The app could not reach its server: {app.loadError}</p>
-    <button class="btn primary" onclick={() => location.reload()}>Try again</button>
+    {#if app.signedOut}
+      <p>Your sign-in expired.</p>
+      <button class="btn primary" onclick={() => location.reload()}>Sign in again</button>
+    {:else}
+      <p>The app could not reach its server: {app.loadError}</p>
+      <button class="btn primary" onclick={() => location.reload()}>Try again</button>
+    {/if}
   </div>
 {:else if !settings}
   <div class="fatal"><LoaderCircle class="spin" size={26} /></div>
