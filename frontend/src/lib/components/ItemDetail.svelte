@@ -537,10 +537,16 @@
 
         {#if item.sources.length}
           <div class="saved-from">
-            <button class="chip" aria-expanded={showSources} onclick={() => (showSources = !showSources)}>
-              <Link size={13} /> {item.sources.length === 1 ? 'Source' : `Sources (${item.sources.length})`}
-            </button>
-            {#if showSources}
+            {#if item.sources.length === 1 && item.sources[0].url}
+              <a class="chip" href={item.sources[0].url} target="_blank" rel="noopener noreferrer" title={item.sources[0].url}>
+                <ExternalLink size={13} /> Source
+              </a>
+            {:else}
+              <button class="chip" aria-expanded={showSources} onclick={() => (showSources = !showSources)}>
+                <Link size={13} /> {item.sources.length === 1 ? 'Source' : `Sources (${item.sources.length})`}
+              </button>
+            {/if}
+            {#if showSources && !(item.sources.length === 1 && item.sources[0].url)}
               <ul class="sources">
                 {#each item.sources as s (s.id)}
                   <li>
@@ -1131,6 +1137,7 @@
     padding: 3px 10px;
     font-size: 12px;
     font-weight: 600;
+    text-decoration: none;
   }
   .sources a {
     word-break: break-word;
