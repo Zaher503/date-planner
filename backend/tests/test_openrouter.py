@@ -36,9 +36,10 @@ def test_chat_json_sends_schema_and_parses(monkeypatch):
     monkeypatch.setattr(ollama.httpx, "post", fake_post)
     assert chat_json("sys", "text", SCHEMA) == {"items": []}
     assert seen["url"].endswith("/chat/completions")
-    assert seen["body"]["model"] == "nvidia/nemotron-3.5-lightning"
+    assert seen["body"]["model"] == "nvidia/nemotron-3.5-lightning:free"
     assert seen["headers"]["Authorization"] == "Bearer k"
     assert "response_format" not in seen["body"]
+    assert seen["body"]["reasoning"] == {"enabled": False}
     assert '"items"' in seen["body"]["messages"][0]["content"]
 
 
@@ -50,10 +51,23 @@ def test_openrouter_errors_become_llm_errors(monkeypatch):
         chat_json("sys", "text", SCHEMA)
 
 
-def test_openrouter_needs_key_and_rejects_images(monkeypatch):
+def test_openrouter_needs_key(monkeypatch):
     _use_openrouter(monkeypatch, key="")
     with pytest.raises(LLMError, match="OPENROUTER_API_KEY"):
         chat_json("sys", "text", SCHEMA)
+
+
+def test_images_stay_on_the_hub(monkeypatch):
     _use_openrouter(monkeypatch)
-    with pytest.raises(LLMError, match="text only"):
-        chat_json("sys", "text", SCHEMA, images=["abc"])
+    seen = {}
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        seen.update(url=url, body=json)
+        return httpx.Response(200, request=httpx.Request("POST", url),
+                              json={"message": {"content": '{"text": "hi"}'}})
+
+    monkeypatch.setattr(ollama.httpx, "post", fake_post)
+    monkeypatch.setattr(ollama, "announce", lambda *a, **k: None)
+    assert chat_json("sys", "look", SCHEMA, images=["abc"]) == {"text": "hi"}
+    assert seen["url"].endswith("/api/chat")
+    assert seen["body"]["messages"][1]["images"] == ["abc"]

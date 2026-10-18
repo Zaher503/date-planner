@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # "ollama" (the AI hub) or "openrouter" (text only; screenshots and video frames still need the hub)
     llm_provider: str = "ollama"
     openrouter_api_key: str = ""
-    openrouter_model: str = "nvidia/nemotron-3.5-lightning"
+    openrouter_model: str = "nvidia/nemotron-3.5-lightning:free"
 
     ha_url: str = "http://192.168.0.108:8123"
     ha_token: str = ""
