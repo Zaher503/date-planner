@@ -5,6 +5,10 @@
 # - POST /api/add: the iPhone Shortcut, checked by the app with X-Dates-Key (no Authentik).
 # - POST /api/add-image: a screenshot from the Shortcut, same key, up to 10 MB.
 # - /cal/*: calendar feed, checked by the app with a secret token in the path (no Authentik).
+# - /tester/*: the keyed import-tester service (deploy/compose.yaml "tester", port 8899 on the
+#   Zephyrus), checked by that service with X-Tester-Key, a key separate from DATES_KEY. Runs
+#   the fast-path pipeline on one link with the database stubbed out - never touches real data,
+#   so this is the one route meant to be called from outside the LAN without an Authentik login.
 # - Everything else: Authentik forward_auth (group "dates"), which sets X-Authentik-Username.
 # The passthrough routes strip any identity header a client sends, because the app trusts
 # that header from the NAS.
@@ -48,6 +52,24 @@ dates.zkocr.com {
     }
     handle /cal/* {
         reverse_proxy 192.168.0.103:8820 192.168.0.169:8820 {
+            header_up -X-Authentik-Username
+            header_up -X-Authentik-Name
+            lb_policy first
+            lb_try_duration 3s
+            health_uri /healthz
+            health_interval 10s
+            health_timeout 2s
+        }
+    }
+    @tester {
+        path /tester/*
+    }
+    handle @tester {
+        uri strip_prefix /tester
+        request_body {
+            max_size 4KB
+        }
+        reverse_proxy 192.168.0.103:8899 192.168.0.169:8899 {
             header_up -X-Authentik-Username
             header_up -X-Authentik-Name
             lb_policy first

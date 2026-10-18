@@ -6,3 +6,7 @@ frontend/node_modules
 frontend/.svelte-kit
 frontend/build
 deploy/.env
+# Desktop-only, never baked into an image (session cookies, local scratch data)
+import-tester/cookies.txt
+import-tester/.data
+import-tester/.tunnel.pid

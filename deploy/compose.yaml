@@ -70,6 +70,33 @@ services:
       - default
       - ai
 
+  # Keyed test endpoint for import-tester/server.py: runs the fast-path pipeline on one link
+  # at a time with the database stubbed out, same as the desktop tool. Deliberately NOT built
+  # from the *app anchor: no /srv/dateplanner volume, no db dependency, and only the env vars
+  # below (never DATES_KEY, PG_PASSWORD, HA_TOKEN, etc.) so a bug in this test path can't touch
+  # real data or leak the other services' secrets. Reachable only via its own keyed Caddy route
+  # (deploy/caddy-snippet.txt), not the Authentik-protected catch-all.
+  tester:
+    image: ghcr.io/zaher503/date-planner:${DATES_TAG:-latest}
+    restart: unless-stopped
+    command: ["python", "import-tester/service.py"]
+    <<: *dns
+    environment:
+      OLLAMA_URL: ${OLLAMA_URL:-http://ai-hub:11434}
+      BROWSER_URL: ws://browser:3000
+      TESTER_KEY: ${TESTER_KEY}
+    ports:
+      - "8899:8899"
+    networks:
+      - default
+      - ai
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8899/healthz', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
   # Geocoder: prebuilt US database (scripts/photon_import.sh)
   photon:
     image: eclipse-temurin:21-jre

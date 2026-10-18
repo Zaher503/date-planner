@@ -16,5 +16,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -r
 COPY backend/requirements.txt .
 RUN pip install -r requirements.txt
 COPY backend/ .
+# The keyed tester service (deploy/compose.yaml "tester") runs this unchanged, wrapped by
+# import-tester/service.py. cookies.txt/.venv/.data are never in the build context (.dockerignore).
+COPY import-tester/ ./import-tester/
 COPY --from=frontend /fe/build /app/static
 EXPOSE 8820

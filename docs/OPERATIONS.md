@@ -29,6 +29,8 @@ After a link is placed on the map, the ingest job reads each venue's own website
 
 `import-tester/` (run `run.bat` on Windows) runs the same code on one link without the database, to see what an import would find.
 
+The same tool also runs as a service on the Zephyrus (compose service `tester`, `import-tester/service.py`), reachable at `https://dates.zkocr.com/tester/api/import` with header `X-Tester-Key: <TESTER_KEY>` instead of an Authentik login - the one route on this domain meant to be called from outside the LAN unauthenticated-by-Authentik. It never mounts `/srv/dateplanner` and gets none of the other services' secrets (see `deploy/compose.yaml`), so a leaked `TESTER_KEY` can only run test imports. Rotate it in `~/dateplanner/.env` and `docker compose up -d --force-recreate tester` if it ever leaks.
+
 ## First deploy (new machine)
 
 ```bash
