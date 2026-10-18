@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Run ON the Zephyrus. Cuts a Southern California basemap out of the Protomaps daily
 # build into /srv/dateplanner/tiles/region.pmtiles (only the needed byte ranges are read).
+# Weekly refresh: scripts/install-tiles-cron.sh sets it up on the Zephyrus.
 # Bbox: Santa Barbara to San Diego, coast to Palm Springs (covers the 150 km slider max).
 set -euo pipefail
 BUILD=${BUILD:-$(curl -fsS https://build-metadata.protomaps.dev/builds.json | python3 -c "import sys,json; print(json.load(sys.stdin)[-1]['key'])")}
@@ -14,6 +15,8 @@ if [ ! -x /srv/dateplanner/bin/pmtiles ]; then
     | tar -xz -C /srv/dateplanner/bin pmtiles
 fi
 
+# A failed or interrupted run leaves the current map untouched
+trap 'rm -f "$DIR/region.pmtiles.part"' EXIT
 /srv/dateplanner/bin/pmtiles extract "https://build.protomaps.com/$BUILD" "$DIR/region.pmtiles.part" --bbox="$BBOX"
 mv "$DIR/region.pmtiles.part" "$DIR/region.pmtiles"
 echo "$BUILD $BBOX" > "$DIR/SOURCE"
