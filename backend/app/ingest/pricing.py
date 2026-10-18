@@ -173,13 +173,44 @@ def browse_for_price(start: str) -> tuple[dict | None, str | None]:
     return None, None
 
 
+def _words(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9]+", text.lower())
+
+
+def own_ticket_link(h: ItemHint, html: str, base: str) -> str | None:
+    """The link on a listing page whose address carries this event's whole title, if any."""
+    want = _words(h.event_title or "")
+    if not want:
+        return None
+    for href, _ in LINK.findall(html):
+        if SKIP.search(href):
+            continue
+        url = urljoin(base, htmllib.unescape(href)).split("#")[0]
+        if urlsplit(url).scheme not in ("http", "https"):
+            continue
+        slug = _words(urlsplit(url).path)
+        if any(slug[i:i + len(want)] == want for i in range(len(slug))):
+            return url
+    return None
+
+
 def enrich(hints: list[ItemHint], start_url: str | None, html: str | None = None) -> int:
     """Fill the price of events that have none. Returns how many were filled."""
     todo = [h for h in hints if h.kind == "event" and not has_price(h)]
     if not todo:
         return 0
+    if start_url and html is None and any(not h.ticket_url for h in todo):
+        try:
+            _, html = fetch_text(start_url)
+        except Exception as e:  # without the page, fall back to walking from the start url
+            log.info("listing page %s: %s", start_url, e)
     filled = 0
     for h in todo:
+        if not h.ticket_url and start_url and html:
+            h.ticket_url = own_ticket_link(h, html, start_url)
+            if not h.ticket_url and len(todo) > 1:
+                # A listing of several events: its first ticket link belongs to some other event
+                continue
         url = h.ticket_url or start_url
         if not url:
             continue

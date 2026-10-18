@@ -56,3 +56,26 @@ def test_fetch_reports_original_refusal_without_browser(monkeypatch):
     monkeypatch.setattr(browser, "available", lambda: False)
     with pytest.raises(httpx.HTTPStatusError):
         net.fetch_text("https://x.example/e")
+
+
+LISTING = (
+    '<a href="https://eb.com/e/classic-cinema-night-tickets-1">Tickets</a>'
+    '<a href="https://eb.com/e/down-the-rabbit-hole-tickets-2?aff=x">Tickets</a>'
+)
+
+
+def test_listing_events_get_their_own_ticket_link(monkeypatch):
+    seen = []
+
+    def find(url, html=None):
+        seen.append(url)
+        return {"price_min": 40.0, "price_max": 40.0, "is_free": False, "currency": None, "price_text": None}, url
+
+    monkeypatch.setattr(pricing, "find_price", find)
+    monkeypatch.setattr(pricing, "browse_for_price", lambda u: (None, None))
+    rabbit = ItemHint(kind="event", name="Cinegrill", event_title="Down the Rabbit Hole")
+    chess = ItemHint(kind="event", name="Spare Room", event_title="Chess and Jazz")
+    assert pricing.enrich([rabbit, chess], "https://venue.com/cal", LISTING) == 1
+    assert rabbit.ticket_url == "https://eb.com/e/down-the-rabbit-hole-tickets-2?aff=x"
+    assert chess.ticket_url is None and chess.price_min is None
+    assert seen == [rabbit.ticket_url]
