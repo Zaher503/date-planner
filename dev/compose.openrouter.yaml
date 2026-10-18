@@ -1,0 +1,23 @@
+name: dates-dev
+
+# Override for dev/compose.yaml: text goes to OpenRouter, images (screenshots, video frames) and Whisper stay
+# on the AI hub, and geocoding and web search use the Zephyrus services. All of them reach the containers
+# through ssh tunnels on the desktop (dev/tunnels.ps1), which listen on the loopback only.
+# Put OPENROUTER_API_KEY=... in dev/.env (git-ignored). Run:
+#   docker compose -f dev/compose.yaml -f dev/compose.openrouter.yaml up -d --build
+
+x-ai: &ai
+  LLM_PROVIDER: openrouter
+  OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:?put OPENROUTER_API_KEY in dev/.env}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-nvidia/nemotron-3.5-lightning:free}
+  OLLAMA_URL: http://host.docker.internal:11435
+  PHOTON_URL: http://host.docker.internal:2322
+  SEARXNG_URL: http://host.docker.internal:8080
+
+services:
+  api-dev:
+    environment: *ai
+    extra_hosts: ["host.docker.internal:host-gateway"]
+  worker-dev:
+    environment: *ai
+    extra_hosts: ["host.docker.internal:host-gateway"]

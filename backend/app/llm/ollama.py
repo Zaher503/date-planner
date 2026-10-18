@@ -5,6 +5,7 @@ waiting() hear about it, so a job can show "waiting for the AI, about 40 s" inst
 """
 import json
 import logging
+import re
 import uuid
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -72,10 +73,59 @@ def headers(audio_seconds: float | None = None) -> dict:
     return h
 
 
+THINK_BLOCK = re.compile(r"<think>.*?</think>", re.S)
+
+
+def parse_json_reply(content: str) -> dict:
+    """The JSON object in a model reply that may add reasoning, code fences or chatter around it."""
+    text = THINK_BLOCK.sub("", content or "").strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.S | re.I)
+    if fenced:
+        try:
+            return json.loads(fenced.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+    start, end = text.find("{"), text.rfind("}")
+    if start == -1 or end <= start:
+        raise json.JSONDecodeError("no JSON object in the reply", text, 0)
+    return json.loads(text[start:end + 1])
+
+
+def chat_json_openrouter(system: str, user: str, schema: dict, *, model: str | None = None,
+                         timeout: float = 300) -> dict:
+    """Same contract as chat_json, through OpenRouter. The model advertises no response_format,
+    so the schema goes into the prompt and the reply is parsed leniently; callers still validate."""
+    s = get_settings()
+    if not s.openrouter_api_key:
+        raise LLMError("OPENROUTER_API_KEY is not set")
+    model = model or s.openrouter_model
+    prompt = (f"{system}\n\nReply with one JSON object only, no prose and no code fences, "
+              f"that matches this JSON schema:\n{json.dumps(schema)}")
+    # Reasoning off: the answer is a short JSON object, and thinking tokens would eat the budget
+    body = {"model": model, "temperature": 0, "stream": False, "max_tokens": 6000, "reasoning": {"enabled": False},
+            "messages": [{"role": "system", "content": prompt}, {"role": "user", "content": user}]}
+    try:
+        r = httpx.post("https://openrouter.ai/api/v1/chat/completions", json=body, timeout=timeout,
+                       headers={"Authorization": f"Bearer {s.openrouter_api_key}"})
+        r.raise_for_status()
+        return parse_json_reply(r.json()["choices"][0]["message"]["content"])
+    except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
+        if isinstance(e, httpx.HTTPStatusError):
+            e = httpx.HTTPError(f"{e.response.status_code} {e.response.text[:200]}")
+        raise LLMError(f"openrouter call failed: {type(e).__name__}: {e}") from e
+
+
 def chat_json(system: str, user: str, schema: dict, *, images: list[str] | None = None,
               model: str | None = None, timeout: float = 900) -> dict:
     """One chat turn constrained to a JSON schema. images are base64 strings."""
     s = get_settings()
+    if s.llm_provider == "openrouter" and not images:
+        # Text goes to OpenRouter; anything with images (screenshots, video frames) stays on the hub
+        return chat_json_openrouter(system, user, schema, model=model, timeout=min(timeout, 300))
     model = model or s.llm_model
     msg = {"role": "user", "content": user}
     if images:
