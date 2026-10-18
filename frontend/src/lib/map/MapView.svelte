@@ -122,6 +122,23 @@
     }
   }
 
+  // Fall back to the live basemap when the local tiles cannot be read, whatever the view
+  async function useLiveBasemap() {
+    if (!map || live || switching) return;
+    switching = true;
+    try {
+      const style = await liveStyle(theme);
+      if (!map) return;
+      live = true;
+      ready = false;
+      map.setStyle(style, { diff: false });
+    } catch (err) {
+      console.warn('basemap fallback', err);
+    } finally {
+      switching = false;
+    }
+  }
+
   async function addOverlays() {
     if (!map) return;
     const font = live ? LIVE_FONT : FONT;
@@ -460,7 +477,11 @@
           syncBasemap();
         });
         emitView();
-        map.on('error', (e) => console.warn('map', e.error?.message ?? e));
+        map.on('error', (e) => {
+          console.warn('map', e.error?.message ?? e);
+          // The downloaded tiles are missing or broken: show the live basemap instead of a blank map
+          if (!live && (e as { sourceId?: string }).sourceId === 'protomaps') useLiveBasemap();
+        });
 
         // While moving a pin, any click places it; feature clicks are ignored
         map.on('click', (e) => {
