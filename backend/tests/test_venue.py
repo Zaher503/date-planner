@@ -165,3 +165,16 @@ def test_price_labels_for_places():
     assert place_price_label(None, tiers) == "$23-32"
     assert place_price_label(2, tiers) == "$$"
     assert place_price_label(None) is None
+
+
+def test_other_pages_found_only_when_they_name_the_venue(monkeypatch):
+    pages = {"https://blog.example.com/a": "<html><body><article><p>Sunset Ranch Hollywood runs guided trail rides every day of the week. Call (323) 469-5450 for rides and bookings.</p></article></body></html>",
+             "https://blog.example.com/b": "<html><body><article><p>A page about other stables entirely, with plenty of unrelated words in it so that the reader sees real text here. Sunset Ranch Hollywood is mentioned once.</p></article></body></html>"}
+    monkeypatch.setattr(venue, "fetch_text", lambda u: (u, pages[u]))
+    out = {"search_results": [
+        {"url": "https://ranch.example.com/", "aggregator": False},
+        {"url": "https://www.yelp.com/biz/x", "aggregator": True},
+        {"url": "https://blog.example.com/b", "aggregator": False},
+        {"url": "https://blog.example.com/a", "aggregator": False}]}
+    got = venue.other_pages(ItemHint(kind="place", name="Sunset Ranch Hollywood"), "https://ranch.example.com/", out)
+    assert [p["url"] for p in got] == ["https://blog.example.com/a"]

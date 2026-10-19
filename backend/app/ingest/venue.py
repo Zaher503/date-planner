@@ -297,6 +297,32 @@ def read_facts(pages: list[dict], out: dict) -> dict:
     return facts
 
 
+PHONE_RE = re.compile(r"(?<!\d)\(?\d{3}\)?[ .-]\d{3}[ .-]\d{4}(?!\d)")
+
+
+def other_pages(hint: ItemHint, site_url: str, out: dict) -> list[dict]:
+    """Up to two other non-aggregator search results that name the venue and show a phone number
+    (used for a phone the official site lacks)."""
+    pages = []
+    for r in out.get("search_results") or []:
+        u = r["url"]
+        if r.get("aggregator") or _same_site(u, site_url) or NOT_VENUE.search(u) or any(p["url"] == u for p in pages):
+            continue
+        try:
+            final, body = fetch_text(u)
+        except Exception:
+            continue
+        text = parse_page(final, body).text
+        found = list(PHONE_RE.finditer(text))
+        if found and _mentions(text, hint.name):
+            # Only the lines around each number: the phone is often past the part of a long page the model gets
+            snippets = [text[max(0, m.start() - 250):m.end() + 100] for m in found[:3]]
+            pages.append({"url": final, "text": " ... ".join(snippets)})
+        if len(pages) == 2:
+            break
+    return pages
+
+
 def locate(db: Session | None, home: tuple[float, float], hint: ItemHint, address: str | None,
            jsonld: ItemHint | None, mp, out: dict) -> dict:
     """Best point for the venue and the evidence for it."""
@@ -368,6 +394,14 @@ def lookup(db: Session | None, hint: ItemHint, home: tuple[float, float], stage=
     out["pages"] = list({p["url"]: p for p in out["pages"]}.values())
     stage("reading hours, prices and contact details")
     facts = read_facts(pages, out)
+
+    if not facts.get("phone") and not (jsonld and jsonld.phone):
+        extra = other_pages(hint, url, out)
+        if extra:
+            out["phone_pages"] = [p["url"] for p in extra]
+            facts["phone"] = read_facts(pages + extra, out).get("phone")
+            if facts["phone"]:
+                out["flags"].append("phone from other pages that name the venue")
 
     # Structured data on the site beats the model's reading of the text
     address = (jsonld.address if jsonld and jsonld.address else None) or facts.get("address")
