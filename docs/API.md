@@ -15,6 +15,34 @@ Every route needs an Authentik identity (`current_user`) unless marked **open**.
 | `GET /api/me` | `{id, username, display_name}` |
 | `GET /api/health/services` | `[{name, ok, ms, detail}]` |
 
+## Saving checked items (daily import check)
+
+`POST /api/admin/verified-items` (key: `X-Dates-Key`, same key as `/api/add`; no Authentik identity needed)
+
+```json
+{"url": "https://www.sunsetranchhollywood.com/", "dry_run": false,
+ "items": [{"kind": "place", "name": "Sunset Ranch Hollywood", "address": "3400 N Beachwood Drive, Los Angeles, CA 90068",
+            "category": "activity", "phone": "(323) 469-5450", "website": "https://sunsetranchhollywood.com/",
+            "opening_hours": "Mo-Su 09:00-17:00", "hours_text": "Daily 9am-5pm"}]}
+```
+
+`items` (1 to 10) use the `ItemHint` field names (`kind` place|event, `name`, `event_title`, `address`, `area`, `lat`+`lon`, `exact_pin`, `category`, `description`, `starts_at`, `ends_at`, `recurrence`, `price_*`, `ticket_url`, `website`, `phone`, `opening_hours` (OSM syntax), `hours_text`, `price_level`, `tags`, `images`). Unknown keys give 422; a bad category, bad `opening_hours`, a single `lat`/`lon`, an event without title/time/recurrence, or a non-http link gives 400. `dry_run: true` does everything and rolls back.
+
+Each item is pinned with the normal resolver, then saved with the ingest save code, attached to a `done` source for `url` (nothing is queued). A place or event that already exists (same source, same OSM place, or a place within 75 m with a similar name; an event with a similar title at that place and time) is **updated in place, never duplicated**: sent values fill blanks and replace different saved values, except fields in `user_overrides`. An omitted field leaves the saved one alone. The saved pin is not moved. A new item is a normal `manual` item; it is `needs_review` when the pin is not confident.
+
+Response:
+
+```json
+{"source_id": "uuid", "dry_run": false, "items": [{
+  "name": "Sunset Ranch Hollywood", "review": false, "method": "address", "confidence": 0.95,
+  "place": {"id": "uuid", "new": false,
+            "changes": {"phone": {"before": null, "after": "(323) 469-5450"}},
+            "kept_user_edits": ["website"]},
+  "event": {"id": "uuid", "new": true, "changes": {"title": {"before": null, "after": "..."}}, "kept_user_edits": []}}]}
+```
+
+`changes` lists only fields that differ (all set fields for a new item); `kept_user_edits` are saved fields a person edited, which were not touched. An item that cannot be pinned comes back as `{"name", "error"}` and is not saved. `source_id` is null for a dry run or when nothing was saved.
+
 ## Settings and facets
 
 `GET /api/settings`
