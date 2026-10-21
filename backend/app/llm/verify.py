@@ -53,9 +53,10 @@ def date_supported(d: date | None, text: str) -> bool:
     low = (text or "").lower()
     month = MONTHS[d.month - 1]
     day = d.day
-    if re.search(rf"\b({month}|{month[:3]})\.?\s+{day}(st|nd|rd|th)?\b", low):
+    names = f"{month}|{month[:3]}" + ("|sept" if d.month == 9 else "")  # AP style "Sept. 18"
+    if re.search(rf"\b({names})\.?\s+{day}(st|nd|rd|th)?\b", low):
         return True
-    if re.search(rf"\b{day}(st|nd|rd|th)?\s+(of\s+)?({month}|{month[:3]})\b", low):
+    if re.search(rf"\b{day}(st|nd|rd|th)?\s+(of\s+)?({names})\b", low):
         return True
     if re.search(rf"\b0?{d.month}[/.-]0?{day}\b", low) or d.isoformat() in low:
         return True
