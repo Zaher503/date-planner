@@ -242,6 +242,8 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
         h.recurrence = h.recurrence or f"ongoing until {h.ends_at.date().isoformat()}"
         h.starts_at = h.ends_at = None
         h.flags.append("recurring series, dates unclear")
+    if h.kind == "event" and h.starts_at and (h.ends_at or h.starts_at) < now:
+        h.flags.append("event already happened")
     venue_event = bool(h.event_title and h.name and h.name.strip().lower() != h.event_title.strip().lower())
     if h.kind == "event" and not h.starts_at and not h.recurrence and not venue_event:
         h.kind = "place"
