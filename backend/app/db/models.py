@@ -122,6 +122,7 @@ class Event(TimestampMixin, Base):
         CheckConstraint(_in("status", EVENT_STATUS), name="status_valid"),
         CheckConstraint("ends_at IS NULL OR starts_at IS NULL OR ends_at >= starts_at", name="ends_after_start"),
         CheckConstraint("price_min IS NULL OR price_max IS NULL OR price_max >= price_min", name="price_order"),
+        CheckConstraint("min_age IS NULL OR min_age IN (18, 21)", name="min_age_valid"),
         Index("ix_events_starts_at", "starts_at"),
         Index("ix_events_tags", "tags", postgresql_using="gin"),
         Index("ix_events_search", "search", postgresql_using="gin"),
@@ -156,6 +157,7 @@ class Event(TimestampMixin, Base):
     is_free: Mapped[bool | None] = mapped_column(Boolean)
     price_text: Mapped[str | None] = mapped_column(Text)
     ticket_url: Mapped[str | None] = mapped_column(Text)
+    min_age: Mapped[int | None] = mapped_column(SmallInteger)  # 18 or 21; null when not stated
     tags: Mapped[list[str]] = mapped_column(ARRAY(Text), server_default="{}")
     embedding = mapped_column(Vector(EMBED_DIM))
     origin: Mapped[str] = mapped_column(Text, server_default="manual")

@@ -173,7 +173,7 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         event.all_day = hint.all_day
         event.status = hint.status
     _set(event, "recurrence_text", hint.recurrence, overwrite=refresh)
-    for f in ("price_min", "price_max", "currency", "is_free", "price_text", "ticket_url"):
+    for f in ("price_min", "price_max", "currency", "is_free", "price_text", "ticket_url", "min_age"):
         _set(event, f, getattr(hint, f), overwrite=refresh)
     if "tags" not in event.user_overrides:
         event.tags = list(dict.fromkeys([*(event.tags or []), *hint.tags]))[:12]

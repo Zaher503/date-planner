@@ -5,6 +5,7 @@
   import TriangleAlert from '@lucide/svelte/icons/triangle-alert';
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
   import Plus from '@lucide/svelte/icons/plus';
+  import Archive from '@lucide/svelte/icons/archive';
   import type { Facets } from '$lib/api';
   import { labelOf } from '$lib/categories';
   import { EMPTY, PRICE_LABEL, STATUS_LABEL, WHEN_LABEL, toggle, type Filters, type When } from '$lib/filters';
@@ -89,11 +90,11 @@
   );
   const typeLabel = $derived(filters.types.length === 1 ? (filters.types[0] === 'place' ? 'Places' : 'Events') : 'Type');
   const anyActive = $derived(
-    !!(filters.q || filters.when || filters.open_now || filters.past || filters.price.length || tagCount || filters.dist_km || filters.status.length || filters.types.length === 1)
+    !!(filters.q || filters.when || filters.open_now || filters.past || filters.archive || filters.price.length || tagCount || filters.dist_km || filters.status.length || filters.types.length === 1)
   );
 
   const activeCount = $derived(
-    [!!filters.when || filters.open_now || filters.past, filters.price.length > 0, tagCount > 0, !!filters.dist_km, filters.status.length > 0, filters.types.length === 1].filter(Boolean).length
+    [!!filters.when || filters.open_now || filters.past, filters.price.length > 0, tagCount > 0, !!filters.dist_km, filters.status.length > 0, filters.types.length === 1, filters.archive].filter(Boolean).length
   );
 
   // Distance slider works in the display unit
@@ -180,6 +181,9 @@
     </button>
     <button class="chip" class:on={filters.types.length === 1} onclick={() => toggleOpen('type')} aria-expanded={open === 'type'}>
       {typeLabel}<ChevronDown size={14} />
+    </button>
+    <button class="chip" class:on={filters.archive} onclick={() => set({ archive: !filters.archive })} aria-pressed={filters.archive}>
+      <Archive size={14} />Archive
     </button>
     {#if anyActive}
       <button class="chip clear-all" onclick={clearAll}><X size={14} />Clear</button>
