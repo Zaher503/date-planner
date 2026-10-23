@@ -23,7 +23,8 @@ concurrency:
 
 jobs:
   version:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # Only deploy runs from a push to main, never a fork pull request on a branch named main
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     outputs:
       next: ${{ steps.next.outputs.next }}
