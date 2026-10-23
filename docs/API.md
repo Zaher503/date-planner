@@ -77,6 +77,7 @@ All optional. Lists are comma separated.
 | `dist_km=40` | Within this distance of `near` (no limit when absent) |
 | `q=text` | Full text (`search` tsvector, `websearch_to_tsquery`) or name/title trigram similarity > 0.3 |
 | `past=1` | Include events that already ended and `status=archived` (default: hidden; an event has ended when `coalesce(ends_at, starts_at + duration, starts_at + 3h) < now`) |
+| `archive=1` | Only archived events (the Archive section), newest first by default; forces `types=event`. An event is archived when its `status` is `archived`, or it is a one-off (no `rrule`/`recurrence_text`, has `starts_at`) that has ended. This is worked out from the clock on every request, so old and new events (however they were added) move over on their own. Recurring and undated events never age out |
 
 ## Map and list
 
@@ -97,7 +98,7 @@ All optional. Lists are comma separated.
 }]}
 ```
 
-`rs` is review_status, `my` my status (null if none), `rating` my rating, `venue` the event's venue name, `thumb` whether `/api/thumb/{source_id}` exists for one of its sources (then `thumb_src` holds that source id), `price` a short label (`Free`, `$15`, `$15-30`, `$$`) or null, `tags` at most 5.
+`rs` is review_status, `my` my status (null if none), `rating` my rating, `venue` the event's venue name, `archived` (events only) whether the event is in the Archive, `thumb` whether `/api/thumb/{source_id}` exists for one of its sources (then `thumb_src` holds that source id), `price` a short label (`Free`, `$15`, `$15-30`, `$$`) or null, `tags` at most 5.
 
 `GET /api/list?filters&sort=date|distance|recent|name&limit=50&offset=0` -> `{"items": [ {same properties, plus "lat", "lon"} ], "total": 123}`. Default sort: `date` (dated events by next start first, then places by name). `limit` max 200.
 
@@ -123,7 +124,7 @@ All optional. Lists are comma separated.
   "starts_at": null, "ends_at": null, "duration_min": null, "duration_estimated": false,
   "all_day": false, "recurrence_text": null, "tz": "America/Los_Angeles",
   "price_min": null, "price_max": null, "currency": "USD", "is_free": null,
-  "price_text": null, "ticket_url": null, "status": "scheduled", "venue_name": null,
+  "price_text": null, "ticket_url": null, "status": "scheduled", "archived": false, "min_age": null, "venue_name": null,
   "place": {"id": "uuid", "title": "..."},
 
   "sources": [{"id": "uuid", "kind": "tiktok", "url": "...", "title": "...", "caption": "first 500 chars",
@@ -172,3 +173,6 @@ Everything else that is not `/api/*`, `/tiles/*`, `/healthz` or `/cal/*` serves 
 - Reprocess skips sources the ingest job cannot read (Instagram stubs, discovery rows, images) and returns the existing job id when a source already has a queued or running ingest job.
 - Thumbnails: also recorded in `media` (kind `thumb`). A TikTok source without a stored thumbnail URL still tries oEmbed. Failed fetches are not retried for an hour (per API process).
 - The app shell answers 404 (not `index.html`) for missing files that look like assets (a dot in the last path segment, or under `/_app/`), tries `<path>/index.html` and `<path>.html` for prerendered pages, gives other files `Cache-Control: public, max-age=3600`, and returns a small 503 page when `/app/static/index.html` does not exist. The directory can be moved with `STATIC_DIR`.
+
+
+- `min_age` (events) is `18`, `21` or null. It is read from clear wording on the page or post ("21+", "ages 18 and up", JSON-LD `typicalAgeRange`); null when it is not stated, says all ages, or names both (18+ to enter, 21+ to drink). The UI hides the line when null. Ingest job results mark each event `archived` when it has already passed, so the app can say so in a toast.

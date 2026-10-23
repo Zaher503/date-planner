@@ -47,6 +47,7 @@ export interface ItemProps {
   hero?: number | null;
   tags: string[];
   place_id?: string | null;
+  archived?: boolean;
 }
 
 export interface MapFeature {
@@ -159,6 +160,10 @@ export interface Item {
   is_free?: boolean | null;
   price_text?: string | null;
   ticket_url?: string | null;
+  /** 18 or 21 when the event states it, else null (shown nowhere). */
+  min_age?: 18 | 21 | null;
+  /** The event already happened (or was archived by hand): it lives in the Archive. */
+  archived?: boolean;
   status?: string;
   venue_name?: string | null;
   occurrences?: { starts_at: string; ends_at: string | null }[];
@@ -180,7 +185,7 @@ export interface Job {
   pct: number;
   error: string | null;
   result: {
-    items?: { type?: ItemType; id?: string; name?: string; event_title?: string; error?: string; review?: boolean }[];
+    items?: { type?: ItemType; id?: string; name?: string; event_title?: string; error?: string; review?: boolean; archived?: boolean }[];
     placed?: number;
     review?: number;
     error?: string;

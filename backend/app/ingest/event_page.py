@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from app.ingest.age import min_age
 from app.ingest.items import ItemHint
 
 LD_BLOCK = re.compile(r"<script[^>]+application/ld\+json[^>]*>(.*?)</script>", re.S | re.I)
@@ -204,7 +205,7 @@ def event_item(node: dict, page_url: str) -> ItemHint | None:
         ticket_url=offers["ticket_url"] or _text(node.get("url")) or page_url,
         price_min=offers["price_min"], price_max=offers["price_max"],
         currency=offers["currency"], is_free=offers["is_free"],
-        provider="jsonld",
+        provider="jsonld", min_age=min_age(_text(node.get("typicalAgeRange"))),
         status="cancelled" if status in ("eventcancelled", "cancelled") else "scheduled",
     )
     if item.description and len(item.description) > 600:

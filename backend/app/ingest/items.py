@@ -34,6 +34,7 @@ class ItemHint:
     price_text: str | None = None
     price_tiers: list[dict] = field(default_factory=list)  # [{label, price, note}] from the venue's site
     ticket_url: str | None = None
+    min_age: int | None = None  # 18 or 21 when the event states it
     website: str | None = None
     phone: str | None = None
     opening_hours: str | None = None  # OSM syntax

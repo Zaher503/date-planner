@@ -12,6 +12,7 @@ export interface Filters {
   to: string;
   open_now: boolean;
   past: boolean;
+  archive: boolean; // only events that already happened
   price: string[]; // free, 1, 2, 3
   tags: string[];
   cats: string[];
@@ -28,6 +29,7 @@ export const EMPTY: Filters = {
   to: '',
   open_now: false,
   past: false,
+  archive: false,
   price: [],
   tags: [],
   cats: [],
@@ -82,6 +84,7 @@ export function parseFilters(sp: URLSearchParams): Filters {
     to: DATE.test(to) ? to : '',
     open_now: sp.get('open_now') === '1',
     past: sp.get('past') === '1',
+    archive: sp.get('archive') === '1',
     price: list(sp, 'price', new Set(['free', '1', '2', '3'])),
     tags: list(sp, 'tags'),
     cats: list(sp, 'cats'),
@@ -103,6 +106,7 @@ export function filterParams(f: Filters): URLSearchParams {
   }
   if (f.open_now) sp.set('open_now', '1');
   if (f.past) sp.set('past', '1');
+  if (f.archive) sp.set('archive', '1');
   if (f.price.length) sp.set('price', f.price.join(','));
   if (f.tags.length) sp.set('tags', f.tags.join(','));
   if (f.cats.length) sp.set('cats', f.cats.join(','));
@@ -130,6 +134,7 @@ export function activeCount(f: Filters): number {
   let n = 0;
   if (f.types.length === 1) n++;
   if (f.when || f.past) n++;
+  if (f.archive) n++;
   if (f.open_now) n++;
   if (f.price.length) n++;
   if (f.tags.length || f.cats.length) n++;

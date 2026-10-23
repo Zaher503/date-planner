@@ -36,7 +36,8 @@ class Filters:
     near: tuple[float, float] | None = None  # lat, lon
     dist_km: float | None = None
     q: str | None = None
-    past: bool = False
+    past: bool = False  # keep archived events in the results
+    archive: bool = False  # only archived events (the Archive section)
     now: datetime | None = None
 
 
@@ -107,12 +108,12 @@ def parse_filters(*, bbox: str | None = None, types: str | None = None, when: st
                   from_: str | None = None, to: str | None = None, open_now: str | None = None,
                   price: str | None = None, tags: str | None = None, cats: str | None = None,
                   status: str | None = None, near: str | None = None, dist_km: str | None = None,
-                  q: str | None = None, past: str | None = None, now: datetime | None = None,
-                  tz: str | None = None) -> Filters:
+                  q: str | None = None, past: str | None = None, archive: str | None = None,
+                  now: datetime | None = None, tz: str | None = None) -> Filters:
     """Validate the raw query strings. Raises HTTP 400 on bad input."""
     zone = ZoneInfo(tz or get_settings().default_tz)
     now = (now or datetime.now(zone)).astimezone(zone)  # local, so opening hours compare directly
-    f = Filters(now=now, open_now=_flag(open_now), past=_flag(past))
+    f = Filters(now=now, open_now=_flag(open_now), past=_flag(past), archive=_flag(archive))
     if bbox:
         w, s, e, n = _floats(bbox, 4, "bbox")
         if not (-180 <= w <= 180 and -180 <= e <= 180 and -90 <= s <= n <= 90):
@@ -123,6 +124,8 @@ def parse_filters(*, bbox: str | None = None, types: str | None = None, when: st
         if not ts or any(t not in TYPES for t in ts):
             raise _bad("types must be place and/or event")
         f.types = tuple(t for t in TYPES if t in ts)
+    if f.archive:
+        f.types = ("event",)  # only events are ever archived
     if when:
         f.when = when.strip().lower()
         f.window = time_window(f.when, now, zone, _day(from_, "from"), _day(to, "to"))
@@ -154,10 +157,11 @@ def filters_dep(bbox: str | None = None, types: str | None = None, when: str | N
                 from_: str | None = Query(None, alias="from"), to: str | None = None,
                 open_now: str | None = None, price: str | None = None, tags: str | None = None,
                 cats: str | None = None, status: str | None = None, near: str | None = None,
-                dist_km: str | None = None, q: str | None = None, past: str | None = None) -> Filters:
+                dist_km: str | None = None, q: str | None = None, past: str | None = None,
+                archive: str | None = None) -> Filters:
     return parse_filters(bbox=bbox, types=types, when=when, from_=from_, to=to, open_now=open_now,
                          price=price, tags=tags, cats=cats, status=status, near=near, dist_km=dist_km,
-                         q=q, past=past)
+                         q=q, past=past, archive=archive)
 
 
 def point_sql(lat: float, lon: float):
@@ -175,6 +179,34 @@ def event_end(starts, ends):
 
 def recurring():
     return or_(Event.rrule.isnot(None), Event.recurrence_text.isnot(None))
+
+
+def archived(now: datetime):
+    """SQL: the event belongs in the Archive. This is the one rule for it: set by hand (status archived), or a
+    one-off event that has ended. It reads the clock, so old and new events (whatever added them) move over by
+    themselves, with no migration or job. Recurring and undated events never age out."""
+    return or_(Event.status == "archived",
+               and_(~recurring(), Event.starts_at.isnot(None), event_end(Event.starts_at, Event.ends_at) < now))
+
+
+def event_ended(*, status: str | None, starts_at: datetime | None, ends_at: datetime | None,
+                duration_min: int | None, all_day: bool | None, is_recurring: bool, now: datetime) -> bool:
+    """Python twin of archived(), for rows already in memory. Keep the two in step."""
+    if status == "archived":
+        return True
+    if is_recurring or starts_at is None:
+        return False
+    if starts_at.tzinfo is None:  # a time that was never given an offset reads in the caller's zone
+        starts_at = starts_at.replace(tzinfo=now.tzinfo)
+    if ends_at is not None and ends_at.tzinfo is None:
+        ends_at = ends_at.replace(tzinfo=now.tzinfo)
+    if ends_at is not None:
+        end = ends_at
+    elif duration_min is not None:
+        end = starts_at + timedelta(minutes=duration_min)
+    else:
+        end = starts_at + (timedelta(days=1) if all_day else timedelta(hours=DEFAULT_EVENT_HOURS))
+    return end < now
 
 
 def overlaps(start: datetime, end: datetime):
@@ -239,9 +271,10 @@ def place_conditions(f: Filters) -> list:
 def event_conditions(f: Filters) -> list:
     conds = []
     now = f.now
-    if not f.past:
-        conds += [Event.status != "archived",
-                  or_(recurring(), Event.starts_at.is_(None), event_end(Event.starts_at, Event.ends_at) >= now)]
+    if f.archive:
+        conds.append(archived(now))
+    elif not f.past:
+        conds.append(~archived(now))
     if f.window:
         # Recurring events always pass; undated one-offs are dropped
         conds.append(or_(recurring(), overlaps(*f.window)))

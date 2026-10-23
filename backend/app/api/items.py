@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from app import jobs
 from app.api.auth import current_user
 from app.api.common import event_price_label, image_url, place_price_label
+from app.api.filters import event_ended
 from app.config import get_settings
 from app.db.models import (
     Candidate, Event, ItemImage, ItemSource, Job, Media, Occurrence, Place, Source, User, UserItemState,
@@ -179,7 +180,11 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "recurrence_text": item.recurrence_text, "tz": item.tz,
             "price_min": _num(item.price_min), "price_max": _num(item.price_max), "currency": item.currency,
             "is_free": item.is_free, "price_text": item.price_text, "ticket_url": item.ticket_url,
-            "status": item.status, "venue_name": item.venue_name,
+            "min_age": item.min_age, "status": item.status, "venue_name": item.venue_name,
+            "archived": event_ended(status=item.status, starts_at=item.starts_at, ends_at=item.ends_at,
+                                    duration_min=item.duration_min, all_day=item.all_day,
+                                    is_recurring=bool(item.rrule or item.recurrence_text),
+                                    now=datetime.now(_tz())),
             "occurrences": [{"starts_at": _iso(o.starts_at), "ends_at": _iso(o.ends_at)} for o in db.scalars(
                 select(Occurrence).where(Occurrence.event_id == item.id).order_by(Occurrence.starts_at)
                 .limit(MAX_OCCURRENCES)).all()],
@@ -270,6 +275,7 @@ class EventPatch(BaseModel):
     is_free: bool | None = None
     price_text: str | None = Field(None, max_length=300)
     ticket_url: str | None = Field(None, max_length=2000)
+    min_age: Literal[18, 21] | None = None
     status: Literal["scheduled", "cancelled", "archived"] | None = None
     review_status: Literal["ok", "dismissed"] | None = None
     lat: float | None = Field(None, ge=-90, le=90)

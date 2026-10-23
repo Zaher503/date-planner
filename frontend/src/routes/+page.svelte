@@ -20,7 +20,7 @@
   import Sheet, { type Snap } from '$lib/components/Sheet.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
 
-  const FILTER_KEYS = ['q', 'types', 'when', 'from', 'to', 'open_now', 'past', 'price', 'tags', 'cats', 'status', 'dist_km', 'near'];
+  const FILTER_KEYS = ['q', 'types', 'when', 'from', 'to', 'open_now', 'past', 'archive', 'price', 'tags', 'cats', 'status', 'dist_km', 'near'];
 
   // URL state
   const filters = $derived(parseFilters(page.url.searchParams));
@@ -29,7 +29,7 @@
     return m ? { t: m[1] as ItemType, id: m[2] } : null;
   });
   const panel = $derived(page.url.searchParams.get('panel'));
-  const listMode = $derived(!!filters.q || filters.status.length > 0);
+  const listMode = $derived(!!filters.q || filters.status.length > 0 || filters.archive);
 
   let mapView: MapView | undefined = $state();
   let mapData = $state<MapData | null>(null);
@@ -231,7 +231,7 @@
     const fresh = key !== lastListKey;
     lastListKey = key;
     api
-      .list(`${key}&limit=200&sort=name`)
+      .list(`${key}&limit=200&sort=${filters.archive ? 'date' : 'name'}`)
       .then((r) => {
         if (apiQuery(filters, { me }) !== key || app.version !== version) return;
         globalList = r.items;
@@ -526,8 +526,13 @@
         {#if !sel && panel !== 'settings'}
           <div class="summary">
             {#if listMode && globalList}
-              <strong>{globalTotal} match{globalTotal === 1 ? '' : 'es'}</strong>
-              <span class="muted">{filters.q ? `for "${filters.q}"` : 'anywhere'}</span>
+              {#if filters.archive}
+                <strong>{globalTotal} past event{globalTotal === 1 ? '' : 's'}</strong>
+                <span class="muted">in the Archive, newest first</span>
+              {:else}
+                <strong>{globalTotal} match{globalTotal === 1 ? '' : 'es'}</strong>
+                <span class="muted">{filters.q ? `for "${filters.q}"` : 'anywhere'}</span>
+              {/if}
             {:else if rows.length}
               <strong>{counts.places} place{counts.places === 1 ? '' : 's'}{counts.events ? `, ${counts.events} event${counts.events === 1 ? '' : 's'}` : ''}</strong>
               <span class="muted">in view</span>
