@@ -30,6 +30,12 @@ SIGNALS = (
 )
 VENDORS = ("eventbrite", "ticketmaster", "axs.com", "seetickets", "dice.fm", "tixr", "etix", "universe.com",
            "luma", "lu.ma", "posh.vip", "ra.co", "opentable", "resy", "tock", "fever", "showclix", "eventim")
+# Wording that says getting in costs nothing ("free donuts" or "free parking" does not)
+FREE_ENTRY = re.compile(
+    r"\bno\s+cover\b|\$\s?0(\.00?)?\b|\bfree\s+(entry|admission|event|to\s+(attend|enter|join|rsvp)|rsvp|tickets?|"
+    r"general\s+admission|before|until|for\s+all|and\s+open|of\s+charge)\b|\bfree\s*[.!]|"
+    r"\b(admission|entry|cover|price|cost|tickets?|rsvp)\s*(is|:|-)?\s*free\b|\bcomplimentary\s+(entry|admission)\b|"
+    r"\bfree$", re.I | re.M)
 SKIP = re.compile(r"\.(png|jpe?g|gif|svg|webp|pdf|css|js)(\?|$)|^(mailto|tel|javascript):", re.I)
 
 SYSTEM = """You read a web page about an event and report what attending costs.
@@ -98,8 +104,11 @@ def read_price(html: str, url: str) -> dict | None:
     for k in ("price_min", "price_max"):
         if out[k] is not None and not verify.price_supported(out[k], nums):
             out[k] = None
-    if out["is_free"] and "free" not in text.lower() and "no cover" not in text.lower():
+    if not FREE_ENTRY.search(text):
         out["is_free"] = None
+        if not out["price_min"] and not out["price_max"]:
+            # $0 with no free-entry wording is the model reading "free donuts" as the price
+            out["price_min"] = out["price_max"] = out["price_text"] = None
     if out["price_min"] is None and out["price_max"] is None and out["is_free"] is None:
         return None
     return out

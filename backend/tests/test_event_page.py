@@ -87,3 +87,16 @@ def test_event_without_a_location_uses_the_page_venue():
              {"@type": "Event", "name": "Vampire Day", "startDate": "2026-10-31T10:00:00-07:00"}]
     items = items_from_jsonld(nodes, "https://example.com")
     assert len(items) == 1 and items[0].name == "Academy Museum" and items[0].event_title == "Vampire Day"
+
+
+def test_zero_price_range_without_availability_is_not_free():
+    from app.ingest.event_page import _offers
+    dice = {"offers": {"@type": "AggregateOffer", "priceCurrency": "USD", "lowPrice": "0.00", "highPrice": "0.00"}}
+    out = _offers(dice)
+    assert out["is_free"] is None and out["price_min"] is None
+    sold = {"offers": [{"@type": "Offer", "price": "0", "availability": "https://schema.org/SoldOut"}]}
+    assert _offers(sold)["is_free"] is None
+    free = {"offers": [{"@type": "AggregateOffer", "lowPrice": "0.0", "highPrice": "0.0", "availability": "InStock"}]}
+    assert _offers(free)["is_free"] is True
+    paid = {"offers": [{"@type": "Offer", "price": "13.65", "availability": "https://schema.org/OutOfStock"}]}
+    assert _offers(paid)["price_min"] == 13.65
