@@ -23,6 +23,8 @@ def test_date_supported():
     assert verify.date_supported(d, "this Saturday only")
     assert verify.date_supported(d, "17 October")
     assert not verify.date_supported(d, "every week, great vibes")
+    assert verify.date_supported(date(2026, 9, 18), "runs Sept. 18 through Nov. 1")
+    assert verify.date_supported(date(2026, 9, 18), "from 18 Sept")
 
 
 def test_prices_must_appear():
