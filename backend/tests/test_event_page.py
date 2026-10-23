@@ -87,3 +87,16 @@ def test_event_without_a_location_uses_the_page_venue():
              {"@type": "Event", "name": "Vampire Day", "startDate": "2026-10-31T10:00:00-07:00"}]
     items = items_from_jsonld(nodes, "https://example.com")
     assert len(items) == 1 and items[0].name == "Academy Museum" and items[0].event_title == "Vampire Day"
+
+
+def test_embedded_description_leads_the_page_text():
+    html = ('<html><body><nav>Create your event page for free</nav><script>{"structuredContent":{"modules":'
+            '[{"type":"text","text":"\u003cp\u003eTickets start at $35/per person\u003c/p\u003e'
+            '\u003cp\u003eSeating at 7:30pm\u003c/p\u003e"}]},"x":1}</script></body></html>')
+    text = parse_page("https://example.com/e", html).text
+    assert text.startswith("Tickets start at $35/per person\nSeating at 7:30pm")
+    assert "Create your event page for free" in text
+
+
+def test_embedded_description_missing_is_harmless():
+    assert parse_page("https://example.com/e", "<html><body><p>Hi there</p></body></html>").text.strip() in ("", "Hi there")
