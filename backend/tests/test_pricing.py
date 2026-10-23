@@ -79,3 +79,17 @@ def test_listing_events_get_their_own_ticket_link(monkeypatch):
     assert rabbit.ticket_url == "https://eb.com/e/down-the-rabbit-hole-tickets-2?aff=x"
     assert chess.ticket_url is None and chess.price_min is None
     assert seen == [rabbit.ticket_url]
+
+
+def test_free_donuts_is_not_free_entry():
+    from app.ingest.pricing import FREE_ENTRY
+    assert not FREE_ENTRY.search("Come for the free donuts, stay for the dance floor! Free parking nearby.")
+    assert FREE_ENTRY.search("Free entry before 11pm") and FREE_ENTRY.search("No cover")
+    assert FREE_ENTRY.search("Admission: Free") and FREE_ENTRY.search("This event is free.")
+
+
+def test_zero_price_from_free_donuts_is_dropped(monkeypatch):
+    html = "<html><body><p>A disco party. Come for the free donuts, stay for the dance floor! Doors 9:30 PM.</p></body></html>"
+    monkeypatch.setattr(pricing, "chat_json", lambda *a, **k: {
+        "found": True, "price_min": 0, "price_max": 0, "is_free": True, "price_text": "free"})
+    assert pricing.read_price(html, "https://example.com/e") is None

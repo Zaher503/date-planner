@@ -89,6 +89,19 @@ def test_event_without_a_location_uses_the_page_venue():
     assert len(items) == 1 and items[0].name == "Academy Museum" and items[0].event_title == "Vampire Day"
 
 
+def test_zero_price_range_without_availability_is_not_free():
+    from app.ingest.event_page import _offers
+    dice = {"offers": {"@type": "AggregateOffer", "priceCurrency": "USD", "lowPrice": "0.00", "highPrice": "0.00"}}
+    out = _offers(dice)
+    assert out["is_free"] is None and out["price_min"] is None
+    sold = {"offers": [{"@type": "Offer", "price": "0", "availability": "https://schema.org/SoldOut"}]}
+    assert _offers(sold)["is_free"] is None
+    free = {"offers": [{"@type": "AggregateOffer", "lowPrice": "0.0", "highPrice": "0.0", "availability": "InStock"}]}
+    assert _offers(free)["is_free"] is True
+    paid = {"offers": [{"@type": "Offer", "price": "13.65", "availability": "https://schema.org/OutOfStock"}]}
+    assert _offers(paid)["price_min"] == 13.65
+
+
 def test_embedded_description_leads_the_page_text():
     html = ('<html><body><nav>Create your event page for free</nav><script>{"structuredContent":{"modules":'
             '[{"type":"text","text":"\u003cp\u003eTickets start at $35/per person\u003c/p\u003e'

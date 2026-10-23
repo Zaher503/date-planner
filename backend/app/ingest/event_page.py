@@ -165,10 +165,17 @@ def _offers(node: dict) -> dict:
     for o in offers:
         if not isinstance(o, dict):
             continue
+        avail = str(o.get("availability") or "").rsplit("/", 1)[-1].lower()
+        sold_out = avail in ("outofstock", "soldout", "discontinued")
         for k in ("price", "lowPrice", "highPrice"):
             try:
                 if o.get(k) not in (None, ""):
-                    prices.append(float(str(o[k]).replace(",", "")))
+                    val = float(str(o[k]).replace(",", ""))
+                    # A $0 range with no availability, or on a sold-out offer, is a ticket site with
+                    # nothing on sale (Dice shows 0.00 once an event is off sale), not a free event
+                    if val == 0 and (sold_out or (k != "price" and not avail)):
+                        continue
+                    prices.append(val)
             except ValueError:
                 pass
         currency = currency or o.get("priceCurrency")
