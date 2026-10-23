@@ -97,6 +97,7 @@ REVIEW_TEXT = {
     "removed unverified time": "A start time was read from the link but could not be found in its text, so it was dropped.",
     "event with no date": "No date was found for this event.",
     "recurring series, dates unclear": "This runs for a long stretch, so the individual dates are unclear. It is shown as an ongoing series.",
+    "event already happened": "This event's date has already passed, so it is probably over.",
     "start time has no time zone": "The page gave a start time without a time zone, so Los Angeles time was assumed.",
 }
 
@@ -130,7 +131,7 @@ def review_reasons(db: Session, item: Place | Event) -> list[str]:
 
 
 EVENT_ONLY = {"removed unverified date", "removed unverified time", "event with no date",
-              "recurring series, dates unclear", "start time has no time zone"}
+              "recurring series, dates unclear", "start time has no time zone", "event already happened"}
 
 
 def detail(db: Session, item: Place | Event, user: User) -> dict:

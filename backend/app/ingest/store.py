@@ -22,7 +22,7 @@ DEFAULT_MINUTES = {"live_music": 180, "show": 150, "comedy": 120, "festival": 24
                    "class": 120, "sports": 180, "nightlife": 240, "activity": 120, "arts": 120}
 PLACE_REVIEW_FLAGS = {"not a specific venue"}
 EVENT_REVIEW_FLAGS = {"removed unverified date", "event with no date", "recurring series, dates unclear",
-                      "start time has no time zone"}
+                      "start time has no time zone", "event already happened"}
 
 
 def home_point(db: Session) -> tuple[float, float]:
