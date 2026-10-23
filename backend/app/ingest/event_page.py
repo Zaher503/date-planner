@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
+from urllib.parse import urlsplit
 
 from app.ingest.age import min_age
 from app.ingest.items import ItemHint
@@ -309,6 +310,13 @@ def embedded_description(html: str) -> str:
     return "\n".join(p for p in parts if p)
 
 
+def _is_host_name(name: str | None, url: str) -> bool:
+    """'Losangelesmuseumoflove' on losangelesmuseumoflove.com: the name is just the domain."""
+    label = ((urlsplit(url).hostname or "").removeprefix("www.").split(".") or [""])[0]
+    flat = re.sub(r"[^a-z0-9]", "", (name or "").lower())
+    return bool(flat) and " " not in (name or "").strip() and flat == re.sub(r"[^a-z0-9]", "", label.lower())
+
+
 def parse_page(url: str, html: str) -> PageData:
     import trafilatura
 
@@ -318,6 +326,11 @@ def parse_page(url: str, html: str) -> PageData:
     page.description = _meta(html, "og:description") or _meta(html, "description")
     page.image = _meta(html, "og:image")
     page.items = items_from_jsonld(jsonld_nodes(html), url)
+    site_name = _meta(html, "og:site_name")
+    if site_name:
+        for it in page.items:
+            if _is_host_name(it.name, url) and it.name != site_name:
+                it.name = site_name  # Wix and others fill the JSON-LD name with the domain, run together
     body = trafilatura.extract(html, include_comments=False, include_tables=True) or ""
     page.text = "\n".join(t for t in (embedded_description(html), body) if t)[:8000]
     return page
