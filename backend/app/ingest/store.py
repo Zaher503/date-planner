@@ -22,7 +22,7 @@ DEFAULT_MINUTES = {"live_music": 180, "show": 150, "comedy": 120, "festival": 24
                    "class": 120, "sports": 180, "nightlife": 240, "activity": 120, "arts": 120}
 PLACE_REVIEW_FLAGS = {"not a specific venue"}
 EVENT_REVIEW_FLAGS = {"removed unverified date", "event with no date", "recurring series, dates unclear",
-                      "start time has no time zone"}
+                      "start time has no time zone", "event already happened"}
 
 
 def home_point(db: Session) -> tuple[float, float]:
@@ -129,6 +129,22 @@ def _series_match(db: Session, place: Place, title: str) -> Event | None:
     return next((e for e in rows if name_similarity(e.title, title) >= SAME_SERIES), None)
 
 
+def find_event(db: Session, hint: ItemHint, place: Place) -> tuple[Event | None, bool]:
+    """The event this hint is already saved as at this place, and whether it is another date of it."""
+    title = hint.event_title or hint.name
+    q = select(Event).where(Event.place_id == place.id)
+    if hint.starts_at:
+        q = q.where(Event.starts_at.between(hint.starts_at - timedelta(minutes=60),
+                                            hint.starts_at + timedelta(minutes=60)))
+    else:
+        q = q.where(Event.starts_at.is_(None))
+    event = next((e for e in db.scalars(q).all() if name_similarity(e.title, title) >= 0.6), None)
+    if event is None and hint.starts_at:
+        event = _series_match(db, place, title)
+        return event, event is not None
+    return event, False
+
+
 def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, user_id: int | None,
                  origin: str = "manual", existing: Event | None = None) -> tuple[Event, bool]:
     """existing: the event a link read before (a reread). It is updated in place, never matched again."""
@@ -137,16 +153,7 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
     event = existing
     another_date = False
     if event is None:
-        q = select(Event).where(Event.place_id == place.id)
-        if hint.starts_at:
-            q = q.where(Event.starts_at.between(hint.starts_at - timedelta(minutes=60),
-                                                hint.starts_at + timedelta(minutes=60)))
-        else:
-            q = q.where(Event.starts_at.is_(None))
-        event = next((e for e in db.scalars(q).all() if name_similarity(e.title, title) >= 0.6), None)
-        if event is None and hint.starts_at:
-            event = _series_match(db, place, title)
-            another_date = event is not None
+        event, another_date = find_event(db, hint, place)
     elif hint.starts_at and event.starts_at != hint.starts_at:
         another_date = True  # the link now shows a date the event did not have
     created = event is None
@@ -173,7 +180,7 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         event.all_day = hint.all_day
         event.status = hint.status
     _set(event, "recurrence_text", hint.recurrence, overwrite=refresh)
-    for f in ("price_min", "price_max", "currency", "is_free", "price_text", "ticket_url"):
+    for f in ("price_min", "price_max", "currency", "is_free", "price_text", "ticket_url", "min_age"):
         _set(event, f, getattr(hint, f), overwrite=refresh)
     if "tags" not in event.user_overrides:
         event.tags = list(dict.fromkeys([*(event.tags or []), *hint.tags]))[:12]

@@ -5,6 +5,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from app.ingest.age import min_age
 from app.ingest.items import ItemHint
 
 LD_BLOCK = re.compile(r"<script[^>]+application/ld\+json[^>]*>(.*?)</script>", re.S | re.I)
@@ -211,7 +212,7 @@ def event_item(node: dict, page_url: str) -> ItemHint | None:
         ticket_url=offers["ticket_url"] or _text(node.get("url")) or page_url,
         price_min=offers["price_min"], price_max=offers["price_max"],
         currency=offers["currency"], is_free=offers["is_free"],
-        provider="jsonld",
+        provider="jsonld", min_age=min_age(_text(node.get("typicalAgeRange"))),
         status="cancelled" if status in ("eventcancelled", "cancelled") else "scheduled",
     )
     if item.description and len(item.description) > 600:
@@ -287,6 +288,27 @@ def _meta(html: str, prop: str) -> str | None:
     return None
 
 
+STRUCTURED_CONTENT = re.compile(r'"structuredContent"\s*:\s*(?=\{\s*"modules")')
+
+
+def embedded_description(html: str) -> str:
+    """The organizer's write-up when the page only carries it in embedded data (Eventbrite renders the
+    description in the browser, so the page text has the menus but none of the details or prices)."""
+    m = STRUCTURED_CONTENT.search(html)
+    if not m:
+        return ""
+    try:
+        data, _ = json.JSONDecoder().raw_decode(html, m.end())
+    except ValueError:
+        return ""
+    parts = []
+    for mod in data.get("modules") or []:
+        if isinstance(mod, dict) and mod.get("type") == "text" and isinstance(mod.get("text"), str):
+            text = htmllib.unescape(re.sub(r"<(br|/p|/h\d|/li)[^>]*>", "\n", mod["text"]))
+            parts.append(re.sub(r"\n\s*\n+", "\n", re.sub(r"<[^>]+>", "", text)).strip())
+    return "\n".join(p for p in parts if p)
+
+
 def parse_page(url: str, html: str) -> PageData:
     import trafilatura
 
@@ -296,5 +318,6 @@ def parse_page(url: str, html: str) -> PageData:
     page.description = _meta(html, "og:description") or _meta(html, "description")
     page.image = _meta(html, "og:image")
     page.items = items_from_jsonld(jsonld_nodes(html), url)
-    page.text = (trafilatura.extract(html, include_comments=False, include_tables=True) or "")[:8000]
+    body = trafilatura.extract(html, include_comments=False, include_tables=True) or ""
+    page.text = "\n".join(t for t in (embedded_description(html), body) if t)[:8000]
     return page

@@ -18,8 +18,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import browser, jobs
+from app.api.filters import event_ended
 from app.db.models import Event, ItemSource, Job, Place, Source
 from app.ingest import maps_links, media, ocr, store
+from app.ingest import age
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
 from app.llm.ollama import describe, waiting
@@ -186,6 +188,7 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
     context = "\n".join(x for x in (page.title, page.description) if x)
     if page.items:
         _llm(db, job, llm.classify, page.items, context)
+        age.apply(page.items, context, page.text)
         if len(page.items) > 1:
             page_images.attach(page.items, html, final)
         return page.items
@@ -198,6 +201,7 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
             page = parse_page(final, html)
             if page.items:
                 _llm(db, job, llm.classify, page.items, context)
+                age.apply(page.items, context, page.text)
                 return page.items
             text = "\n\n".join(x for x in (f"Page title: {page.title}" if page.title else None,
                                            page.description, page.text[:6000]) if x)
@@ -207,6 +211,7 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
         raise Unprocessable("the page had no readable text (it may need a browser)")
     is_list, hints = _llm(db, job, llm.extract, text)
     hints = prune(hints, is_list)
+    age.apply(hints, text)
     page_images.attach(hints, html, final)
     return hints
 
@@ -242,6 +247,8 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
         h.recurrence = h.recurrence or f"ongoing until {h.ends_at.date().isoformat()}"
         h.starts_at = h.ends_at = None
         h.flags.append("recurring series, dates unclear")
+    if h.kind == "event" and h.starts_at and (h.ends_at or h.starts_at) < now:
+        h.flags.append("event already happened")
     venue_event = bool(h.event_title and h.name and h.name.strip().lower() != h.event_title.strip().lower())
     if h.kind == "event" and not h.starts_at and not h.recurrence and not venue_event:
         h.kind = "place"
@@ -422,6 +429,7 @@ def run(db: Session, job: Job) -> dict:
 
     now = datetime.now(timezone.utc)
     hints = [tidy(h, now) for h in g.hints if h.name or h.event_title]
+    age.apply(hints, g.text, src.caption)
     src.fetched_at = now
     if any(h.kind == "event" and not pricing.has_price(h) for h in hints):
         jobs.set_stage(db, job, "checking ticket prices", 44)
@@ -474,7 +482,11 @@ def run(db: Session, job: Job) -> dict:
             store.link(db, src, event=event, position=i, confidence=res.confidence)
             images.page_images(db, src, hint, place=place, event=event, multi=len(resolved) > 1)
             row.update(type="event", id=str(event.id), event_title=event.title, new=event_new,
-                       review=event.review_status == "needs_review")
+                       review=event.review_status == "needs_review",
+                       archived=event_ended(status=event.status, starts_at=event.starts_at, ends_at=event.ends_at,
+                                            duration_min=event.duration_min, all_day=event.all_day,
+                                            is_recurring=bool(event.rrule or event.recurrence_text),
+                                            now=datetime.now(timezone.utc)))
         store.link(db, src, place=place, position=i, confidence=res.confidence)
         if hint.kind != "event":
             images.page_images(db, src, hint, place=place, event=None, multi=len(resolved) > 1)

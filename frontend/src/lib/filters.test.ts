@@ -50,3 +50,14 @@ describe('filters', () => {
     expect(sameFilters({ ...EMPTY, when: 'today' }, EMPTY)).toBe(false);
   });
 });
+
+describe('archive filter', () => {
+  it('round-trips and counts as an active filter', () => {
+    const f = parseFilters(new URLSearchParams('archive=1'));
+    expect(f.archive).toBe(true);
+    expect(filterParams(f).toString()).toBe('archive=1');
+    expect(apiQuery(f)).toBe('archive=1');
+    expect(activeCount(f)).toBe(1);
+    expect(parseFilters(new URLSearchParams('')).archive).toBe(false);
+  });
+});

@@ -10,6 +10,8 @@
   import Globe from '@lucide/svelte/icons/globe';
   import Phone from '@lucide/svelte/icons/phone';
   import Ticket from '@lucide/svelte/icons/ticket';
+  import Archive from '@lucide/svelte/icons/archive';
+  import UserCheck from '@lucide/svelte/icons/user-check';
   import Tag from '@lucide/svelte/icons/tag';
   import FileText from '@lucide/svelte/icons/file-text';
   import Repeat from '@lucide/svelte/icons/repeat';
@@ -370,6 +372,9 @@
           </div>
         </div>
 
+        {#if isEvent && item.archived}
+          <p class="passed"><Archive size={15} /> This event has already passed. It stays in the Archive.</p>
+        {/if}
         <ul class="facts">
           {#if isEvent}
             {#if item.starts_at && (item.occurrences?.length ?? 0) <= 1}
@@ -421,6 +426,9 @@
               <Ticket size={17} />
               <span>{item.price_label ?? ''}{#if item.price_text && item.price_text !== item.price_label}<span class="sub">{item.price_text}</span>{/if}</span>
             </li>
+          {/if}
+          {#if item.min_age}
+            <li><UserCheck size={17} /><span>{item.min_age}+</span></li>
           {/if}
           {#if item.price_tiers?.length}
             <li class="tiers">
@@ -868,6 +876,14 @@
   }
   .seg button.on.been {
     color: var(--ok);
+  }
+  .passed {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 8px;
+    font-size: 0.85rem;
+    color: var(--muted, #6b7280);
   }
   .facts {
     list-style: none;

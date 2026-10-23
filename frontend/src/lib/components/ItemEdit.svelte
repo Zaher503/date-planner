@@ -34,7 +34,8 @@
     price_min: item.price_min == null ? '' : String(item.price_min),
     price_max: item.price_max == null ? '' : String(item.price_max),
     price_text: item.price_text ?? '',
-    ticket_url: item.ticket_url ?? ''
+    ticket_url: item.ticket_url ?? '',
+    min_age: item.min_age ? String(item.min_age) : ''
   });
   let f = $state(init());
   let error = $state('');
@@ -87,6 +88,7 @@
       }
       if (changed('price_text')) patch.price_text = orNull(f.price_text);
       if (changed('ticket_url')) patch.ticket_url = orNull(f.ticket_url);
+      if (changed('min_age')) patch.min_age = f.min_age ? Number(f.min_age) : null;
     }
     // Address edits on events belong to the place
     if (!isPlace) delete patch.address_text;
@@ -165,6 +167,14 @@
     <label>
       <span class="label">Ticket link</span>
       <input class="field" type="url" bind:value={f.ticket_url} />
+    </label>
+    <label>
+      <span class="label">Minimum age</span>
+      <select class="field" bind:value={f.min_age}>
+        <option value="">Not stated</option>
+        <option value="18">18+</option>
+        <option value="21">21+</option>
+      </select>
     </label>
   {:else}
     <label>

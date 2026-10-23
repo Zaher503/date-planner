@@ -57,3 +57,16 @@ def test_reread_never_ties_an_event_to_a_place_named_after_it():
     hint = ItemHint("event", "Academy Museum", event_title="Cup Candle Making")
     assert _reuse(None, hint, (place, None), True) == (None, None)
     assert _reuse(None, ItemHint("place", "Cup Candle Making"), (place, None), True) == (place, None)
+
+
+def test_past_event_is_flagged():
+    h = tidy(ItemHint("event", "El Cid", event_title="DONUTS",
+                      starts_at=datetime(2025, 11, 8, tzinfo=timezone.utc),
+                      ends_at=datetime(2025, 11, 9, tzinfo=timezone.utc)), NOW)
+    assert "event already happened" in h.flags
+
+
+def test_upcoming_event_not_flagged():
+    h = tidy(ItemHint("event", "El Cid", event_title="DONUTS",
+                      starts_at=datetime(2026, 11, 8, tzinfo=timezone.utc)), NOW)
+    assert "event already happened" not in h.flags

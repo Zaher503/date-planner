@@ -15,6 +15,34 @@ Every route needs an Authentik identity (`current_user`) unless marked **open**.
 | `GET /api/me` | `{id, username, display_name}` |
 | `GET /api/health/services` | `[{name, ok, ms, detail}]` |
 
+## Saving checked items (daily import check)
+
+`POST /api/admin/verified-items` (key: `X-Dates-Key`, same key as `/api/add`; no Authentik identity needed)
+
+```json
+{"url": "https://www.sunsetranchhollywood.com/", "dry_run": false,
+ "items": [{"kind": "place", "name": "Sunset Ranch Hollywood", "address": "3400 N Beachwood Drive, Los Angeles, CA 90068",
+            "category": "activity", "phone": "(323) 469-5450", "website": "https://sunsetranchhollywood.com/",
+            "opening_hours": "Mo-Su 09:00-17:00", "hours_text": "Daily 9am-5pm"}]}
+```
+
+`items` (1 to 10) use the `ItemHint` field names (`kind` place|event, `name`, `event_title`, `address`, `area`, `lat`+`lon`, `exact_pin`, `category`, `description`, `starts_at`, `ends_at`, `recurrence`, `price_*`, `ticket_url`, `website`, `phone`, `opening_hours` (OSM syntax), `hours_text`, `price_level`, `tags`, `images`). Unknown keys give 422; a bad category, bad `opening_hours`, a single `lat`/`lon`, an event without title/time/recurrence, or a non-http link gives 400. `dry_run: true` does everything and rolls back.
+
+Each item is pinned with the normal resolver, then saved with the ingest save code, attached to a `done` source for `url` (nothing is queued). A place or event that already exists (same source, same OSM place, or a place within 75 m with a similar name; an event with a similar title at that place and time) is **updated in place, never duplicated**: sent values fill blanks and replace different saved values, except fields in `user_overrides`. An omitted field leaves the saved one alone. The saved pin is not moved. A new item is a normal `manual` item; it is `needs_review` when the pin is not confident.
+
+Response:
+
+```json
+{"source_id": "uuid", "dry_run": false, "items": [{
+  "name": "Sunset Ranch Hollywood", "review": false, "method": "address", "confidence": 0.95,
+  "place": {"id": "uuid", "new": false,
+            "changes": {"phone": {"before": null, "after": "(323) 469-5450"}},
+            "kept_user_edits": ["website"]},
+  "event": {"id": "uuid", "new": true, "changes": {"title": {"before": null, "after": "..."}}, "kept_user_edits": []}}]}
+```
+
+`changes` lists only fields that differ (all set fields for a new item); `kept_user_edits` are saved fields a person edited, which were not touched. An item that cannot be pinned comes back as `{"name", "error"}` and is not saved. `source_id` is null for a dry run or when nothing was saved.
+
 ## Settings and facets
 
 `GET /api/settings`
@@ -49,6 +77,7 @@ All optional. Lists are comma separated.
 | `dist_km=40` | Within this distance of `near` (no limit when absent) |
 | `q=text` | Full text (`search` tsvector, `websearch_to_tsquery`) or name/title trigram similarity > 0.3 |
 | `past=1` | Include events that already ended and `status=archived` (default: hidden; an event has ended when `coalesce(ends_at, starts_at + duration, starts_at + 3h) < now`) |
+| `archive=1` | Only archived events (the Archive section), newest first by default; forces `types=event`. An event is archived when its `status` is `archived`, or it is a one-off (no `rrule`/`recurrence_text`, has `starts_at`) that has ended. This is worked out from the clock on every request, so old and new events (however they were added) move over on their own. Recurring and undated events never age out |
 
 ## Map and list
 
@@ -69,7 +98,7 @@ All optional. Lists are comma separated.
 }]}
 ```
 
-`rs` is review_status, `my` my status (null if none), `rating` my rating, `venue` the event's venue name, `thumb` whether `/api/thumb/{source_id}` exists for one of its sources (then `thumb_src` holds that source id), `price` a short label (`Free`, `$15`, `$15-30`, `$$`) or null, `tags` at most 5.
+`rs` is review_status, `my` my status (null if none), `rating` my rating, `venue` the event's venue name, `archived` (events only) whether the event is in the Archive, `thumb` whether `/api/thumb/{source_id}` exists for one of its sources (then `thumb_src` holds that source id), `price` a short label (`Free`, `$15`, `$15-30`, `$$`) or null, `tags` at most 5.
 
 `GET /api/list?filters&sort=date|distance|recent|name&limit=50&offset=0` -> `{"items": [ {same properties, plus "lat", "lon"} ], "total": 123}`. Default sort: `date` (dated events by next start first, then places by name). `limit` max 200.
 
@@ -95,7 +124,7 @@ All optional. Lists are comma separated.
   "starts_at": null, "ends_at": null, "duration_min": null, "duration_estimated": false,
   "all_day": false, "recurrence_text": null, "tz": "America/Los_Angeles",
   "price_min": null, "price_max": null, "currency": "USD", "is_free": null,
-  "price_text": null, "ticket_url": null, "status": "scheduled", "venue_name": null,
+  "price_text": null, "ticket_url": null, "status": "scheduled", "archived": false, "min_age": null, "venue_name": null,
   "place": {"id": "uuid", "title": "..."},
 
   "sources": [{"id": "uuid", "kind": "tiktok", "url": "...", "title": "...", "caption": "first 500 chars",
@@ -144,3 +173,6 @@ Everything else that is not `/api/*`, `/tiles/*`, `/healthz` or `/cal/*` serves 
 - Reprocess skips sources the ingest job cannot read (Instagram stubs, discovery rows, images) and returns the existing job id when a source already has a queued or running ingest job.
 - Thumbnails: also recorded in `media` (kind `thumb`). A TikTok source without a stored thumbnail URL still tries oEmbed. Failed fetches are not retried for an hour (per API process).
 - The app shell answers 404 (not `index.html`) for missing files that look like assets (a dot in the last path segment, or under `/_app/`), tries `<path>/index.html` and `<path>.html` for prerendered pages, gives other files `Cache-Control: public, max-age=3600`, and returns a small 503 page when `/app/static/index.html` does not exist. The directory can be moved with `STATIC_DIR`.
+
+
+- `min_age` (events) is `18`, `21` or null. It is read from clear wording on the page or post ("21+", "ages 18 and up", JSON-LD `typicalAgeRange`); null when it is not stated, says all ages, or names both (18+ to enter, 21+ to drink). The UI hides the line when null. Ingest job results mark each event `archived` when it has already passed, so the app can say so in a toast.

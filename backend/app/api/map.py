@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.auth import current_user
 from app.api.common import event_price_label, has_image, place_price_label
 from app.api.filters import (
-    GEOM, Filters, common_conditions, event_conditions, event_end, filters_dep, my_state, place_conditions,
+    GEOM, Filters, common_conditions, event_conditions, event_end, event_ended, filters_dep, my_state, place_conditions,
     point_sql,
 )
 from app.db.models import Event, ItemImage, ItemSource, Occurrence, Place, Source, User, UserItemState
@@ -80,7 +80,8 @@ def event_query(f: Filters, user_id: int, origin) -> Select:
              .correlate(Event).scalar_subquery())
     q = (select(Event.id, Event.title, Event.category, lon.label("lon"), lat.label("lat"),
                 func.coalesce(upcoming, Event.starts_at).label("start"), Event.starts_at, Event.ends_at,
-                Event.all_day, func.coalesce(Event.recurrence_text, Event.rrule).label("rec"), dates.label("dates"),
+                Event.all_day, Event.duration_min, Event.status, Event.rrule, Event.recurrence_text,
+                func.coalesce(Event.recurrence_text, Event.rrule).label("rec"), dates.label("dates"),
                 Event.is_free, Event.price_min, Event.price_max, Event.price_text, Event.currency,
                 Event.review_status, UserItemState.status.label("my"), UserItemState.rating,
                 Event.address_text, Event.venue_name, Event.place_id, Event.tags, Event.created_at,
@@ -110,7 +111,7 @@ def place_props(r) -> dict:
     }
 
 
-def event_props(r) -> dict:
+def event_props(r, now: datetime) -> dict:
     end = r.ends_at
     if r.start and r.starts_at and r.ends_at and r.start != r.starts_at:
         end = r.start + (r.ends_at - r.starts_at)  # a later occurrence of a recurring event
@@ -127,6 +128,9 @@ def event_props(r) -> dict:
         **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
         **({"hero": _hero_id(r)} if _hero_id(r) else {}),
         "tags": list(r.tags or [])[:MAX_TAGS],
+        "archived": event_ended(status=r.status, starts_at=r.starts_at, ends_at=r.ends_at,
+                                duration_min=r.duration_min, all_day=r.all_day,
+                                is_recurring=r.rrule is not None or r.recurrence_text is not None, now=now),
     }
 
 
@@ -150,13 +154,14 @@ def fetch_items(db: Session, f: Filters, user: User, sort: str = "date") -> list
         q = event_query(f, user.id, origin)
         q = q.order_by(*{"distance": [q.selected_columns.dist], "recent": [Event.created_at.desc()],
                          "name": [func.lower(Event.title)]}
-                       .get(sort, [q.selected_columns.start.asc().nulls_last(), func.lower(Event.title)]))
+                       .get(sort, [q.selected_columns.start.desc() if f.archive else q.selected_columns.start.asc().nulls_last(),
+                                   func.lower(Event.title)]))
         for r in db.execute(q.limit(MAX_ROWS)).all():
-            out.append(({**event_props(r), "lat": r.lat, "lon": r.lon}, r))
+            out.append(({**event_props(r, f.now), "lat": r.lat, "lon": r.lon}, r))
     return out
 
 
-def sort_items(items: list[tuple[dict, object]], sort: str) -> list[dict]:
+def sort_items(items: list[tuple[dict, object]], sort: str, newest_first: bool = False) -> list[dict]:
     if sort == "distance":
         items.sort(key=lambda it: (it[0]["dist_m"] is None, it[0]["dist_m"] or 0))
     elif sort == "recent":
@@ -169,7 +174,7 @@ def sort_items(items: list[tuple[dict, object]], sort: str) -> list[dict]:
             p = it[0]
             group = 2 if p["t"] == "place" else (0 if p["start"] else 1)
             return group, it[1].start if group == 0 else datetime.min, (p["title"] or "").lower()
-        items.sort(key=key)
+        items.sort(key=key, reverse=newest_first)
     return [p for p, _ in items]
 
 
@@ -192,7 +197,7 @@ def list_items(f: Filters = Depends(filters_dep), sort: str = "date", limit: int
     if sort not in SORTS:
         raise HTTPException(400, f"sort must be one of {', '.join(SORTS)}")
     limit, offset = max(1, min(limit, 200)), max(0, offset)
-    items = sort_items(fetch_items(db, f, user, sort), sort)
+    items = sort_items(fetch_items(db, f, user, sort), sort, newest_first=f.archive)
     page = items[offset:offset + limit]
     for p in page:
         p["lat"], p["lon"] = round(p["lat"], 6), round(p["lon"], 6)

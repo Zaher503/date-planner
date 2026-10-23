@@ -100,3 +100,16 @@ def test_zero_price_range_without_availability_is_not_free():
     assert _offers(free)["is_free"] is True
     paid = {"offers": [{"@type": "Offer", "price": "13.65", "availability": "https://schema.org/OutOfStock"}]}
     assert _offers(paid)["price_min"] == 13.65
+
+
+def test_embedded_description_leads_the_page_text():
+    html = ('<html><body><nav>Create your event page for free</nav><script>{"structuredContent":{"modules":'
+            '[{"type":"text","text":"\u003cp\u003eTickets start at $35/per person\u003c/p\u003e'
+            '\u003cp\u003eSeating at 7:30pm\u003c/p\u003e"}]},"x":1}</script></body></html>')
+    text = parse_page("https://example.com/e", html).text
+    assert text.startswith("Tickets start at $35/per person\nSeating at 7:30pm")
+    assert "Create your event page for free" in text
+
+
+def test_embedded_description_missing_is_harmless():
+    assert parse_page("https://example.com/e", "<html><body><p>Hi there</p></body></html>").text.strip() in ("", "Hi there")

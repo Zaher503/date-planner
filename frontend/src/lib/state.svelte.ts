@@ -111,13 +111,17 @@ class AppState {
       const first = items[0];
       const names = items.map((x) => x.event_title || x.name).filter(Boolean);
       const review = items.filter((x) => x.review).length;
+      // Events whose date has gone go straight to the Archive instead of the map
+      const passed = items.filter((x) => x.archived).length;
       this.upsertToast(job.id, {
-        title: items.length === 1 ? `Pinned ${names[0]}` : `Pinned ${items.length} places`,
+        title: passed === items.length
+          ? items.length === 1 ? `${names[0]} has already passed` : `${items.length} events have already passed`
+          : items.length === 1 ? `Pinned ${names[0]}` : `Pinned ${items.length} places`,
         stage: '',
         pct: 100,
-        status: 'done',
+        status: passed === items.length ? 'info' : 'done',
         target: first.id && first.type ? { t: first.type, id: first.id } : null,
-        detail: [items.length > 1 ? names.slice(0, 4).join(', ') + (names.length > 4 ? ' and more' : '') : '', review ? `${review} need${review === 1 ? 's' : ''} a check` : '']
+        detail: [passed ? `${passed === items.length ? 'Saved' : `${passed} saved`} in the Archive` : '', items.length > 1 ? names.slice(0, 4).join(', ') + (names.length > 4 ? ' and more' : '') : '', review ? `${review} need${review === 1 ? 's' : ''} a check` : '']
           .filter(Boolean)
           .join('. ')
       });
