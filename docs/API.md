@@ -150,6 +150,39 @@ Each changed field is written and its key set in `user_overrides` (`lat`/`lon` -
 
 `POST /api/items/{type}/{id}/reprocess` -> `{"jobs": [ids]}`. Queues an ingest job for every linked source (not Instagram stubs), like a fresh add. User edits survive because of `user_overrides`.
 
+## Date-night plans
+
+All routes need identity (like the rest of `/api/*`). Times without an offset are read in the default timezone (`America/Los_Angeles`).
+
+`POST /api/plans/suggest` with `{"day": "2026-11-07", "start_time": "18:00", "end_time": "23:00", "budget": 100, "vibe": ["jazz"], "start": {"lat": 34.05, "lon": -118.25}, "mode": "drive|walk", "max_travel_min": 30}`. Only `day`, `start_time` and `end_time` are required; an `end_time` earlier than `start_time` means after midnight. `budget` is dollars per person for the whole night. `start` defaults to home, `mode` to `drive`, `max_travel_min` to 30 (drive) or 25 (walk), at most 120. Returns
+
+```json
+{
+  "itineraries": [ {"stops": [...]} ],
+  "window": {"start": "2026-11-07T18:00:00-08:00", "end": "2026-11-07T23:00:00-08:00"},
+  "start": {"lat": 34.05, "lon": -118.25, "source": "given|home"},
+  "considered": {"events": 12, "places": 80}
+}
+```
+
+At most 3 itineraries, each an anchor, a food stop and an optional drinks stop; drive and walk times come from the local OSRM servers and fall back to a straight-line estimate when OSRM is down. The itinerary shape is the one `app/plan/picker.py` produces.
+
+`POST /api/plans` -> 201, saves a plan: `{"title"?, "day", "window_start"?, "window_end"?, "budget"?, "vibe"?, "stops"?}` (`start_time` / `end_time` are accepted for the window). A stop is `{"item": {"type": "place|event", "id", "title"}, "arrive", "leave", "role"?, "travel_min"?, "mode"?}` with `leave` not before `arrive`, at most 12 stops, stored sorted by `arrive`. Without a title the stop titles joined with ` + ` are used, else `Date night`.
+
+`GET /api/plans` -> saved plans, upcoming ones soonest first, then past ones newest first (at most 500 rows). `GET /api/plans/{id}` -> one plan. `PATCH /api/plans/{id}` with any subset of `title`, `day`, `window_start`, `window_end`, `budget`, `vibe`, `stops` (null clears the window and budget, but not `title`, `day` or `vibe`: 422). `DELETE /api/plans/{id}` -> 204. A missing plan gives 404.
+
+A plan is returned as
+
+```json
+{"id": "uuid", "title": "Jazz night + Perch", "day": "2026-11-07", "window_start": "18:00", "window_end": null,
+ "budget": 80.0, "vibe": ["jazz"], "stops": [{"item": {"type": "place", "id": "uuid", "title": "Perch"},
+ "arrive": "2026-11-07T19:00:00-08:00", "leave": "2026-11-07T20:30:00-08:00", "role": "food", "travel_min": 12.5, "mode": "drive"}],
+ "created_by": {"id": 1, "display_name": "Zaher"}, "created_at": "...", "past": false,
+ "ics": "/api/plans/<id>.ics"}
+```
+
+`past` is only present in the list. The `ics` link is reserved: that download does not exist yet (roadmap `PL-05`).
+
 ## Media and map files
 
 - `GET /api/thumb/{source_id}` -> image. Cached at `/data/media/thumbs/<source_id>.<ext>` after the first fetch (TikTok oEmbed thumbnail, refreshed through oEmbed if the stored URL expired; page `og:image`). `Cache-Control: private, max-age=604800`. 404 when the source has no image.

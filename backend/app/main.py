@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.api import add, health, items, map, media, meta, review, static, verified
+from app.api import add, health, items, map, media, meta, plans, review, static, verified
 from app.api.auth import current_user
 from app.db.models import AppSettings, User
 from app.db.session import SessionLocal, get_db
@@ -29,6 +29,7 @@ app.include_router(map.router)
 app.include_router(items.router)
 app.include_router(media.router)
 app.include_router(verified.router)
+app.include_router(plans.router)
 
 
 @app.get("/healthz")
