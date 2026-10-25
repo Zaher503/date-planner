@@ -58,6 +58,8 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] `IM-12` Recurring events stored as an RRULE. Deps: `IM-02` decided, `LC-05`.
 - [ ] `IM-13` Run the golden set (`python -m app.eval`) after import changes and add every checked daily link with a confirmed answer to `backend/tests/golden.json`.
 - [ ] `IM-14` Instagram: decide whether a link can be read from its public oEmbed / caption without login; otherwise keep the review stub and make the stub item show the pasted text. Small experiment only.
+- [ ] `IM-16` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25, the Free flag itself is fixed).
+- [ ] `IM-17` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
 - [ ] `IM-15` Import checks beyond TikTok and articles: Reddit threads, Google Maps lists, Yelp / Time Out roundups, a shared screenshot. One per daily check, record the result.
 
 ### Discovery (DS)
