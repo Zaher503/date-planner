@@ -24,7 +24,7 @@ from app.db.models import (
 )
 from app.db.session import get_db
 from app.hours import is_open
-from app.ingest import media
+from app.ingest import completeness, media, provenance
 from app.textclean import strip_emoji
 
 router = APIRouter()
@@ -147,6 +147,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
         "created_at": _iso(item.created_at), "updated_at": _iso(item.updated_at),
         "edited": sorted((item.user_overrides or {}).keys()),
         "review_reasons": review_reasons(db, item),
+        "gaps": completeness.gaps(item),
     }
     review_place = None
     if is_place:
@@ -238,9 +239,15 @@ def put_image(type_: ItemType, item_id: uuid.UUID, body: ImageIn, db: Session = 
 
 
 @router.get("/api/items/{type_}/{item_id}")
-def get_item(type_: ItemType, item_id: uuid.UUID, db: Session = Depends(get_db),
+def get_item(type_: ItemType, item_id: uuid.UUID, debug: bool = False, db: Session = Depends(get_db),
              user: User = Depends(current_user)):
-    return detail(db, load(db, type_, item_id), user)
+    item = load(db, type_, item_id)
+    out = detail(db, item, user)
+    if debug:  # not used by the app: for checking which importer and model read the item
+        out["import_info"] = item.import_info or {}
+        out["importer_current"] = provenance.IMPORTER_VERSION
+        out["importer_outdated"] = provenance.is_older(item.import_info)
+    return out
 
 
 class PlacePatch(BaseModel):

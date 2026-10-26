@@ -509,13 +509,14 @@ def run(db: Session, job: Job) -> dict:
         only = len(earlier) == 1 and len(resolved) == 1
         before = next(iter(earlier.values())) if only else earlier.get(i)
         was_place, was_event = _reuse(db, hint, before, only)
-        place, place_new = store.upsert_place(db, hint, res, src.submitted_by, existing=was_place)
+        place, place_new = store.upsert_place(db, hint, res, src.submitted_by, existing=was_place, source_id=src.id)
         store.save_candidates(db, src, place, i, res)
         row = {"type": "place", "id": str(place.id), "name": place.name, "new": place_new,
                "confidence": res.confidence, "review": place.review_status == "needs_review",
                "method": res.method, "flags": hint.flags}
         if hint.kind == "event":
-            event, event_new = store.upsert_event(db, hint, place, res, src.submitted_by, existing=was_event)
+            event, event_new = store.upsert_event(db, hint, place, res, src.submitted_by, existing=was_event,
+                                                   source_id=src.id)
             store.link(db, src, event=event, position=i, confidence=res.confidence)
             images.page_images(db, src, hint, place=place, event=event, multi=len(resolved) > 1)
             row.update(type="event", id=str(event.id), event_title=event.title, new=event_new,

@@ -142,7 +142,7 @@ def save_item(db: Session, src: Source, item: VerifiedItem, index: int, home, ea
     if place and not hint.category:
         hint.category = place.category  # a refresh must not turn a known category into "other"
     # Passing the saved place makes the verified values replace the old ones (user edits stay)
-    place, place_new = store.upsert_place(db, hint, res, None, existing=place)
+    place, place_new = store.upsert_place(db, hint, res, None, existing=place, engine="verified", source_id=src.id)
     if not place_new and item.address and "address_text" not in (place.user_overrides or {}):
         place.address_text = item.address  # the checked address replaces a different saved one
     row = {"name": place.name, "review": place.review_status == "needs_review", "method": res.method,
@@ -154,7 +154,8 @@ def save_item(db: Session, src: Source, item: VerifiedItem, index: int, home, ea
     if hint.kind == "event":
         found = was_event or store.find_event(db, hint, place)[0]
         event_before = snapshot(found, EVENT_FIELDS) if found else None
-        event, event_new = store.upsert_event(db, hint, place, res, None, existing=found)
+        event, event_new = store.upsert_event(db, hint, place, res, None, existing=found, engine="verified",
+                                                   source_id=src.id)
         row["event"] = {"id": str(event.id), "new": event_new,
                         "changes": diff_fields(event_before, snapshot(event, EVENT_FIELDS)),
                         "kept_user_edits": sorted(set(event.user_overrides or {}) & set(EVENT_FIELDS))}

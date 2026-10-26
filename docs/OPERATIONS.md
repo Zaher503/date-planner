@@ -77,3 +77,12 @@ Recreate every app container:
 ```bash
 ssh zephyrus 'cd /opt/date-planner/deploy && docker compose up -d --force-recreate api worker'
 ```
+
+## Which importer read an item
+
+`import_info` on places and events holds the importer version, engine and model of the last read (see `app/ingest/provenance.py`; bump `IMPORTER_VERSION` when extraction rules or prompts change). Items from before it existed say `legacy`. Items read by an older importer:
+
+```sql
+select name, import_info->>'importer_version' v, import_info->>'engine' e, import_info->>'model' m, import_info->>'at' at
+from places where import_info->>'importer_version' is distinct from '2026.10.26-1' order by at;
+```
