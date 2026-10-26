@@ -138,6 +138,8 @@ All optional. Lists are comma separated.
 
 Place-only keys (`website` ... `events`) are present for places, event-only keys (`starts_at` ... `place`) for events. `me` is null when I have no state. `candidates` is filled for a place that needs review, and for an event whose place needs review (then they are the place's candidates; resolve through `/api/places/{place.id}/resolve`). `edited` lists `user_overrides` keys.
 
+`GET /api/items/{type}/{id}?debug=true` adds `import_info` (importer version, engine `llm|verified|parser:<name>|legacy`, model, prompt hash, source id, time, and the earlier reads in `history`), `importer_current` and `importer_outdated`. The app never shows these. Every item also has `gaps`: `needed` (marks it for review), `check` (doubtful, shown only) and `optional` (information only: price, phone, photos, ...).
+
 `PATCH /api/items/{type}/{id}` with any subset of:
 - place: `title` (stored as `name`), `category`, `description`, `tags`, `address_text`, `website`, `phone`, `opening_hours`, `price_level`, `lat` + `lon` (together), `closed`, `review_status` (`ok` or `dismissed`)
 - event: `title`, `category`, `description`, `tags`, `starts_at`, `ends_at`, `all_day`, `recurrence_text`, `price_min`, `price_max`, `is_free`, `price_text`, `ticket_url`, `status`, `review_status`, `lat` + `lon`

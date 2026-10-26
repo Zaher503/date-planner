@@ -63,7 +63,7 @@ def fake_pipeline(monkeypatch, existing, created):
     monkeypatch.setattr(verified.store, "find_place", lambda db, cand, name: existing)
     monkeypatch.setattr(verified.store, "link", lambda *a, **k: seen.setdefault("links", []).append(k))
 
-    def upsert(db, hint, r, user, existing=None):
+    def upsert(db, hint, r, user, existing=None, **_):
         seen["existing"], seen["hint"] = existing, hint
         row = existing or place(id="new")
         store._set(row, "phone", hint.phone, overwrite=existing is not None)

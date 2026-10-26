@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db.models import AppSettings, Candidate as CandidateRow, Event, ItemSource, Occurrence, Place, Source
+from app.ingest import completeness, provenance
 from app.ingest.items import ItemHint
 from app.resolve.candidates import Candidate
 from app.resolve.resolver import Resolution
@@ -20,9 +21,6 @@ SAME_PLACE_M = 75
 SAME_SERIES = 0.85  # title match that makes another date at the same venue part of one event
 DEFAULT_MINUTES = {"live_music": 180, "show": 150, "comedy": 120, "festival": 240, "market": 240,
                    "class": 120, "sports": 180, "nightlife": 240, "activity": 120, "arts": 120}
-PLACE_REVIEW_FLAGS = {"not a specific venue"}
-EVENT_REVIEW_FLAGS = {"removed unverified date", "event with no date", "recurring series, dates unclear",
-                      "start time has no time zone", "event already happened"}
 
 
 def home_point(db: Session) -> tuple[float, float]:
@@ -69,14 +67,14 @@ def _place_name(hint: ItemHint, cand: Candidate) -> str:
 
 
 def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | None, origin: str = "manual",
-                 existing: Place | None = None) -> tuple[Place, bool]:
+                 existing: Place | None = None, engine: str = "llm", source_id=None) -> tuple[Place, bool]:
     """existing: the place a link read before (a reread). It is updated in place, pin and name included as is."""
     cand = res.best
     name = _place_name(hint, cand)
     place = existing or find_place(db, cand, name)
     refresh = existing is not None
     created = place is None
-    review = res.needs_review or bool(PLACE_REVIEW_FLAGS & set(hint.flags))
+    review = res.needs_review or bool(completeness.PLACE_REVIEW_FLAGS & set(hint.flags))
     if created:
         place = Place(name=name, geom=_pt(cand.lat, cand.lon), origin=origin, created_by=user_id,
                       review_status="needs_review" if review else ("suggested" if origin == "discovered" else "ok"),
@@ -110,6 +108,7 @@ def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | No
     if "tags" not in place.user_overrides:
         cuisine = [c.strip() for c in (extra.get("cuisine") or "").split(";") if c.strip()]
         place.tags = list(dict.fromkeys([*(place.tags or []), *hint.tags, *cuisine]))[:12]
+    provenance.stamp(place, engine, source_id)
     db.flush()
     return place, created
 
@@ -146,7 +145,8 @@ def find_event(db: Session, hint: ItemHint, place: Place) -> tuple[Event | None,
 
 
 def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, user_id: int | None,
-                 origin: str = "manual", existing: Event | None = None) -> tuple[Event, bool]:
+                 origin: str = "manual", existing: Event | None = None, engine: str = "llm",
+                 source_id=None) -> tuple[Event, bool]:
     """existing: the event a link read before (a reread). It is updated in place, never matched again."""
     title = hint.event_title or hint.name
     refresh = existing is not None
@@ -158,11 +158,10 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         another_date = True  # the link now shows a date the event did not have
     created = event is None
     minutes, estimated = _event_minutes(hint)
-    review = place.review_status == "needs_review" or bool(EVENT_REVIEW_FLAGS & set(hint.flags))
     if created:
         event = Event(title=title, place_id=place.id, geom=place.geom, venue_name=place.name,
                       address_text=place.address_text, origin=origin, created_by=user_id,
-                      review_status="needs_review" if review else ("suggested" if origin == "discovered" else "ok"),
+                      review_status="suggested" if origin == "discovered" else "ok",
                       confidence=res.confidence, tags=[], user_overrides={},
                       tz=hint.tz or "America/Los_Angeles")
         db.add(event)
@@ -184,6 +183,13 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         _set(event, f, getattr(hint, f), overwrite=refresh)
     if "tags" not in event.user_overrides:
         event.tags = list(dict.fromkeys([*(event.tags or []), *hint.tags]))[:12]
+    # Only what blocks use of the event itself marks it; an uncertain venue pin is reviewed on the venue
+    if completeness.needs_review(event, hint.flags):
+        if "review_status" not in (event.user_overrides or {}):
+            event.review_status = "needs_review"
+    elif event.review_status == "needs_review" and "review_status" not in (event.user_overrides or {}):
+        event.review_status = "suggested" if origin == "discovered" else "ok"
+    provenance.stamp(event, engine, source_id)
     db.flush()
     if another_date:
         # Another date of an event we already have is one more occurrence, not a second event

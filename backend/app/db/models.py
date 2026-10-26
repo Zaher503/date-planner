@@ -107,6 +107,7 @@ class Place(TimestampMixin, Base):
     closed: Mapped[bool] = mapped_column(Boolean, server_default="false")
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     user_overrides: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    import_info: Mapped[dict] = mapped_column(JSONB, server_default="{}")  # importer version, model, history
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     search = mapped_column(TSVECTOR, Computed(
         "to_tsvector('english'::regconfig, coalesce(name, '') || ' ' || coalesce(category, '') "
@@ -165,6 +166,7 @@ class Event(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(Text, server_default="scheduled")
     confidence: Mapped[float | None] = mapped_column(Float)
     user_overrides: Mapped[dict] = mapped_column(JSONB, server_default="{}")
+    import_info: Mapped[dict] = mapped_column(JSONB, server_default="{}")  # importer version, model, history
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     search = mapped_column(TSVECTOR, Computed(
         "to_tsvector('english'::regconfig, coalesce(title, '') || ' ' || coalesce(venue_name, '') "
