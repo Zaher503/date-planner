@@ -21,7 +21,9 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
-- [ ] `IM-01` Page-wide address, hotel name and phone from a listing page's footer apply to every event on it (report 2026-10-17). Test with the saved fixture.
+- [~] `IM-01` Page-wide address, hotel name and phone from a listing page's footer apply to every event on it (report 2026-10-17). Test with the saved fixture.
+  - [x] `IM-01.1` Footer is passed to the extractor for pages read as text, with a rule that it applies to every event without its own address (2026-10-26, unit tests only).
+  - [ ] `IM-01.2` Rerun the Hollywood Roosevelt link on the live tester after the PR is deployed; if the model still ignores the footer, copy a single footer address onto events that have none in code. Pages that carry JSON-LD events do not get the footer yet.
 - [ ] `DS-01` Wire the iCal adapter: add `ical_feeds` to `ADAPTERS`, feed list kept in settings (API only), tests from a saved feed.
 - [ ] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
   - [ ] `LC-01.1` Backup job and its test (command built correctly, retention).
@@ -126,6 +128,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-10-26 (item) `IM-01.1` Footer address, phone and venue name now reach the event extractor and apply to every event on the page, PR #17
 - 2026-10-25 (check) `IM-00` Paramount Drive-In: footer address now read, a toddler-free line no longer marks a paid place Free, PR #16
 - 2026-10-24 (item) `PL-01` Planner API registered in `main.py` and reachable (suggest, save, list, get, patch, delete), 25 API tests, documented in `docs/API.md`, PR #15
 - 2026-10-23 (item) `IM-00` Live-DB check fixes: dateless offerings on a home page become the venue's place; address with a name in front keeps its street; a real address replaces "Los Angeles"; the venue's own domain passes the site check; exact-house geocode beats a map embed; domain-as-name replaced by the site name

@@ -209,7 +209,7 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
             log.info("browser render of %s failed: %s", final, e)
     if len(text) < 40:
         raise Unprocessable("the page had no readable text (it may need a browser)")
-    is_list, hints = _llm(db, job, llm.extract, text)
+    is_list, hints = _llm(db, job, llm.extract, venue.with_footer(text, html))
     hints = prune(hints, is_list)
     age.apply(hints, text)
     page_images.attach(hints, html, final)

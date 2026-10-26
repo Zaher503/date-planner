@@ -218,6 +218,14 @@ def footer_text(html: str) -> str:
     return "\n".join(parts)[:800]
 
 
+def with_footer(text: str, html: str) -> str:
+    """Page text plus its footer, labelled so the extractor can tell it is page-wide."""
+    foot = footer_text(html)
+    if foot and foot not in text:
+        return text + "\n\nFooter of the page (address, phone and venue name here apply to every event listed above):\n" + foot
+    return text
+
+
 LABEL_ATTR = re.compile(r"""(?:aria-label|title|alt|data-[\w-]+)=["']([^"']*\$\s?\d[^"']*)["']""", re.I)
 TIME_PREFIX = re.compile(r"^\s*\d{1,2}:\d{2}\s*[ap]m\s*", re.I)
 NOT_VENUE = re.compile(r"apps\.apple\.com|play\.google\.com|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|youtube\.|maps\.", re.I)

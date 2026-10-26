@@ -190,6 +190,21 @@ def test_footer_text_keeps_address_the_article_extractor_drops():
     assert venue.footer_text("<html><body><p>no footer</p></body></html>") == ""
 
 
+def test_with_footer_labels_the_page_wide_address_for_every_event():
+    html = ("<html><body><div id='content'><p>Down the Rabbit Hole</p></div><footer>"
+            "The Hollywood Roosevelt 7000 Hollywood Blvd, Los Angeles 90028 323-785-7000</footer></body></html>")
+    out = venue.with_footer("Down the Rabbit Hole\nChess and Jazz", html)
+    assert out.startswith("Down the Rabbit Hole\nChess and Jazz")
+    assert "apply to every event" in out
+    assert out.endswith("7000 Hollywood Blvd, Los Angeles 90028 323-785-7000")
+    assert venue.with_footer("same", "<html><body><p>none</p></body></html>") == "same"
+
+
+def test_extractor_is_told_the_footer_applies_to_each_event():
+    from app.llm.extract import SYSTEM
+    assert "Footer of the page" in SYSTEM
+
+
 def test_domain_that_is_the_venue_name_is_accepted():
     from app.ingest.venue import _domain_matches
     assert _domain_matches("https://www.academymuseum.org/visit", "Academy Museum of Motion Pictures")
