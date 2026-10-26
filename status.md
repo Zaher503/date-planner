@@ -43,8 +43,8 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - An article that links an event's own website: the venue's site is used instead, and the ticket link is lost (2026-10-21).
 - Side attractions in an article become extra items, one on the wrong street (2026-10-21).
 - The price shown is the original ticket price while the page says the event is off sale (2026-10-23).
-- A free line in a price list ("toddlers free") no longer marks a paid place Free; the range still starts at $0 (2026-10-25, `IM-16`).
-- Drive-in showtimes and "box office opens an hour before" are not read (2026-10-25, `IM-17`).
+- A free line in a price list ("toddlers free") no longer marks a paid place Free; the range still starts at $0 (2026-10-25, `IM-20`).
+- Drive-in showtimes and "box office opens an hour before" are not read (2026-10-25, `IM-21`).
 - Instagram is a review stub only (by choice).
 
 ## Waiting on Zaher
