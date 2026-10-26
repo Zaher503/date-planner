@@ -113,3 +113,13 @@ def test_embedded_description_leads_the_page_text():
 
 def test_embedded_description_missing_is_harmless():
     assert parse_page("https://example.com/e", "<html><body><p>Hi there</p></body></html>").text.strip() in ("", "Hi there")
+
+
+def test_domain_name_from_json_ld_is_replaced_by_the_site_name():
+    html = ('<html><head><meta property="og:site_name" content="Los Angeles Museum of Love">'
+            '<script type="application/ld+json">{"@type":"LocalBusiness","name":"Losangelesmuseumoflove",'
+            '"address":"6000 Hollywood Blvd, Los Angeles"}</script></head><body><p>Hi</p></body></html>')
+    items = parse_page("https://www.losangelesmuseumoflove.com/", html).items
+    assert items and items[0].name == "Los Angeles Museum of Love"
+    other = html.replace("Losangelesmuseumoflove", "Some Real Name")
+    assert parse_page("https://www.losangelesmuseumoflove.com/", other).items[0].name == "Some Real Name"

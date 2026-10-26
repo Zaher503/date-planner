@@ -7,9 +7,9 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 ## What works (deployed, live at dates.zkocr.com)
 
 - **Import:** TikTok, YouTube, Google/Apple Maps links, event pages (JSON-LD, embedded descriptions, Eventbrite), plain text and screenshots become place/event items. Local model (gemma4:e4b through the AI hub; an OpenRouter text-only option exists in config), strict "no invented numbers" check, resolver with Photon, Nominatim and SearXNG, website lookup for hours, phone, prices and photos. Golden set: 28/28.
-- **Import fixes from the daily check:** footer address and phone of a venue's site (PR #16, pending), `Sept.` dates, $0 ticket ranges and "free donuts", Eventbrite embedded description, already-past events flagged on import, own ticket link per event, `POST` endpoint that saves hand-checked import items.
+- **Import fixes from the daily check:** footer address and phone of a venue's site, `Sept.` dates, $0 ticket ranges and "free donuts", Eventbrite embedded description, already-past events flagged on import, own ticket link per event, `POST` endpoint that saves hand-checked import items.
 - **Archive and age (PR #12, merged 2026-10-23):** past one-off events move to an Archive view (computed per request); `events.min_age` (18/21) read from page text and editable. Migration `c9d0e1f2a3b4` runs on deploy. **Not yet checked on the live site.**
-- **Date-night planner API (PR #15, once merged):** `/api/plans/suggest` and plan CRUD are registered and tested (25 API tests, documented in `docs/API.md`). Not yet checked against the live database; there is no Plan page in the UI, and the `ics` link in a plan is a placeholder.
+- **Date-night planner API (PR #15, merged 2026-10-26):** `/api/plans/suggest` and plan CRUD are registered and tested (25 API tests, documented in `docs/API.md`). Not yet checked against the live database; there is no Plan page in the UI, and the `ics` link in a plan is a placeholder.
 - **Map UI:** SvelteKit + MapLibre, self-hosted PMTiles with a fallback to the live basemap, teardrop pins with category icons, rainbow cluster pins, per-category pin colours, filter chips, list, detail/edit, Add box with live job toasts, review picker, per-user status/rating/notes, occurrence calendar, settings, PWA shell, version label.
 - **Platform:** Compose stack on the Zephyrus (db, api, worker, photon, osrm-car, osrm-foot, searxng, browser, tester), CI + CD on push to `main` with a self-hosted runner, Caddy + Cloudflare + Authentik (group `dates`: Zaher and Kathy), Homarr tile, weekly map-tile refresh (cron on the Zephyrus), keyed import-tester service for the daily check.
 - **Tests:** backend 314 passed, frontend 27 passed, svelte-check clean (as of the last merge). CI runs ruff with only the minimal error rules (`E9,F63,F7,F82`).
@@ -43,8 +43,8 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - An article that links an event's own website: the venue's site is used instead, and the ticket link is lost (2026-10-21).
 - Side attractions in an article become extra items, one on the wrong street (2026-10-21).
 - The price shown is the original ticket price while the page says the event is off sale (2026-10-23).
-- A free line in a price list ("toddlers free") no longer marks a paid place Free; the range still starts at $0 (2026-10-25, `IM-16`).
-- Drive-in showtimes and "box office opens an hour before" are not read (2026-10-25, `IM-17`).
+- A free line in a price list ("toddlers free") no longer marks a paid place Free; the range still starts at $0 (2026-10-25, `IM-20`).
+- Drive-in showtimes and "box office opens an hour before" are not read (2026-10-25, `IM-21`).
 - Instagram is a review stub only (by choice).
 
 ## Waiting on Zaher

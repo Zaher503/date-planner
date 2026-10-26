@@ -259,6 +259,42 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
     return h
 
 
+OFFERS_MAX_CHARS = 300
+
+
+def demote_offerings(hints: list[ItemHint], source_url: str | None) -> list[ItemHint]:
+    """A venue's home page or menu lists what it offers (workshops, exhibits, tours) without dates. Those are not
+    events: they become part of the venue's place, so they stop piling up in the review queue.
+    Applies to dateless events on a site's home page, or three or more dateless events at one venue."""
+    from urllib.parse import urlsplit
+    home_page = bool(source_url) and urlsplit(source_url).path.strip("/") == ""
+    dateless: dict[str, list[ItemHint]] = {}
+    for h in hints:
+        if h.kind == "event" and not h.starts_at and not h.recurrence and h.name:
+            dateless.setdefault(h.name.strip().lower(), []).append(h)
+    drop = {id(h) for group in dateless.values() if home_page or len(group) >= 3 for h in group}
+    if not drop:
+        return hints
+    kept = [h for h in hints if id(h) not in drop]
+    for group in dateless.values():
+        if id(group[0]) not in drop:
+            continue
+        first = group[0]
+        place = next((h for h in kept if h.kind == "place" and h.name.strip().lower() == first.name.strip().lower()), None)
+        if place is None:
+            place = ItemHint(kind="place", name=first.name, address=first.address, area=first.area, inside=first.inside,
+                             lat=first.lat, lon=first.lon, exact_pin=first.exact_pin, category=first.category,
+                             website=first.website, phone=first.phone, tags=list(first.tags), tz=first.tz,
+                             provider=first.provider)
+            kept.append(place)
+        titles = [h.event_title for h in group if h.event_title]
+        if titles:
+            offers = "Offers: " + "; ".join(dict.fromkeys(titles))
+            if offers[:60] not in (place.description or ""):
+                place.description = ((place.description + " ") if place.description else "") + offers[:OFFERS_MAX_CHARS]
+    return kept
+
+
 def weak(resolved: list) -> bool:
     """True when nothing was placed confidently (so the video is worth the slow path)."""
     return not any(r.best is not None and not r.needs_review and not too_vague(r) for _, r in resolved)
@@ -429,6 +465,7 @@ def run(db: Session, job: Job) -> dict:
 
     now = datetime.now(timezone.utc)
     hints = [tidy(h, now) for h in g.hints if h.name or h.event_title]
+    hints = demote_offerings(hints, src.url if src.kind == "event_page" else None)
     age.apply(hints, g.text, src.caption)
     src.fetched_at = now
     if any(h.kind == "event" and not pricing.has_price(h) for h in hints):

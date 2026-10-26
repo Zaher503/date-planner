@@ -203,3 +203,38 @@ def test_with_footer_labels_the_page_wide_address_for_every_event():
 def test_extractor_is_told_the_footer_applies_to_each_event():
     from app.llm.extract import SYSTEM
     assert "Footer of the page" in SYSTEM
+
+
+def test_domain_that_is_the_venue_name_is_accepted():
+    from app.ingest.venue import _domain_matches
+    assert _domain_matches("https://www.academymuseum.org/visit", "Academy Museum of Motion Pictures")
+    assert not _domain_matches("https://www.tripadvisor.com/x", "Academy Museum of Motion Pictures")
+    assert not _domain_matches("https://example.com/", "Pizza")
+
+
+def test_address_with_a_name_in_front_keeps_the_street():
+    from app.ingest.venue import street_part
+    assert street_part("Kinn Studio - 150 Horizon Ave, Venice") == "150 Horizon Ave, Venice"
+    assert street_part("150 Horizon Ave") == "150 Horizon Ave"
+    assert street_part("Westfield Century City, LA") == "Westfield Century City, LA"
+
+
+def test_exact_house_geocode_beats_a_map_embed_but_structured_data_wins():
+    from app.ingest.venue import site_pin
+    embed = {"method": "site map embed", "lat": 1.0, "lon": 1.0}
+    exact = {"method": "address geocoded (exact house)", "lat": 2.0, "lon": 2.0}
+    geo = {"method": "site structured data (geo)", "lat": 3.0, "lon": 3.0}
+    assert site_pin({"location": {"evidence": [embed, exact]}})[:2] == (2.0, 2.0)
+    assert site_pin({"location": {"evidence": [embed, exact, geo]}})[:2] == (3.0, 3.0)
+    assert site_pin({"location": {"evidence": [{"method": "address geocoded (street only)", "lat": 4.0, "lon": 4.0}]}}) is None
+
+
+def test_vague_address_is_replaced_by_the_sites_street_address():
+    from app.ingest.items import ItemHint
+    from app.ingest.venue import apply
+    h = ItemHint("place", "Mr. Bones", address="Los Angeles")
+    apply(h, {"address": "10100 Jefferson Blvd, Culver City"})
+    assert h.address == "10100 Jefferson Blvd, Culver City"
+    k = ItemHint("place", "X", address="12 Main St")
+    apply(k, {"address": "99 Other St"})
+    assert k.address == "12 Main St"
