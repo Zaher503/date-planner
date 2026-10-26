@@ -180,6 +180,16 @@ def test_other_pages_found_only_when_they_name_the_venue(monkeypatch):
     assert [p["url"] for p in got] == ["https://blog.example.com/a"]
 
 
+def test_footer_text_keeps_address_the_article_extractor_drops():
+    html = ("<html><body><div id='content'><p>Now playing</p></div><div id='footer_contact'>"
+            "<div class='footer_col'>Location 7770 Rosecrans Avenue<br/>Paramount, CA 90723</div>"
+            "<div class='footer_col'>Contact 562.630.SHOW (7469)</div></div><script>x()</script></body></html>")
+    foot = venue.footer_text(html)
+    assert "7770 Rosecrans Avenue Paramount, CA 90723" in foot and "562.630.SHOW" in foot
+    assert "Now playing" not in foot and "x()" not in foot
+    assert venue.footer_text("<html><body><p>no footer</p></body></html>") == ""
+
+
 def test_domain_that_is_the_venue_name_is_accepted():
     from app.ingest.venue import _domain_matches
     assert _domain_matches("https://www.academymuseum.org/visit", "Academy Museum of Motion Pictures")

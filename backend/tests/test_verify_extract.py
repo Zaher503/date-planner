@@ -80,3 +80,11 @@ def test_address_must_come_from_text():
     assert verify.address_supported("Sunset Blvd", "anything")
     h = to_hint(raw(name="La Cha Cha Cha", address="2375 Glendale Blvd"), "La Cha Cha Cha rooftop", LA)
     assert h.address is None and "removed unverified address" in h.flags
+
+
+def test_free_toddlers_line_does_not_make_a_paid_place_free():
+    text = "Drive-in. General Admission $14.00, Children $7.00, Toddlers (2 and under) Free"
+    h = to_hint(raw(kind="place", name="Paramount Drive-In", price_min=0, price_max=14, is_free=True), text, LA)
+    assert h.is_free is None and h.price_max == 14
+    h = to_hint(raw(kind="place", name="Free Museum", is_free=True), "Admission is free", LA)
+    assert h.is_free is True

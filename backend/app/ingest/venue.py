@@ -200,6 +200,24 @@ def map_point(html: str) -> tuple[float, float, str] | None:
     return None
 
 
+def footer_text(html: str) -> str:
+    """Text of the page's footer. Article extraction drops it, but small venue sites keep their
+    address and phone only there."""
+    try:
+        root = lxml_html.fromstring(html)
+    except (ValueError, lxml_html.etree.ParserError):
+        return ""
+    for bad in root.xpath("//script|//style|//noscript"):
+        bad.drop_tree()
+    parts: list[str] = []
+    for el in root.xpath("//footer|//*[contains(translate(@id, 'FOTER', 'foter'), 'footer')]"
+                         "|//*[contains(translate(@class, 'FOTER', 'foter'), 'footer')]"):
+        text = " ".join(" ".join(el.itertext()).split())
+        if text and not any(text in p for p in parts):
+            parts = [p for p in parts if p not in text] + [text]
+    return "\n".join(parts)[:800]
+
+
 LABEL_ATTR = re.compile(r"""(?:aria-label|title|alt|data-[\w-]+)=["']([^"']*\$\s?\d[^"']*)["']""", re.I)
 TIME_PREFIX = re.compile(r"^\s*\d{1,2}:\d{2}\s*[ap]m\s*", re.I)
 NOT_VENUE = re.compile(r"apps\.apple\.com|play\.google\.com|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|youtube\.|maps\.", re.I)
@@ -418,6 +436,9 @@ def lookup(db: Session | None, hint: ItemHint, home: tuple[float, float], stage=
                 out["pages"].append({"url": u, "via": "plain"})
         else:
             out["pages"].append({"url": u, "via": "plain"})
+        foot = footer_text(body)
+        if foot and foot not in text:
+            text += "\n\nFooter of the page:\n" + foot
         labels = price_labels(body)
         if labels:
             text += "\n\nPrice labels on the page:\n" + labels

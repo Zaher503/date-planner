@@ -93,3 +93,12 @@ def test_zero_price_from_free_donuts_is_dropped(monkeypatch):
     monkeypatch.setattr(pricing, "chat_json", lambda *a, **k: {
         "found": True, "price_min": 0, "price_max": 0, "is_free": True, "price_text": "free"})
     assert pricing.read_price(html, "https://example.com/e") is None
+
+
+def test_free_toddlers_do_not_make_the_venue_free(monkeypatch):
+    html = ("<html><body><p>Ticket Prices</p><p>General Admission (12 and older) $14.00</p>"
+            "<p>Children (Ages 3-11) $7.00</p><p>Toddlers (2 and under)</p><p>Free</p></body></html>")
+    monkeypatch.setattr(pricing, "chat_json", lambda *a, **k: {
+        "found": True, "price_min": 0, "price_max": 14, "is_free": True, "price_text": "$14.00"})
+    out = pricing.read_price(html, "https://example.com/now-playing")
+    assert out["is_free"] is None and out["price_max"] == 14
