@@ -138,6 +138,8 @@ All optional. Lists are comma separated.
 
 Place-only keys (`website` ... `events`) are present for places, event-only keys (`starts_at` ... `place`) for events. `me` is null when I have no state. `candidates` is filled for a place that needs review, and for an event whose place needs review (then they are the place's candidates; resolve through `/api/places/{place.id}/resolve`). `edited` lists `user_overrides` keys.
 
+Standing venues: `PATCH /api/items/place/{id}` accepts `standing`, `watch_url` (blank: the website) and `watch_every_days` (1-90, default 7). A place response carries `standing`, `watch_url`, `watch_every_days`, `last_scanned_at`, `next_scan_at`, `last_scan_status` (`ok|failed|no_events`), `last_scan_note`, and its `events` with `description`, `ticket_url`, `min_age` and `listed`. `POST /api/items/place/{id}/scan` reads the page now. A scan adds and updates events; events the page no longer lists get `listed=false` and are archived (never deleted), and a scan that fails or finds no events changes nothing. Events accept `rrule` (RFC 5545); `recurrence_text` such as "every Tuesday at 6pm" or "third Friday of every month" sets it, and the next 120 days of dates are kept in `occurrences`.
+
 `GET /api/items/{type}/{id}?debug=true` adds `import_info` (importer version, engine `llm|verified|parser:<name>|legacy`, model, prompt hash, source id, time, and the earlier reads in `history`), `importer_current` and `importer_outdated`. The app never shows these. Every item also has `gaps`: `needed` (marks it for review), `check` (doubtful, shown only) and `optional` (information only: price, phone, photos, ...).
 
 `PATCH /api/items/{type}/{id}` with any subset of:

@@ -57,6 +57,7 @@
   let notes = $state('');
   let notesSaved = $state(true);
   let actionError = $state('');
+  let openEvent = $state<string | null>(null);
   let notesTimer: ReturnType<typeof setTimeout> | null = null;
   let lastId = '';
 
@@ -133,6 +134,15 @@
   });
   let showOriginal = $state(false);
   let showSources = $state(false);
+
+  async function scanNow() {
+    if (!item) return;
+    const id = item.id;
+    await run('scan', async () => {
+      const r = await api.scanNow(id);
+      app.info(r.already_running ? 'Already reading this page' : 'Reading the page now', 'New events appear here when it is done.');
+    });
+  }
 
   async function run<T>(label: string, fn: () => Promise<T>): Promise<T | undefined> {
     busy = label;
@@ -467,24 +477,51 @@
           </div>
         {/if}
 
-        {#if item.events?.length}
+        {#if item.standing || item.events?.length}
           <section>
-            <h3>Events here ({item.events.length})</h3>
+            <h3>Events here ({item.events?.length ?? 0})</h3>
+            {#if item.standing}
+              <p class="watch" class:bad={item.last_scan_status === 'failed'}>
+                <span>
+                  Watching {item.watch_url ? hostOf(item.watch_url) : 'its website'}, every {item.watch_every_days} day{item.watch_every_days === 1 ? '' : 's'}.
+                  {#if item.last_scanned_at}Last read {relativeAgo(item.last_scanned_at)}{item.last_scan_note ? `: ${item.last_scan_note}` : ''}.
+                  {:else}Not read yet.{/if}
+                  {#if item.next_scan_at}Next read {when(item.next_scan_at, { tz })}.{/if}
+                </span>
+                <button class="btn small" disabled={!!busy} onclick={scanNow}><RefreshCw size={15} class={busy === 'scan' ? 'spin' : ''} /> Read now</button>
+              </p>
+            {/if}
             <ul class="linked">
-              {#each item.events as ev (ev.id)}
+              {#each item.events ?? [] as ev (ev.id)}
                 {@const bits = [
                   ev.starts_at ? when(ev.starts_at, { tz: ev.tz ?? tz, allDay: ev.all_day }) : ev.recurrence_text,
                   ev.dates > 1 ? `${ev.dates} dates` : '',
                   ev.duration_min && !ev.all_day ? duration(ev.duration_min) : '',
                   ev.price_label
                 ].filter(Boolean)}
-                <li class="ev-row">
-                  <button class="ev-open" onclick={() => onselect('event', ev.id)}>
-                    <span>{ev.title}</span>
-                    <span class="sub">{bits.join(' · ') || 'Date not known'}</span>
-                  </button>
-                  <button class="ev-edit" aria-label="Edit {ev.title}" title="Edit" onclick={() => onselect('event', ev.id, true)}><Pencil size={15} /></button>
+                <li class="ev-card" class:unlisted={!ev.listed}>
+                  <div class="ev-row">
+                    <button class="ev-open" aria-expanded={openEvent === ev.id} onclick={() => (openEvent = openEvent === ev.id ? null : ev.id)}>
+                      <span>{ev.title}</span>
+                      <span class="sub">{bits.join(' · ') || 'Date not known'}{ev.listed ? '' : ' · no longer listed'}</span>
+                    </button>
+                    <button class="ev-edit" aria-label="Edit {ev.title}" title="Edit" onclick={() => onselect('event', ev.id, true)}><Pencil size={15} /></button>
+                  </div>
+                  {#if openEvent === ev.id}
+                    <div class="ev-more">
+                      {#if ev.recurrence_text && ev.starts_at}<p class="sub">Repeats: {ev.recurrence_text}</p>{/if}
+                      {#if ev.description}<p>{ev.description}</p>{/if}
+                      <p class="sub">
+                        {#if ev.price_label}{ev.price_label}{/if}
+                        {#if ev.min_age}{ev.price_label ? ' · ' : ''}{ev.min_age}+{/if}
+                      </p>
+                      {#if ev.ticket_url}<a href={ev.ticket_url} target="_blank" rel="noopener noreferrer">Tickets on {hostOf(ev.ticket_url)}</a>{/if}
+                      <button class="btn small" onclick={() => onselect('event', ev.id)}>Open the event</button>
+                    </div>
+                  {/if}
                 </li>
+              {:else}
+                <li class="sub">No events found yet.</li>
               {/each}
             </ul>
           </section>
@@ -1076,6 +1113,36 @@
   .ev-row {
     display: flex;
     gap: 6px;
+  }
+  .ev-card.unlisted {
+    opacity: 0.6;
+  }
+  .ev-more {
+    border: 1px solid var(--line);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    margin: -4px 40px 0 0;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    font-size: 13.5px;
+  }
+  .ev-more p {
+    margin: 0;
+  }
+  .watch {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  .watch.bad {
+    color: var(--danger, #b3261e);
   }
   .ev-open {
     flex: 1;

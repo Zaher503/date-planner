@@ -24,8 +24,37 @@ def handler(name: str):
 
 @handler("ingest")
 def ingest(db: Session, job: Job) -> dict:
+    import uuid
+
+    from app import watch
+    from app.db.models import Source
     from app.ingest.pipeline import run
-    return run(db, job)
+    try:
+        result = run(db, job)
+    except Exception as e:
+        db.rollback()
+        src = db.get(Source, uuid.UUID(job.payload["source_id"])) if job.payload.get("source_id") else None
+        if src is not None and (getattr(e, "permanent", False) or job.attempts >= job.max_attempts):
+            watch.after_run(db, src, None, error=f"{type(e).__name__}: {e}")  # last try: record the failure
+        raise
+    src = db.get(Source, uuid.UUID(job.payload["source_id"])) if job.payload.get("source_id") else None
+    if src is not None:
+        watch.after_run(db, src, result)
+    return result
+
+
+@handler("watch_scan")
+def watch_scan(db: Session, job: Job) -> dict:
+    """Queue a read of every standing venue whose weekly check is due."""
+    from app import watch
+    return watch.scan_due(db)
+
+
+@handler("expand_occurrences")
+def expand_occurrences(db: Session, job: Job) -> dict:
+    """Extend every repeating event's dates 120 days ahead."""
+    from app import occurrences
+    return occurrences.refresh_all(db)
 
 
 @handler("refresh_home")

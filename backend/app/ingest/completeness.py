@@ -27,6 +27,8 @@ def event_gaps(e) -> dict[str, list[str]]:
         needed.append("a date, or how often it repeats")
     if e.place_id is None and _blank(e.address_text):
         needed.append("a venue")
+    if e.rrule and e.all_day:
+        check.append("a start time (the repeat pattern gave only the days)")
     if _blank(e.ticket_url):
         optional.append("a ticket link")
     if e.is_free is None and e.price_min is None and _blank(e.price_text):

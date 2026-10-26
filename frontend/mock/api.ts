@@ -70,7 +70,12 @@ function detail(id: string) {
     ...it.extra
   };
   return p.t === 'place'
-    ? { ...base, website: 'https://example.com', phone: null, opening_hours: 'Mo-Su 16:00-01:00', open_now: true, price_level: 2, closed: false, events: [] }
+    ? { ...base, website: 'https://example.com', phone: null, opening_hours: 'Mo-Su 16:00-01:00', open_now: true, price_level: 2, closed: false, standing: true, watch_url: 'https://example.com/events', watch_every_days: 7, last_scanned_at: iso(-3), next_scan_at: iso(4), last_scan_status: 'ok', last_scan_note: '3 events listed, 1 no longer listed', watch_parser: null,
+        events: [
+          { id: 'ev-1', title: 'Drop-in workshop for teens', starts_at: null, ends_at: null, all_day: true, duration_min: null, tz: 'America/Los_Angeles', dates: 0, recurrence_text: 'third Friday of every month', price_label: 'Free', description: 'Hands-on editing session for ages 13 to 18.', ticket_url: 'https://example.com/tickets', min_age: null, listed: true, status: 'scheduled', review_status: 'ok' },
+          { id: 'ev-2', title: 'Film night: Practical Magic', starts_at: iso(6), ends_at: null, all_day: false, duration_min: 150, tz: 'America/Los_Angeles', dates: 1, recurrence_text: null, price_label: '$15', description: null, ticket_url: null, min_age: 21, listed: true, status: 'scheduled', review_status: 'ok' },
+          { id: 'ev-3', title: 'Spring exhibit', starts_at: null, ends_at: null, all_day: true, duration_min: null, tz: 'America/Los_Angeles', dates: 0, recurrence_text: 'ongoing until 2026-10-18', price_label: null, description: null, ticket_url: null, min_age: null, listed: false, status: 'archived', review_status: 'ok' }
+        ] }
     : { ...base, starts_at: p.start, ends_at: p.end, duration_min: p.start ? 180 : null, duration_estimated: true, all_day: false, recurrence_text: p.rec, tz: 'America/Los_Angeles', price_min: 15, price_max: null, currency: 'USD', is_free: false, price_text: null, ticket_url: null, status: 'scheduled', venue_name: p.venue, place: null, occurrences: p.start ? [0, 7, 14, 21, 35].map((d) => ({ starts_at: new Date(Date.parse(String(p.start)) + d * 86400000).toISOString(), ends_at: null })) : [] };
 }
 

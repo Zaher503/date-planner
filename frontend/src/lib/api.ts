@@ -145,7 +145,22 @@ export interface Item {
     dates: number;
     recurrence_text: string | null;
     price_label: string | null;
+    description: string | null;
+    ticket_url: string | null;
+    min_age: 18 | 21 | null;
+    /** false: the venue's page no longer lists it */
+    listed: boolean;
+    status: string;
+    review_status: string;
   }[];
+  /** A standing venue's page is re-read on a schedule for new events. */
+  standing?: boolean;
+  watch_url?: string | null;
+  watch_every_days?: number;
+  last_scanned_at?: string | null;
+  next_scan_at?: string | null;
+  last_scan_status?: 'ok' | 'failed' | 'no_events' | null;
+  last_scan_note?: string | null;
   // Event
   starts_at?: string | null;
   ends_at?: string | null;
@@ -153,6 +168,7 @@ export interface Item {
   duration_estimated?: boolean;
   all_day?: boolean;
   recurrence_text?: string | null;
+  rrule?: string | null;
   tz?: string;
   price_min?: number | null;
   price_max?: number | null;
@@ -287,6 +303,7 @@ export const api = {
   remove: (type: ItemType, id: string) => request<void>('DELETE', `/api/items/${type}/${id}`),
   setMine: (type: ItemType, id: string, body: Partial<MyState>) =>
     request<MyState>('PUT', `/api/items/${type}/${id}/me`, body),
+  scanNow: (id: string) => request<{ job: number | null; already_running: boolean }>('POST', `/api/items/place/${id}/scan`),
   reprocess: (type: ItemType, id: string) => request<{ jobs: number[] }>('POST', `/api/items/${type}/${id}/reprocess`),
   resolve: (placeId: string, candidateId: number | null) =>
     request<{ id: string; review_status: string; lat: number; lon: number }>('POST', `/api/places/${placeId}/resolve`, {
