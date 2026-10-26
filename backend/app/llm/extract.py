@@ -18,6 +18,7 @@ Rules:
 - If an entry is an activity with no named venue (for example "bike by the beach"), set specific to false and put the area it mentions (for example "Venice") in area.
 - address: only if the text gives a street address. area: neighborhood or city if mentioned.
 - A venue page or listing that shows several events or classes at one venue gets one item per event: kind "event", name is the venue, event_title is that event, each with its own dates, times and price. Never put an event's title in name.
+- A "Footer of the page" section gives the address, phone and venue or hotel name of the site itself. For a venue page listing several events, use that venue as name and that address for every event that gives no address of its own.
 - inside: if the place is inside another named venue (a bar inside a hotel, a stall inside a market), the host venue's name, else null.
 - A location tag or hashtag that is only a neighborhood or city is not an item.
 - Dates as YYYY-MM-DD, times as 24h HH:MM. Today is {today}. The post was published {posted}. Resolve "this Friday" from the publish date. Leave dates empty unless the text states them.
@@ -136,6 +137,9 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
         setattr(hint, key, float(v) if v is not None else None)
     # Free only when the text says so; "not free" only when it states a price
     if hint.is_free and "free" not in text.lower():
+        hint.is_free = None
+    if hint.is_free and (hint.price_max or 0) > 0:
+        # A paid price next to a free line ("toddlers free") does not make the whole thing free
         hint.is_free = None
     if hint.is_free is False and hint.price_min is None and hint.price_max is None and "$" not in text:
         hint.is_free = None

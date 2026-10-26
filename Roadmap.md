@@ -21,17 +21,16 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
-- [ ] `PL-01` Make the planner reachable: register the plans router in `main.py`, check every route against `docs/API.md`, add API tests (suggest, save, list, patch, delete), document in `docs/API.md`.
-  - [ ] `PL-01.1` Register the router, fix whatever breaks at startup.
-  - [ ] `PL-01.2` Tests for each route with the OSRM client stubbed.
-  - [ ] `PL-01.3` API docs.
-- [ ] `IM-01` Page-wide address, hotel name and phone from a listing page's footer apply to every event on it (report 2026-10-17). Test with the saved fixture.
+- [~] `IM-01` Page-wide address, hotel name and phone from a listing page's footer apply to every event on it (report 2026-10-17). Test with the saved fixture.
+  - [x] `IM-01.1` Footer is passed to the extractor for pages read as text, with a rule that it applies to every event without its own address (2026-10-26, unit tests only).
+  - [ ] `IM-01.2` Rerun the Hollywood Roosevelt link on the live tester after the PR is deployed; if the model still ignores the footer, copy a single footer address onto events that have none in code. Pages that carry JSON-LD events do not get the footer yet.
 - [ ] `DS-01` Wire the iCal adapter: add `ical_feeds` to `ADAPTERS`, feed list kept in settings (API only), tests from a saved feed.
 - [ ] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
   - [ ] `LC-01.1` Backup job and its test (command built correctly, retention).
   - [ ] `LC-01.2` Weekly yt-dlp update job.
 - [ ] `QA-01` Widen the CI lint from `E9,F63,F7,F82` to the default ruff rules plus `I` (imports); fix what it finds without changing behaviour.
 - [ ] `DOC-01` Rewrite the `README.md` status table and "Next step", and the `docs/PLAN.md` header status, from `status.md`. Retire `docs/TODO-ZAHER.md` (point it at `status.md`).
+- [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
 
 ## Needs Zaher
 
@@ -58,6 +57,8 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] `IM-12` Recurring events stored as an RRULE. Deps: `IM-02` decided, `LC-05`.
 - [ ] `IM-13` Run the golden set (`python -m app.eval`) after import changes and add every checked daily link with a confirmed answer to `backend/tests/golden.json`.
 - [ ] `IM-14` Instagram: decide whether a link can be read from its public oEmbed / caption without login; otherwise keep the review stub and make the stub item show the pasted text. Small experiment only.
+- [ ] `IM-16` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed).
+- [ ] `IM-17` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
 - [ ] `IM-15` Import checks beyond TikTok and articles: Reddit threads, Google Maps lists, Yelp / Time Out roundups, a shared screenshot. One per daily check, record the result.
 
 ### Discovery (DS)
@@ -84,10 +85,10 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `IB-08` Home Assistant push after a discovery run (`notify/ha.py`), deep link to the inbox. Deps: `IB-01` decided, `DS-04`, `IB-05`.
 
 ### Planner and calendar (PL)
-- [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01`.
 - [ ] `PL-03` Per-item `.ics` download (`GET /api/items/{id}.ics`) and an "Add to calendar" button on the detail card.
 - [ ] `PL-04` Subscribable feed `GET /cal/{token}.ics` of "Going" items (secret token, bypasses Authentik at Caddy, token rotation in Settings). Deps: `PL-03`.
 - [ ] `PL-05` Plan export to calendar (one event per stop). Deps: `PL-02`, `PL-03`.
+- [ ] `PL-08` The saved-plan JSON carries an `ics` link (`/api/plans/{id}.ics`) that no route serves yet. Serve it with `PL-05` or drop the field until then. Found while doing `PL-01`.
 - [ ] `PL-06` Miles in the UI for distances and radius (the plan says HA uses miles).
 - [ ] `PL-07` Homarr widget `GET /widget` ("This weekend: N plans, M suggestions", next 3 items). Deps: `IB-05`.
 
@@ -123,5 +124,8 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-10-26 (item) `IM-01.1` Footer address, phone and venue name now reach the event extractor and apply to every event on the page, PR #17
+- 2026-10-25 (check) `IM-00` Paramount Drive-In: footer address now read, a toddler-free line no longer marks a paid place Free, PR #16
+- 2026-10-24 (item) `PL-01` Planner API registered in `main.py` and reachable (suggest, save, list, get, patch, delete), 25 API tests, documented in `docs/API.md`, PR #15
 - 2026-10-23 (check) `IM-00` Dice event page: $0 ticket range and "free donuts" no longer read as free, PR #11
 - 2026-10-23 (item) `IM-00` Archive for past events and minimum age on events, PR #12 (before this list existed)

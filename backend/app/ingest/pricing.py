@@ -104,7 +104,8 @@ def read_price(html: str, url: str) -> dict | None:
     for k in ("price_min", "price_max"):
         if out[k] is not None and not verify.price_supported(out[k], nums):
             out[k] = None
-    if not FREE_ENTRY.search(text):
+    if not FREE_ENTRY.search(text) or (out["price_max"] or 0) > 0:
+        # A paid price next to a free line ("Toddlers free") does not make the whole thing free
         out["is_free"] = None
         if not out["price_min"] and not out["price_max"]:
             # $0 with no free-entry wording is the model reading "free donuts" as the price
