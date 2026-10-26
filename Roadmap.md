@@ -55,6 +55,10 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] `IM-12` Recurring events stored as an RRULE. Deps: `IM-02` decided, `LC-05`.
 - [ ] `IM-13` Run the golden set (`python -m app.eval`) after import changes and add every checked daily link with a confirmed answer to `backend/tests/golden.json`.
 - [ ] `IM-14` Instagram: decide whether a link can be read from its public oEmbed / caption without login; otherwise keep the review stub and make the stub item show the pasted text. Small experiment only.
+- [ ] `IM-16` Price reading from the 2026-10-23 live-DB check: use the regular price, not promo (WeFly $183/$343 vs $229/$429) or parking prices (Academy Museum); do not add the Fever booking fee to the ticket price.
+- [ ] `IM-17` Strip tracking parameters (`srsltid`, `utm_*`) from venue websites; save ticket links found on the venue site into the ticket field.
+- [ ] `IM-18` Replay the 10 links of the 2026-10-23 check on the fixed code (The Broad, Museum of Love, Academy Museum, Tutu Fun, Lumee, Puppy Yoga, Aquarium, Fever, WeFly, TikTok) and record before/after in `improvements/`.
+- [ ] [Z] `IM-19` Decisions from the live-DB check: multi-location businesses (Lumee: one item per store?), undated workshops/classes (an "offerings" concept or place-with-note?), minimum age on places.
 - [ ] `IM-15` Import checks beyond TikTok and articles: Reddit threads, Google Maps lists, Yelp / Time Out roundups, a shared screenshot. One per daily check, record the result.
 
 ### Discovery (DS)
@@ -121,5 +125,6 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
 - 2026-10-24 (item) `PL-01` Planner API registered in `main.py` and reachable (suggest, save, list, get, patch, delete), 25 API tests, documented in `docs/API.md`, PR #15
+- 2026-10-23 (item) `IM-00` Live-DB check fixes: dateless offerings on a home page become the venue's place; address with a name in front keeps its street; a real address replaces "Los Angeles"; the venue's own domain passes the site check; exact-house geocode beats a map embed; domain-as-name replaced by the site name
 - 2026-10-23 (check) `IM-00` Dice event page: $0 ticket range and "free donuts" no longer read as free, PR #11
 - 2026-10-23 (item) `IM-00` Archive for past events and minimum age on events, PR #12 (before this list existed)

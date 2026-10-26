@@ -78,6 +78,14 @@ def _mentions(text: str, name: str) -> bool:
     return bool(words) and all(w in flat for w in words)
 
 
+def _domain_matches(url: str, name: str) -> bool:
+    """The site's own domain is the venue's name (academymuseum.org for Academy Museum of Motion Pictures):
+    the page text may not repeat the full name, but the domain says whose site it is."""
+    label = re.sub(r"[^a-z0-9]", "", ((urlsplit(url).hostname or "").removeprefix("www.").split(".") or [""])[0].lower())
+    words = _tokens(name)
+    return len(label) >= 5 and label in {"".join(words[:k]) for k in range(1, len(words) + 1)}
+
+
 def _same_site(a: str, b: str) -> bool:
     ha, hb = (urlsplit(a).hostname or "").removeprefix("www."), (urlsplit(b).hostname or "").removeprefix("www.")
     return ha == hb or ha.endswith("." + hb) or hb.endswith("." + ha)
@@ -134,7 +142,7 @@ def find_site(db: Session | None, hint: ItemHint, out: dict) -> tuple[str, str] 
                 text = parse_page(final, html).text
             except Exception as e:
                 log.info("browser render of %s failed: %s", final, e)
-        if _mentions(text + " " + final, hint.name):
+        if _mentions(text + " " + final, hint.name) or _domain_matches(final, hint.name):
             return final, html
         out.setdefault("site_rejected", []).append({"url": final, "why": "page does not mention the venue name"})
     out["site_note"] = out.get("site_note") or "no result passed the name check"
@@ -258,6 +266,20 @@ def check_hours(spec: str | None, text: str, written: str | None = None) -> tupl
     return spec, note
 
 
+def street_part(address: str) -> str:
+    """'Kinn Studio - 150 Horizon Ave, Venice' -> '150 Horizon Ave, Venice'; an address that already starts
+    with a number, or has no number after a separator, comes back as it was."""
+    a = address.strip()
+    if re.match(r"\d", a):
+        return a
+    m = re.search(r"(?:\s[-–—:|]\s+|,\s*)(\d{1,6}[A-Za-z]?\s+[A-Za-z].*)$", a)
+    return m.group(1).strip() if m else a
+
+
+def has_number(address: str | None) -> bool:
+    return bool(address and re.match(r"\s*\d", address))
+
+
 def read_facts(pages: list[dict], out: dict) -> dict:
     blob = "\n\n".join(f"## {p['url']}\n{p['text'][:PAGE_TEXT]}" for p in pages)[:16000]
     out["facts_input_chars"] = len(blob)
@@ -271,7 +293,9 @@ def read_facts(pages: list[dict], out: dict) -> dict:
     facts = {"address": (raw.get("address") or "").strip() or None, "phone": (raw.get("phone") or "").strip() or None,
              "hours_text": (raw.get("hours_text") or "").strip() or None,
              "price_text": (raw.get("price_text") or "").strip() or None, "is_free": raw.get("is_free")}
-    if facts["address"] and not re.match(r"\s*\d", facts["address"]):
+    if facts["address"]:
+        facts["address"] = street_part(facts["address"])
+    if facts["address"] and not has_number(facts["address"]):
         out["flags"].append(f"address dropped, no street number: {facts['address']}")
         facts["address"] = None
     if facts["address"] and not verify.address_supported(facts["address"], full):
@@ -323,6 +347,15 @@ def other_pages(hint: ItemHint, site_url: str, out: dict) -> list[dict]:
     return pages
 
 
+def _pin_rank(e: dict) -> int:
+    """The site's structured data first, then a map link the owner put on the page, then an exact house-number
+    geocode, then the site's map embed (its centre often sits on the building next door), then a street-only
+    geocode."""
+    m = e["method"]
+    return (0 if "structured data" in m else 3 if "embed" in m else 4 if "street only" in m
+            else 2 if "exact house" in m else 1)
+
+
 def locate(db: Session | None, home: tuple[float, float], hint: ItemHint, address: str | None,
            jsonld: ItemHint | None, mp, out: dict) -> dict:
     """Best point for the venue and the evidence for it."""
@@ -342,8 +375,7 @@ def locate(db: Session | None, home: tuple[float, float], hint: ItemHint, addres
                              "lat": c.lat, "lon": c.lon, "matched": c.address_text})
     if not evidence:
         return {"lat": None, "lon": None, "method": None, "evidence": [], "agreement_km": None}
-    exact = [e for e in evidence if "street only" not in e["method"]]
-    best = (exact or evidence)[0]
+    best = min(evidence, key=_pin_rank)
     far = max((km(best["lat"], best["lon"], e["lat"], e["lon"]) for e in evidence), default=0)
     return {"lat": best["lat"], "lon": best["lon"], "method": best["method"], "evidence": evidence,
             "agreement_km": round(far, 3)}
@@ -438,12 +470,9 @@ def lookup(db: Session | None, hint: ItemHint, home: tuple[float, float], stage=
 def site_pin(v: dict) -> tuple[float, float, str] | None:
     """A point the venue's own site vouches for: structured data or its map link, else an exact-house
     geocode of the address the site states. None when the site gave nothing usable."""
-    ev = (v.get("location") or {}).get("evidence") or []
-    own = next((e for e in ev if e["method"].startswith("site ")), None)
-    if own:
-        return own["lat"], own["lon"], own["method"]
-    exact = next((e for e in ev if "exact house" in e["method"]), None)
-    return (exact["lat"], exact["lon"], exact["method"]) if exact else None
+    ev = sorted((v.get("location") or {}).get("evidence") or [], key=_pin_rank)
+    own = next((e for e in ev if _pin_rank(e) <= 3), None)
+    return (own["lat"], own["lon"], own["method"]) if own else None
 
 
 def apply(hint: ItemHint, v: dict) -> None:
@@ -456,6 +485,9 @@ def apply(hint: ItemHint, v: dict) -> None:
     fill("phone", v.get("phone"))
     fill("opening_hours", v.get("opening_hours"))
     fill("hours_text", v.get("hours_text"))
+    if has_number(v.get("address")) and hint.address and not has_number(hint.address):
+        hint.address = v["address"]  # "Los Angeles" or "Aquarium Way" -> the street address the site gives
+        hint.flags.append("address from website (replaced a vague one)")
     fill("address", v.get("address"))
     fill("price_level", v.get("price_level"))
     if hint.kind == "place":
