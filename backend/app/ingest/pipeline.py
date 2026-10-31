@@ -241,12 +241,13 @@ def prune(hints: list[ItemHint], is_list: bool) -> list[ItemHint]:
 
 
 def tidy(h: ItemHint, now: datetime) -> ItemHint:
-    """Turn dateless 'events' into places and long-running series into recurring events."""
-    if h.kind == "event" and h.starts_at and h.ends_at and h.ends_at - h.starts_at > timedelta(days=3) \
-            and h.starts_at < now:
-        h.recurrence = h.recurrence or f"ongoing until {h.ends_at.date().isoformat()}"
-        h.starts_at = h.ends_at = None
-        h.flags.append("recurring series, dates unclear")
+    """Turn dateless 'events' into places. A long run (an exhibition) keeps its start and end dates, so it
+    moves to the Archive by itself once it closes. Only a long run that also repeats loses them."""
+    if h.kind == "event" and h.starts_at and h.ends_at and h.ends_at - h.starts_at > timedelta(days=3):
+        h.all_day = True
+        if h.recurrence:
+            h.starts_at = h.ends_at = None
+            h.flags.append("recurring series, dates unclear")
     if h.kind == "event" and h.starts_at and (h.ends_at or h.starts_at) < now:
         h.flags.append("event already happened")
     venue_event = bool(h.event_title and h.name and h.name.strip().lower() != h.event_title.strip().lower())

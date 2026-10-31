@@ -35,8 +35,14 @@ def test_recurring_undated_and_manual_archive():
     old = datetime(2024, 1, 1, tzinfo=timezone.utc)
     assert not ended(starts_at=old, is_recurring=True)
     assert not ended(starts_at=None)
+    assert not ended(starts_at=None, ends_at=datetime(2027, 2, 28, tzinfo=timezone.utc))
     assert ended(starts_at=None, status="archived")
     assert ended(starts_at=datetime(2030, 1, 1, tzinfo=timezone.utc), status="archived")
+
+
+def test_exhibition_with_only_a_closing_date_ages_out():
+    assert ended(starts_at=None, ends_at=datetime(2026, 10, 18, tzinfo=timezone.utc), all_day=True)
+    assert not ended(starts_at=None, ends_at=datetime(2026, 10, 18, tzinfo=timezone.utc), is_recurring=True)
 
 
 def test_naive_times_do_not_crash():
