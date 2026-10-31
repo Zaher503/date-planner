@@ -123,3 +123,18 @@ def test_domain_name_from_json_ld_is_replaced_by_the_site_name():
     assert items and items[0].name == "Los Angeles Museum of Love"
     other = html.replace("Losangelesmuseumoflove", "Some Real Name")
     assert parse_page("https://www.losangelesmuseumoflove.com/", other).items[0].name == "Some Real Name"
+
+
+def test_branch_name_takes_the_full_name_from_the_page_title():
+    html = ('<html><head><title>Activate Culver City | Active Games in California</title>'
+            '<script type="application/ld+json">{"@type":"EntertainmentBusiness","name":"Culver City",'
+            '"address":"6000 Sepulveda Blvd., Culver City, CA 90230","telephone":"310-810-3373"}</script>'
+            '</head></html>')
+    assert parse_page("https://playactivate.com/culver-city", html).items[0].name == "Activate Culver City"
+
+
+def test_branch_name_kept_when_title_does_not_end_with_it():
+    html = ('<html><head><title>Visit Culver City Today | Home</title>'
+            '<script type="application/ld+json">{"@type":"EntertainmentBusiness","name":"Culver City",'
+            '"address":"6000 Sepulveda Blvd., Culver City, CA 90230"}</script></head></html>')
+    assert parse_page("https://x.com/a", html).items[0].name == "Culver City"
