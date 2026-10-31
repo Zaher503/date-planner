@@ -105,6 +105,15 @@ class Place(TimestampMixin, Base):
     review_status: Mapped[str] = mapped_column(Text, server_default="ok")
     confidence: Mapped[float | None] = mapped_column(Float)
     closed: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Standing venue: the place stays as it is and its website is re-read on a schedule for new events
+    standing: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    watch_url: Mapped[str | None] = mapped_column(Text)
+    watch_source_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"))
+    watch_every_days: Mapped[int] = mapped_column(Integer, server_default="7")
+    watch_parser: Mapped[str | None] = mapped_column(Text)  # a venue parser name; None reads the page with the model
+    last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scan_status: Mapped[str | None] = mapped_column(Text)  # ok | failed | no_events
+    last_scan_note: Mapped[str | None] = mapped_column(Text)
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     user_overrides: Mapped[dict] = mapped_column(JSONB, server_default="{}")
     import_info: Mapped[dict] = mapped_column(JSONB, server_default="{}")  # importer version, model, history
@@ -164,6 +173,8 @@ class Event(TimestampMixin, Base):
     origin: Mapped[str] = mapped_column(Text, server_default="manual")
     review_status: Mapped[str] = mapped_column(Text, server_default="ok")
     status: Mapped[str] = mapped_column(Text, server_default="scheduled")
+    listed: Mapped[bool] = mapped_column(Boolean, server_default="true")  # false: a venue scan no longer lists it
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     confidence: Mapped[float | None] = mapped_column(Float)
     user_overrides: Mapped[dict] = mapped_column(JSONB, server_default="{}")
     import_info: Mapped[dict] = mapped_column(JSONB, server_default="{}")  # importer version, model, history

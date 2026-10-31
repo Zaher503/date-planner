@@ -62,6 +62,9 @@ def enqueue_once(type_: str, payload: dict | None = None, needs_gpu: bool = Fals
 def make_scheduler() -> BackgroundScheduler:
     sched = BackgroundScheduler(timezone="America/Los_Angeles")
     sched.add_job(enqueue_once, "cron", hour=4, minute=10, args=["refresh_home"], id="refresh_home")
+    # Standing venues: the check runs daily; each venue is read once its own interval (weekly by default) is up
+    sched.add_job(enqueue_once, "cron", hour=3, minute=40, args=["watch_scan"], id="watch_scan")
+    sched.add_job(enqueue_once, "cron", hour=3, minute=55, args=["expand_occurrences"], id="expand_occurrences")
     return sched
 
 

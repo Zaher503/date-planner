@@ -10,6 +10,7 @@ pydantic-settings>=2.6,<3
 httpx>=0.28,<1
 apscheduler>=3.11,<4
 tzdata>=2024.1
+python-dateutil>=2.9,<3
 rapidfuzz>=3.10,<4
 trafilatura>=2.0,<3
 # Chrome-like TLS fingerprint for sites that refuse the plain client (HTTP 403)

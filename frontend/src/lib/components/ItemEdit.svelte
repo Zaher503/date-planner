@@ -26,6 +26,9 @@
     phone: item.phone ?? '',
     opening_hours: item.opening_hours ?? '',
     price_level: item.price_level == null ? '' : String(item.price_level),
+    standing: item.standing ?? false,
+    watch_url: item.watch_url ?? '',
+    watch_every_days: String(item.watch_every_days ?? 7),
     starts_at: toLocalInput(item.starts_at, item.tz ?? tz),
     ends_at: toLocalInput(item.ends_at, item.tz ?? tz),
     all_day: item.all_day ?? false,
@@ -65,6 +68,13 @@
       if (changed('phone')) patch.phone = orNull(f.phone);
       if (changed('opening_hours')) patch.opening_hours = orNull(f.opening_hours);
       if (changed('price_level')) patch.price_level = num(f.price_level);
+      if (changed('standing')) patch.standing = f.standing;
+      if (changed('watch_url')) patch.watch_url = orNull(f.watch_url);
+      if (changed('watch_every_days')) patch.watch_every_days = Math.min(90, Math.max(1, Number(f.watch_every_days) || 7));
+      if (f.standing && !f.watch_url.trim() && !f.website.trim()) {
+        error = 'A standing venue needs a website or a page to read.';
+        return;
+      }
     } else {
       const ztz = item.tz ?? tz;
       if (changed('starts_at')) patch.starts_at = f.starts_at ? fromLocalInput(f.starts_at, ztz) : null;
@@ -195,6 +205,24 @@
       <span class="label">Opening hours (OSM style, for example "Mo-Fr 17:00-23:00; Sa,Su 12:00-23:00")</span>
       <input class="field" bind:value={f.opening_hours} maxlength="300" />
     </label>
+    <fieldset class="standing">
+      <label class="check">
+        <input type="checkbox" bind:checked={f.standing} />
+        <span>Standing venue: keep this place as it is and re-read its page for new events</span>
+      </label>
+      {#if f.standing}
+        <div class="two">
+          <label>
+            <span class="label">Page to read (blank: the website)</span>
+            <input class="field" type="url" bind:value={f.watch_url} placeholder={f.website || 'https://'} />
+          </label>
+          <label>
+            <span class="label">Every how many days</span>
+            <input class="field" type="number" min="1" max="90" bind:value={f.watch_every_days} />
+          </label>
+        </div>
+      {/if}
+    </fieldset>
   {/if}
 
   <label>
@@ -220,6 +248,15 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+  }
+  .standing {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
   .two {
     display: grid;

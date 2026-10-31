@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.db.models import AppSettings, Candidate as CandidateRow, Event, ItemSource, Occurrence, Place, Source
+from app import occurrences
 from app.ingest import completeness, provenance
 from app.ingest.items import ItemHint
 from app.resolve.candidates import Candidate
@@ -179,6 +180,9 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         event.all_day = hint.all_day
         event.status = hint.status
     _set(event, "recurrence_text", hint.recurrence, overwrite=refresh)
+    if (event.recurrence_text and not event.rrule and "recurrence_text" not in (event.user_overrides or {})
+            and "rrule" not in (event.user_overrides or {})):
+        occurrences.apply_rule(event)
     for f in ("price_min", "price_max", "currency", "is_free", "price_text", "ticket_url", "min_age"):
         _set(event, f, getattr(hint, f), overwrite=refresh)
     if "tags" not in event.user_overrides:
@@ -195,7 +199,9 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
         # Another date of an event we already have is one more occurrence, not a second event
         db.execute(insert(Occurrence).values(event_id=event.id, starts_at=hint.starts_at, ends_at=end)
                    .on_conflict_do_nothing(constraint="uq_occurrence"))
-    if event.starts_at:
+    if event.rrule:
+        occurrences.refresh(db, event)
+    elif event.starts_at:
         db.execute(insert(Occurrence).values(event_id=event.id, starts_at=event.starts_at, ends_at=event.ends_at)
                    .on_conflict_do_nothing(constraint="uq_occurrence"))
     return event, created

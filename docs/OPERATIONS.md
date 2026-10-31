@@ -78,6 +78,10 @@ Recreate every app container:
 ssh zephyrus 'cd /opt/date-planner/deploy && docker compose up -d --force-recreate api worker'
 ```
 
+## Standing venues
+
+A standing place is re-read on its own schedule (weekly by default). The worker runs `watch_scan` at 03:40 every day; it queues an ingest of each standing venue whose interval is up, and `expand_occurrences` at 03:55 extends repeating events 120 days ahead. Check a venue: `select name, last_scanned_at, last_scan_status, last_scan_note from places where standing`. Turn one on in the app (Edit > Standing venue) or with `PATCH /api/items/place/{id}`.
+
 ## Which importer read an item
 
 `import_info` on places and events holds the importer version, engine and model of the last read (see `app/ingest/provenance.py`; bump `IMPORTER_VERSION` when extraction rules or prompts change). Items from before it existed say `legacy`. Items read by an older importer:

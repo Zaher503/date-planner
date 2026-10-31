@@ -14,7 +14,7 @@ from sqlalchemy import delete, exists, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app import jobs
+from app import jobs, occurrences, recurrence, watch
 from app.api.auth import current_user
 from app.api.common import event_price_label, image_url, place_price_label
 from app.api.filters import event_ended
@@ -35,7 +35,9 @@ REPROCESSABLE = {"tiktok", "youtube", "gmaps", "applemaps", "event_page", "text"
 CAPTION_CHARS = 4000
 MAX_TAGS = 20
 MAX_OCCURRENCES = 400
-NOT_NULL = {"title", "tags", "lat", "lon", "closed", "all_day", "status", "review_status"}
+NOT_NULL = {"title", "tags", "lat", "lon", "closed", "all_day", "status", "review_status", "standing",
+            "watch_every_days"}
+WATCH_COLS = {"standing", "watch_url", "watch_every_days"}  # settings of the scan, not edits of the venue
 
 
 def _tz() -> ZoneInfo:
@@ -163,11 +165,18 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "website": item.website, "phone": item.phone, "opening_hours": item.opening_hours,
             "open_now": is_open(item.opening_hours, datetime.now(_tz())),
             "price_level": item.price_level, "closed": item.closed,
+            "standing": item.standing, "watch_url": item.watch_url, "watch_every_days": item.watch_every_days,
+            "watch_parser": item.watch_parser, "last_scanned_at": _iso(item.last_scanned_at),
+            "next_scan_at": _iso(watch.next_scan(item)), "last_scan_status": item.last_scan_status,
+            "last_scan_note": item.last_scan_note,
             "events": [{"id": str(e.id), "title": e.title, "starts_at": _iso(e.starts_at),
                         "ends_at": _iso(e.ends_at), "all_day": e.all_day, "duration_min": e.duration_min,
                         "tz": e.tz, "dates": dates.get(e.id, 0), "recurrence_text": e.recurrence_text,
                         "price_label": event_price_label(e.is_free, e.price_min, e.price_max, e.price_text,
-                                                         e.currency)} for e in events],
+                                                         e.currency),
+                        "description": strip_emoji(e.description), "ticket_url": e.ticket_url,
+                        "min_age": e.min_age, "listed": e.listed, "status": e.status,
+                        "review_status": e.review_status} for e in events],
         })
         if item.review_status == "needs_review":
             review_place = item
@@ -178,7 +187,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
                                              item.currency),
             "starts_at": _iso(item.starts_at), "ends_at": _iso(item.ends_at), "duration_min": item.duration_min,
             "duration_estimated": item.duration_estimated, "all_day": item.all_day,
-            "recurrence_text": item.recurrence_text, "tz": item.tz,
+            "recurrence_text": item.recurrence_text, "rrule": item.rrule, "listed": item.listed, "tz": item.tz,
             "price_min": _num(item.price_min), "price_max": _num(item.price_max), "currency": item.currency,
             "is_free": item.is_free, "price_text": item.price_text, "ticket_url": item.ticket_url,
             "min_age": item.min_age, "status": item.status, "venue_name": item.venue_name,
@@ -265,6 +274,9 @@ class PlacePatch(BaseModel):
     lon: float | None = Field(None, ge=-180, le=180)
     closed: bool | None = None
     review_status: Literal["ok", "dismissed"] | None = None
+    standing: bool | None = None
+    watch_url: str | None = Field(None, max_length=2000)
+    watch_every_days: int | None = Field(None, ge=1, le=90)
 
 
 class EventPatch(BaseModel):
@@ -277,6 +289,7 @@ class EventPatch(BaseModel):
     ends_at: datetime | None = None
     all_day: bool | None = None
     recurrence_text: str | None = Field(None, max_length=300)
+    rrule: str | None = Field(None, max_length=300)
     price_min: float | None = Field(None, ge=0)
     price_max: float | None = Field(None, ge=0)
     is_free: bool | None = None
@@ -385,6 +398,38 @@ def _after_place_change(db: Session, place: Place, changed: set[str], was_review
                    .values(review_status="ok"))
 
 
+def _after_recurrence_change(db: Session, ev: Event, changed: set[str]) -> None:
+    """New repeat wording sets the rule (unless a rule was sent too); the dates ahead follow the rule."""
+    if "recurrence_text" in changed and "rrule" not in changed:
+        if not occurrences.apply_rule(ev):
+            ev.rrule = None
+    if changed & {"recurrence_text", "rrule", "starts_at"} and ev.rrule:
+        occurrences.refresh(db, ev)
+
+
+def _after_watch_change(db: Session, place: Place, changed: set[str], user: User) -> None:
+    """Turning a venue into a standing one needs a page to read: its watch link, else its website."""
+    if not changed & WATCH_COLS:
+        return
+    if place.standing:
+        url = place.watch_url or place.website
+        if not url:
+            raise HTTPException(400, "a standing venue needs a watch_url or a website to read")
+        if place.watch_source_id is None or "watch_url" in changed:
+            watch.attach(db, place, url, user.id)
+
+
+@router.post("/api/items/place/{item_id}/scan")
+def scan_place(item_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Read the venue's page now instead of waiting for the weekly check."""
+    place = load(db, "place", item_id)
+    if not place.standing or place.watch_source_id is None:
+        raise HTTPException(400, "this place is not a standing venue")
+    job_id = watch.enqueue_scan(db, place, user.id)
+    db.commit()
+    return {"job": job_id, "already_running": job_id is None}
+
+
 @router.patch("/api/items/{type_}/{item_id}")
 def patch_item(type_: ItemType, item_id: uuid.UUID, body: dict = Body(...), db: Session = Depends(get_db),
                user: User = Depends(current_user)):
@@ -400,11 +445,18 @@ def patch_item(type_: ItemType, item_id: uuid.UUID, body: dict = Body(...), db: 
         _event_times(item, cols)
     was_review = item.review_status == "needs_review"
     old_start = item.starts_at if isinstance(item, Event) else None
+    if isinstance(item, Event) and cols.get("rrule") and not recurrence.valid(cols["rrule"]):
+        raise HTTPException(400, "rrule is not a valid repeat rule")
+    if isinstance(item, Place) and cols.get("watch_url") and not cols["watch_url"].startswith(("http://", "https://")):
+        raise HTTPException(400, "watch_url must be an http(s) link")
     changed = apply_changes(item, cols)
     if isinstance(item, Event):
         _after_event_change(db, item, changed, sent, old_start)
+        _after_recurrence_change(db, item, changed)
     else:
         _after_place_change(db, item, changed, was_review)
+        _after_watch_change(db, item, changed, user)
+    changed -= WATCH_COLS
     if changed:
         item.user_overrides = {**(item.user_overrides or {}), **{c: True for c in changed}}
     db.commit()
