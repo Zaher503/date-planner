@@ -37,7 +37,7 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 - [ ] [Z] `DOC-02` Git housekeeping: 8 stale `auto-improve/*` worktrees under Temp and about 10 fully merged local/remote branches (listed in `status.md`). Approve deleting them; the auto task never deletes branches.
 - [ ] [Z] `LC-02` Check the live site after the 2026-10-23 deploys (Archive chip, 21+ line, pins, Settings > Pin colors) and try the video slow path once with a captionless TikTok. Report what is wrong and the auto task will turn it into `[!]` items.
 - [ ] [Z] `UI-01` Set up the "Save to Dates" Shortcut on both phones (`docs/SHORTCUT.md`); check the service worker and Add to Home Screen in real Chrome.
-- [ ] [Z] `IM-02` Decision: how recurring shows are stored ("Every other Saturday, 8 PM"): real RRULE with occurrences (needs `LC-05`) or text only. Recommendation: RRULE, expanded 120 days ahead.
+- [ ] [Z] `IM-02` Decision: how recurring shows are stored ("Every other Saturday, 8 PM"): real RRULE with occurrences (needs `LC-05`) or text only. Recommendation: RRULE, expanded 120 days ahead. Built that way in #19 for explicit patterns (vague words stay text); confirm it is what you want.
 - [ ] [Z] `IM-03` Decision: when an article links the event's own website, prefer it over the venue's site and use it for the ticket link. Recommendation: yes for events, no for places.
 - [ ] [Z] `IB-01` Decision: how much automatic push. Recommendation: one Home Assistant push per discovery run, named items only at match >= 0.85, at most 3.
 - [ ] [Z] `DS-02` Decision: SeatGeek only if a free key can be obtained at signup; otherwise drop it from the plan.
@@ -54,13 +54,15 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] `IM-09` Side attractions in an article become separate items only when the article gives each its own address; otherwise they stay in the description.
 - [ ] `IM-10` Off-sale or sold-out events: do not show the old ticket price as current; mark it ("was $13.65, off sale").
 - [ ] `IM-11` Event website and ticket link preferred over the venue's site for events. Deps: `IM-03` decided.
-- [ ] `IM-12` Recurring events stored as an RRULE. Deps: `IM-02` decided, `LC-05`.
+- [~] `IM-12` Recurring events stored as an RRULE. Deps: `IM-02` decided, `LC-05`. Explicit patterns are done in #19; what is left is the vague words ("weekly", "monthly") and checking the importer fills `rrule` on a real link.
 - [ ] `IM-13` Run the golden set (`python -m app.eval`) after import changes and add every checked daily link with a confirmed answer to `backend/tests/golden.json`.
 - [ ] `IM-14` Instagram: decide whether a link can be read from its public oEmbed / caption without login; otherwise keep the review stub and make the stub item show the pasted text. Small experiment only.
 - [ ] `IM-16` Price reading from the 2026-10-23 live-DB check: use the regular price, not promo (WeFly $183/$343 vs $229/$429) or parking prices (Academy Museum); do not add the Fever booking fee to the ticket price.
 - [ ] `IM-17` Strip tracking parameters (`srsltid`, `utm_*`) from venue websites; save ticket links found on the venue site into the ticket field.
 - [ ] `IM-18` Replay the 10 links of the 2026-10-23 check on the fixed code (The Broad, Museum of Love, Academy Museum, Tutu Fun, Lumee, Puppy Yoga, Aquarium, Fever, WeFly, TikTok) and record before/after in `improvements/`.
-- [ ] [Z] `IM-19` Decisions from the live-DB check: multi-location businesses (Lumee: one item per store?), undated workshops/classes (an "offerings" concept or place-with-note?), minimum age on places.
+- [ ] [Z] `IM-19` Decisions from the live-DB check: multi-location businesses (Lumee: one item per store?), undated workshops/classes (an "offerings" concept or place-with-note?), minimum age on places. Stopgap used on 2026-10-30: each Sender One gym stays its own place; the Tutu Fun workshops are events on the place, with prices and "Book online for a time slot" instead of a date. Confirm or change.
+- [ ] `IM-22` Addresses: do not accept a street without a house number as final (look the number up on the venue's own page or by web search), and reject a Photon match whose name or street does not fit the venue. Seven live places had street-only addresses and three got a wrong Photon match (an AM radio station, a ranger station, a law firm). Found 2026-10-30.
+- [ ] `IM-23` A room, exhibit, show or workshop inside a bigger venue becomes an event on that venue, not a place (Cinegrill and Library Bar inside the Hollywood Roosevelt, exhibits at the Academy Museum, Tutu Fun workshops, a touring show geocoded to another state). Check the host-venue field (`inside`) and the address overlap with an existing place before creating a place. Found 2026-10-30; the live rows were fixed by hand.
 - [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed).
 - [ ] `IM-21` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
 - [ ] `IM-15` Import checks beyond TikTok and articles: Reddit threads, Google Maps lists, Yelp / Time Out roundups, a shared screenshot. One per daily check, record the result.
@@ -99,7 +101,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 ### Lifecycle and ops (LC)
 - [ ] `LC-03` NAS backup pull (`datespull` forced-command account, same shape as `recipebox-pull.sh`) plus a restore test of the latest dump into a scratch database. Deps: `LC-01`. Script only; Zaher runs the NAS side.
 - [ ] `LC-04` Monthly re-verify of places in batches (closed venues, moved addresses); flag, never delete.
-- [ ] `LC-05` RRULE expansion into `occurrences` 120 days ahead, nightly, plus on save.
+- [x] `LC-05` RRULE expansion into `occurrences` 120 days ahead, nightly, plus on save (done in #19: `recurrence.py`, `expand_occurrences` at 03:55).
 - [ ] `LC-06` `~/.claude/skills/homelab/date-planner.md` doc and pointers (outside this repo; write the text into `docs/` and tell Zaher).
 - [ ] `LC-07` Worker queue health: stuck / failed jobs visible in Settings with a retry button.
 - [ ] `LC-08` Remove the dev services leftovers in docs once `dates_dev` is dropped.
@@ -117,6 +119,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `QA-03` Browser smoke test against the mock server (Playwright): map loads, pins show, add flow, filters in the URL.
 - [ ] `QA-04` Golden set in CI against saved responses only (no network), failing on any wrong auto-accept.
 - [ ] `QA-05` Migration test in CI: upgrade an empty database to head, downgrade one step, upgrade again.
+- [ ] `QA-07` CI/CD tidy (reviewed 2026-10-30): skip CI and CD for changes that only touch `*.md`, `improvements/**` or `scripts/**` (today each daily report merge rebuilds, bumps the version and restarts the stack); drop the unused `workflow_call` trigger in `ci.yml`; build the frontend once instead of in the `frontend` job, the `docker` job and CD; remove the one-off `dates-*-dev-1` cleanup from the deploy step (`LC-08`). No ARM image is built and none is needed (the Zephyrus is x86_64).
 - [ ] `QA-06` Fixture refresh: replace fixtures whose live pages changed; list which adapters have no fixture.
 
 ### Docs and housekeeping (DOC)
@@ -128,6 +131,9 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-10-30 (item) `IM-00` Exhibitions keep their start and end dates at import and age into the Archive by themselves; an event with only a closing date also archives; Archive / Restore button on the event card; prod data cleanup (56 places / 30 events to 43 / 22, nothing left to review) with its two SQL scripts, PR #22 (open)
+- 2026-10-26 (item) `IM-00` Standing venues: weekly page scan, repeating events with RRULE expansion (`LC-05`), events list on the place page, PR #19
+- 2026-10-26 (item) `IM-00` Importer provenance (`import_info`) and flexible missing-field flags, PR #18
 - 2026-10-26 (item) `IM-01.1` Footer address, phone and venue name now reach the event extractor and apply to every event on the page, PR #17
 - 2026-10-25 (check) `IM-00` Paramount Drive-In: footer address now read, a toddler-free line no longer marks a paid place Free, PR #16
 - 2026-10-24 (item) `PL-01` Planner API registered in `main.py` and reachable (suggest, save, list, get, patch, delete), 25 API tests, documented in `docs/API.md`, PR #15
