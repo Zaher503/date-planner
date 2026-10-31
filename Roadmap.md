@@ -63,6 +63,7 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] [Z] `IM-19` Decisions from the live-DB check: multi-location businesses (Lumee: one item per store?), undated workshops/classes (an "offerings" concept or place-with-note?), minimum age on places. Stopgap used on 2026-10-30: each Sender One gym stays its own place; the Tutu Fun workshops are events on the place, with prices and "Book online for a time slot" instead of a date. Confirm or change.
 - [ ] `IM-22` Addresses: do not accept a street without a house number as final (look the number up on the venue's own page or by web search), and reject a Photon match whose name or street does not fit the venue. Seven live places had street-only addresses and three got a wrong Photon match (an AM radio station, a ranger station, a law firm). Found 2026-10-30.
 - [ ] `IM-23` A room, exhibit, show or workshop inside a bigger venue becomes an event on that venue, not a place (Cinegrill and Library Bar inside the Hollywood Roosevelt, exhibits at the Academy Museum, Tutu Fun workshops, a touring show geocoded to another state). Check the host-venue field (`inside`) and the address overlap with an existing place before creating a place. Found 2026-10-30; the live rows were fixed by hand.
+- [ ] `IM-24` Single-business pages read only from structured data (Activate Culver City, 2026-10-31) get no description, minimum age or booking link; run the page text through the model for the missing fields, or use the page's own summary. Name fix done 2026-10-31.
 - [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed).
 - [ ] `IM-21` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
 - [ ] `IM-15` Import checks beyond TikTok and articles: Reddit threads, Google Maps lists, Yelp / Time Out roundups, a shared screenshot. One per daily check, record the result.
@@ -131,6 +132,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
 - 2026-10-30 (item) `IM-00` Exhibitions keep their start and end dates at import and age into the Archive by themselves; an event with only a closing date also archives; Archive / Restore button on the event card; prod data cleanup (56 places / 30 events to 43 / 22, nothing left to review) with its two SQL scripts, PR #22 (open)
 - 2026-10-26 (item) `IM-00` Standing venues: weekly page scan, repeating events with RRULE expansion (`LC-05`), events list on the place page, PR #19
 - 2026-10-26 (item) `IM-00` Importer provenance (`import_info`) and flexible missing-field flags, PR #18
