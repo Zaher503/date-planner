@@ -183,10 +183,12 @@ def recurring():
 
 def archived(now: datetime):
     """SQL: the event belongs in the Archive. This is the one rule for it: set by hand (status archived), or a
-    one-off event that has ended. It reads the clock, so old and new events (whatever added them) move over by
-    themselves, with no migration or job. Recurring and undated events never age out."""
+    one-off event that has ended (an exhibition with only a closing date counts). It reads the clock, so old and
+    new events (whatever added them) move over by themselves, with no migration or job. Recurring and fully
+    undated events never age out."""
     return or_(Event.status == "archived",
-               and_(~recurring(), Event.starts_at.isnot(None), event_end(Event.starts_at, Event.ends_at) < now))
+               and_(~recurring(), or_(Event.starts_at.isnot(None), Event.ends_at.isnot(None)),
+                    event_end(Event.starts_at, Event.ends_at) < now))
 
 
 def event_ended(*, status: str | None, starts_at: datetime | None, ends_at: datetime | None,
@@ -194,9 +196,9 @@ def event_ended(*, status: str | None, starts_at: datetime | None, ends_at: date
     """Python twin of archived(), for rows already in memory. Keep the two in step."""
     if status == "archived":
         return True
-    if is_recurring or starts_at is None:
+    if is_recurring or (starts_at is None and ends_at is None):
         return False
-    if starts_at.tzinfo is None:  # a time that was never given an offset reads in the caller's zone
+    if starts_at is not None and starts_at.tzinfo is None:  # a time that was never given an offset reads in the caller's zone
         starts_at = starts_at.replace(tzinfo=now.tzinfo)
     if ends_at is not None and ends_at.tzinfo is None:
         ends_at = ends_at.replace(tzinfo=now.tzinfo)

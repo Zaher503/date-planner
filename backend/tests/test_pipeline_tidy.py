@@ -16,12 +16,21 @@ def test_recurring_event_kept():
     assert h.kind == "event"
 
 
-def test_long_running_series_is_recurring_not_dated():
-    h = tidy(ItemHint("event", "Bar Lis", event_title="Jazz Eclectic LA",
+def test_long_running_exhibition_keeps_its_dates():
+    h = tidy(ItemHint("event", "Academy Museum", event_title="Oscars",
+                      starts_at=datetime(2026, 5, 31, tzinfo=timezone.utc),
+                      ends_at=datetime(2027, 2, 28, tzinfo=timezone.utc)), NOW)
+    assert h.kind == "event" and h.recurrence is None and h.all_day
+    assert h.starts_at == datetime(2026, 5, 31, tzinfo=timezone.utc)
+    assert h.ends_at == datetime(2027, 2, 28, tzinfo=timezone.utc)
+    assert "recurring series, dates unclear" not in h.flags and "event already happened" not in h.flags
+
+
+def test_long_running_event_that_repeats_loses_its_dates():
+    h = tidy(ItemHint("event", "Bar Lis", event_title="Jazz Eclectic LA", recurrence="every Tuesday",
                       starts_at=datetime(2021, 8, 31, tzinfo=timezone.utc),
                       ends_at=datetime(2026, 12, 30, tzinfo=timezone.utc)), NOW)
-    assert h.kind == "event" and h.starts_at is None
-    assert h.recurrence == "ongoing until 2026-12-30"
+    assert h.kind == "event" and h.starts_at is None and h.recurrence == "every Tuesday"
     assert "recurring series, dates unclear" in h.flags
 
 

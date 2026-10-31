@@ -244,6 +244,12 @@
     await save({ review_status: hidden ? 'ok' : 'dismissed' });
   }
 
+  // Move an event to the Archive by hand, or bring it back (an event that ended by date stays archived)
+  async function toggleArchived() {
+    if (!item) return;
+    await save({ status: item.status === 'archived' ? 'scheduled' : 'archived' });
+  }
+
   async function choose(candidateId: number | null) {
     if (!item) return;
     const placeId = item.type === 'place' ? item.id : item.place?.id;
@@ -383,7 +389,7 @@
         </div>
 
         {#if isEvent && item.archived}
-          <p class="passed"><Archive size={15} /> This event has already passed. It stays in the Archive.</p>
+          <p class="passed"><Archive size={15} /> {item.status === 'archived' ? 'This event was archived. Restore it to bring it back.' : 'This event has already passed. It stays in the Archive.'}</p>
         {/if}
         <ul class="facts">
           {#if isEvent}
@@ -574,6 +580,11 @@
           <button class="btn small" disabled={!!busy} onclick={toggleHidden}>
             {#if hidden}<Eye size={15} /> Show again{:else}<EyeOff size={15} /> Hide{/if}
           </button>
+          {#if isEvent}
+            <button class="btn small" disabled={!!busy || saving} onclick={toggleArchived}>
+              <Archive size={15} /> {item.status === 'archived' ? 'Restore' : 'Archive'}
+            </button>
+          {/if}
           <button class="btn small danger" disabled={busy === 'delete'} onclick={remove}><Trash2 size={15} /> {confirmDelete ? 'Tap again to delete' : 'Delete'}</button>
         </div>
         {#if item.edited.length}
