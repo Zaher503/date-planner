@@ -117,3 +117,37 @@ export function labelOf(cat: string | null | undefined): string {
   if (!cat) return 'Other';
   return CATEGORY_LABEL[cat] ?? cat.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 }
+
+// The category filters shown in the Filters panel: each one covers several categories
+export const CATEGORY_FILTERS: { key: string; label: string; cats: string[] }[] = [
+  { key: 'food', label: 'Food & drinks', cats: ['restaurant', 'cafe', 'dessert', 'bar', 'nightlife'] },
+  { key: 'music', label: 'Music & shows', cats: ['live_music', 'show', 'comedy', 'festival'] },
+  { key: 'arts', label: 'Arts & culture', cats: ['arts', 'museum', 'class'] },
+  { key: 'outdoors', label: 'Outdoors', cats: ['outdoors', 'beach', 'park', 'hike', 'viewpoint'] },
+  { key: 'shopping', label: 'Markets & shopping', cats: ['market', 'shopping'] }
+];
+
+/** A filter is on when every one of its categories is selected. */
+export function categoryFilterOn(cats: string[], f: { cats: string[] }): boolean {
+  return f.cats.length > 0 && cats.every((c) => f.cats.includes(c));
+}
+
+/** Turn a category filter on or off, leaving other categories as they are. */
+export function toggleCategoryFilter(cats: string[], selected: string[]): string[] {
+  return categoryFilterOn(cats, { cats: selected })
+    ? selected.filter((c) => !cats.includes(c))
+    : [...selected, ...cats.filter((c) => !selected.includes(c))];
+}
+
+/** Tokens for the selected categories: a whole group reads as its name, strays as their own. */
+export function categoryTokens(selected: string[]): { key: string; label: string; remove: (cats: string[]) => string[] }[] {
+  const out: { key: string; label: string; remove: (cats: string[]) => string[] }[] = [];
+  const covered = new Set<string>();
+  for (const g of CATEGORY_FILTERS) {
+    if (!categoryFilterOn(g.cats, { cats: selected })) continue;
+    g.cats.forEach((c) => covered.add(c));
+    out.push({ key: `cat:${g.key}`, label: g.label, remove: (cats) => cats.filter((c) => !g.cats.includes(c)) });
+  }
+  for (const c of selected) if (!covered.has(c)) out.push({ key: `cat:${c}`, label: labelOf(c), remove: (cats) => cats.filter((x) => x !== c) });
+  return out;
+}

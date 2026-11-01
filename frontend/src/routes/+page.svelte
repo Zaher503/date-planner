@@ -4,18 +4,20 @@
   import { page } from '$app/state';
   import Plus from '@lucide/svelte/icons/plus';
   import X from '@lucide/svelte/icons/x';
-  import Settings2 from '@lucide/svelte/icons/settings-2';
+  import Settings from '@lucide/svelte/icons/settings';
+  import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
   import LoaderCircle from '@lucide/svelte/icons/loader-circle';
   import { api, type Item, type ItemType, type ListItem, type MapData } from '$lib/api';
-  import { apiQuery, EMPTY, filterParams, parseFilters, type Filters } from '$lib/filters';
+  import { activeCount, apiQuery, EMPTY, filterParams, parseFilters, type Filters } from '$lib/filters';
   import { DEFAULT_TZ } from '$lib/format';
   import MapView from '$lib/map/MapView.svelte';
   import { app } from '$lib/state.svelte';
   import { theme } from '$lib/theme.svelte';
   import AddDialog from '$lib/components/AddDialog.svelte';
-  import FilterBar from '$lib/components/FilterBar.svelte';
+  import FilterPanel from '$lib/components/FilterPanel.svelte';
   import ItemDetail from '$lib/components/ItemDetail.svelte';
   import ItemList from '$lib/components/ItemList.svelte';
+  import SearchBar from '$lib/components/SearchBar.svelte';
   import SettingsPanel from '$lib/components/SettingsPanel.svelte';
   import Sheet, { type Snap } from '$lib/components/Sheet.svelte';
   import Toasts from '$lib/components/Toasts.svelte';
@@ -42,6 +44,11 @@
   let adding = $state<string | null>(null);
   let picking = $state(false);
   let reviewCount = $state(0);
+  let filtersOpen = $state(false);
+  let drawerEl: HTMLElement | undefined = $state();
+
+  // Width of the floating details panel on desktop
+  const DETAIL_W = 340;
 
   // Desktop side pane width, draggable and remembered
   const PANE_MIN = 300;
@@ -177,7 +184,7 @@
   }
 
   // Map padding so flyTo centres the pin in the uncovered part of the map
-  const padding = $derived(app.desktop ? { top: 40, bottom: 40, left: 40, right: 40 } : { top: 130, bottom: Math.min(sheetPx, 420) + 10, left: 20, right: 20 });
+  const padding = $derived(app.desktop ? { top: 70, bottom: 40, left: 40, right: sel ? DETAIL_W + 40 : 40 } : { top: 90, bottom: Math.min(sheetPx, 420) + 10, left: 20, right: 20 });
 
   // Map data for the viewport (padded so small pans need no refetch)
   let fetched: { bbox: number[]; key: string; version: number } | null = null;
@@ -346,10 +353,12 @@
   let frozen: ListItem[] = [];
   let restore = $state<{ rows: ListItem[]; top: string } | null>(null);
   const rows = $derived(restore?.rows ?? liveRows);
+  // With the details floating over the map the list stays put while the map moves
+  const shownRows = $derived(app.desktop && sel && frozen.length ? frozen : rows);
 
   const counts = $derived({
-    places: rows.filter((r) => r.t === 'place').length,
-    events: rows.reduce((n, r) => n + (r.t === 'event' ? 1 : (r.group?.count ?? 0)), 0)
+    places: shownRows.filter((r) => r.t === 'place').length,
+    events: shownRows.reduce((n, r) => n + (r.t === 'event' ? 1 : (r.group?.count ?? 0)), 0)
   });
 
   // Item detail
@@ -436,6 +445,16 @@
     if (item) mapView?.flyTo(item.lon, item.lat, 15);
   }
 
+  const resultLabel = $derived.by(() => {
+    const n = listMode && globalList ? globalTotal : rows.length;
+    return n === 0 ? 'Show results' : `Show ${n} result${n === 1 ? '' : 's'}`;
+  });
+
+  // Move focus into the panel when it opens
+  $effect(() => {
+    if (filtersOpen) queueMicrotask(() => drawerEl?.querySelector<HTMLElement>('.close')?.focus());
+  });
+
   const circle = $derived.by(() => {
     if (!filters.dist_km || !settings) return null;
     const c = filters.near === 'me' && me ? me : settings.home;
@@ -446,12 +465,16 @@
     const tag = (e.target as HTMLElement)?.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || adding !== null) return;
     if (e.key === 'Escape') {
-      if (picking) picking = false;
+      if (filtersOpen) filtersOpen = false;
+      else if (picking) picking = false;
       else if (sel) closeDetail();
       else if (panel) nav((sp) => sp.delete('panel'));
     } else if (e.key === '/') {
       e.preventDefault();
       document.getElementById('search')?.focus();
+    } else if (e.key === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      filtersOpen = !filtersOpen;
     } else if (e.key === 'n' || e.key === 'a') {
       e.preventDefault();
       adding = '';
@@ -460,6 +483,25 @@
 </script>
 
 <svelte:window onkeydown={onKey} />
+
+{#snippet detail()}
+  <ItemDetail
+    {item}
+    loading={itemLoading}
+    error={itemError}
+    {tz}
+    onclose={() => closeDetail()}
+    onselect={select}
+    startEditing={openEdit}
+    onchanged={(it) => (item = it)}
+    ondeleted={() => closeDetail(true)}
+    onfly={flyToItem}
+    onmovepin={() => {
+      picking = true;
+      if (!app.desktop) snap = 'peek';
+    }}
+  />
+{/snippet}
 
 {#if app.loadError}
   <div class="fatal">
@@ -504,66 +546,67 @@
       {#if mapError}<div class="map-msg">Could not load pins: {mapError}</div>{/if}
     </div>
 
-    <div class="settings-zone">
-      <button class="settings-btn" aria-label="Settings" title="Settings" onclick={openSettings}><Settings2 size={16} /></button>
-    </div>
-
-    <div class="top">
-      <FilterBar
+    <div class="bar-wrap">
+      <SearchBar
         {filters}
-        facets={app.facets}
         {units}
-        radiusKm={settings.radius_km}
-        {reviewCount}
+        desktop={app.desktop}
+        {filtersOpen}
         onchange={setFilters}
-        onnear={chooseNear}
+        onfilters={() => (filtersOpen = !filtersOpen)}
         onadd={() => (adding = '')}
+        onsettings={openSettings}
       />
     </div>
 
+    {#if app.desktop}
+      <div class="pane-head">
+        <span class="wordmark">Dates</span>
+        <button class="fbtn" class:on={activeCount(filters) > 0} aria-expanded={filtersOpen} aria-controls="filter-panel" onclick={() => (filtersOpen = !filtersOpen)}>
+          <SlidersHorizontal size={14} />Filters{#if activeCount(filters)}<span class="bd">{activeCount(filters)}</span>{/if}
+        </button>
+      </div>
+    {/if}
+
+    {#if app.desktop && sel}
+      <aside class="insp glass" aria-label="Details">
+        {@render detail()}
+      </aside>
+    {/if}
+
     <Sheet {snap} desktop={app.desktop} onsnap={(s) => (snap = s)} onheight={(px) => (sheetPx = px)}>
       {#snippet header()}
-        {#if !sel && panel !== 'settings'}
+        {#if (!sel || app.desktop) && panel !== 'settings'}
           <div class="summary">
-            {#if listMode && globalList}
-              {#if filters.archive}
-                <strong>{globalTotal} past event{globalTotal === 1 ? '' : 's'}</strong>
-                <span class="muted">in the Archive, newest first</span>
+            <span class="sum-text">
+              {#if listMode && globalList}
+                {#if filters.archive}
+                  <strong>{globalTotal} past event{globalTotal === 1 ? '' : 's'}</strong>
+                  <span class="muted">in the Archive, newest first</span>
+                {:else}
+                  <strong>{globalTotal} match{globalTotal === 1 ? '' : 'es'}</strong>
+                  <span class="muted">{filters.q ? `for "${filters.q}"` : 'anywhere'}</span>
+                {/if}
+              {:else if rows.length}
+                <strong>{counts.places} place{counts.places === 1 ? '' : 's'}{counts.events ? `, ${counts.events} event${counts.events === 1 ? '' : 's'}` : ''}</strong>
+                <span class="muted">in view</span>
               {:else}
-                <strong>{globalTotal} match{globalTotal === 1 ? '' : 'es'}</strong>
-                <span class="muted">{filters.q ? `for "${filters.q}"` : 'anywhere'}</span>
+                <strong>Nothing here yet</strong>
               {/if}
-            {:else if rows.length}
-              <strong>{counts.places} place{counts.places === 1 ? '' : 's'}{counts.events ? `, ${counts.events} event${counts.events === 1 ? '' : 's'}` : ''}</strong>
-              <span class="muted">in view</span>
-            {:else}
-              <strong>Nothing here yet</strong>
+            </span>
+            {#if !app.desktop}
+              <button class="icon-btn sum-gear" aria-label="Settings" title="Settings" onpointerdown={(e) => e.stopPropagation()} onclick={openSettings}><Settings size={18} /></button>
             {/if}
           </div>
         {/if}
       {/snippet}
 
-      {#if sel}
-        <ItemDetail
-          {item}
-          loading={itemLoading}
-          error={itemError}
-          {tz}
-          onclose={() => closeDetail()}
-          onselect={select}
-          startEditing={openEdit}
-          onchanged={(it) => (item = it)}
-          ondeleted={() => closeDetail(true)}
-          onfly={flyToItem}
-          onmovepin={() => {
-            picking = true;
-            if (!app.desktop) snap = 'peek';
-          }}
-        />
+      {#if sel && !app.desktop}
+        {@render detail()}
       {:else if panel === 'settings'}
         <SettingsPanel onclose={() => nav((sp) => sp.delete('panel'))} />
-      {:else if rows.length}
-        <ItemList items={rows} {units} {tz} selected={null} topId={restore?.top ?? null} onselect={select} />
+      {:else if shownRows.length}
+        <ItemList items={shownRows} {units} {tz} selected={app.desktop ? (sel?.id ?? null) : null} topId={restore?.top ?? null} onselect={select} />
       {:else}
         <div class="empty">
           {#if mapData && mapData.features.length === 0 && JSON.stringify(filters) === JSON.stringify({ ...EMPTY, near: filters.near })}
@@ -576,6 +619,20 @@
         </div>
       {/if}
     </Sheet>
+
+    <div class="scrim" class:open={filtersOpen} onclick={() => (filtersOpen = false)} aria-hidden="true"></div>
+    <aside id="filter-panel" class="drawer" class:open={filtersOpen} inert={!filtersOpen} aria-label="Filters" bind:this={drawerEl}>
+      <FilterPanel
+        {filters}
+        {units}
+        radiusKm={settings.radius_km}
+        {reviewCount}
+        {resultLabel}
+        onchange={setFilters}
+        onnear={chooseNear}
+        onclose={() => (filtersOpen = false)}
+      />
+    </aside>
 
     {#if app.desktop}
       <div
@@ -594,10 +651,6 @@
         ondblclick={() => (setPane(PANE_DEFAULT), savePane())}
         onkeydown={paneKey}
       ><span class="grip-handle" aria-hidden="true"></span></div>
-    {/if}
-
-    {#if !app.desktop && !sel}
-      <button class="fab" aria-label="Add a date idea" style="bottom: calc({sheetPx}px + 14px)" onclick={() => (adding = '')}><Plus size={26} /></button>
     {/if}
 
     {#if picking}
@@ -639,61 +692,43 @@
     position: absolute;
     inset: 0;
   }
-  .top {
+  /* Search bar floating over the map */
+  .bar-wrap {
     position: absolute;
     z-index: 20;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: calc(var(--safe-top) + 26px) 12px 0;
-    pointer-events: none;
+    top: calc(var(--safe-top) + 12px);
+    left: 10px;
+    right: 10px;
   }
-  .top :global(> *) {
-    pointer-events: auto;
-  }
-  /* Settings: tucked in the top-right corner, fades in when the pointer is near */
-  .settings-zone {
-    position: absolute;
-    z-index: 26;
-    top: 0;
-    right: 0;
-    width: 72px;
-    height: 44px;
-    display: flex;
-    justify-content: flex-end;
-    padding: calc(var(--safe-top) + 3px) 6px 0 0;
-  }
-  .settings-btn {
-    display: grid;
-    place-items: center;
-    width: 26px;
-    height: 26px;
-    border: none;
-    border-radius: 8px;
-    background: transparent;
-    color: var(--text-2);
-    opacity: 0.28;
-    transition: opacity 0.18s, background 0.18s;
-  }
-  .settings-zone:hover .settings-btn,
-  .settings-btn:focus-visible {
-    opacity: 1;
-    background: var(--surface-2);
-  }
-  @media (hover: none) {
-    .settings-btn {
-      opacity: 0.6;
-    }
+  .pane-head {
+    display: none;
   }
   .pane-grip {
     display: none;
   }
   .summary {
     display: flex;
-    align-items: baseline;
+    align-items: center;
     gap: 6px;
     padding: 0 16px 8px;
-    font-size: 14px;
+    min-height: 40px;
+  }
+  .sum-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: 15px;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .sum-text strong {
+    font-size: 17px;
+    letter-spacing: -0.01em;
+  }
+  .sum-gear {
+    margin-right: -8px;
   }
   .empty {
     padding: 18px 16px;
@@ -705,21 +740,6 @@
   }
   .empty p {
     margin: 0;
-  }
-  .fab {
-    position: absolute;
-    right: 14px;
-    z-index: 15;
-    width: 56px;
-    height: 56px;
-    border-radius: 18px;
-    border: none;
-    background: var(--accent);
-    color: var(--on-accent);
-    display: grid;
-    place-items: center;
-    box-shadow: var(--shadow-lg);
-    transition: bottom 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   .pick {
     position: absolute;
@@ -773,6 +793,45 @@
     font-size: 13.5px;
   }
 
+  /* Filters: a tall sheet from the bottom on a phone, a drawer over the list on desktop */
+  .scrim {
+    position: absolute;
+    z-index: 28;
+    inset: 0;
+    background: rgb(0 0 0 / 0.28);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+  }
+  .scrim.open {
+    opacity: 1;
+    visibility: visible;
+  }
+  .drawer {
+    position: absolute;
+    z-index: 30;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: calc(var(--safe-top) + 70px);
+    background: var(--surface);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25);
+    transform: translateY(105%);
+    visibility: hidden;
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), visibility 0.28s;
+  }
+  .drawer.open {
+    transform: none;
+    visibility: visible;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .drawer,
+    .scrim {
+      transition: none;
+    }
+  }
+
   @media (min-width: 768px) {
     .app {
       display: grid;
@@ -784,22 +843,106 @@
       grid-column: 2;
       grid-row: 1 / 3;
     }
-    .top {
-      position: relative;
+    .bar-wrap {
+      top: 10px;
+      left: calc(var(--pane-w, 400px) + 12px);
+      right: 12px;
+      max-width: 620px;
+    }
+    .pane-head {
       grid-column: 1;
       grid-row: 1;
-      padding: 26px 14px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 12px 6px 16px;
       background: var(--surface);
       border-right: 1px solid var(--line);
+    }
+    .wordmark {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .fbtn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      height: 30px;
+      padding: 0 12px;
+      border: none;
+      border-radius: 9px;
+      background: var(--surface-2);
+      color: var(--text);
+      font-weight: 600;
+    }
+    .fbtn:hover {
+      background: var(--surface-3);
+    }
+    .fbtn.on {
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+    .bd {
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 9px;
+      display: inline-grid;
+      place-items: center;
+      font-size: 11px;
+      background: var(--accent);
+      color: var(--on-accent);
+    }
+    .fbtn.on .bd {
+      background: var(--on-accent);
+      color: var(--accent);
     }
     .app :global(.sheet) {
       grid-column: 1;
       grid-row: 2;
       border-right: 1px solid var(--line);
     }
+    .insp {
+      position: absolute;
+      z-index: 15;
+      grid-column: 2;
+      top: 64px;
+      bottom: 12px;
+      right: 12px;
+      width: 340px;
+      border-radius: 16px;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+      animation: insp-in 0.22s ease-out;
+    }
+    @keyframes insp-in {
+      from {
+        opacity: 0;
+        transform: translateX(14px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .insp {
+        animation: none;
+      }
+    }
     .pick {
       top: 16px;
       left: calc(var(--pane-w, 400px) + (100% - var(--pane-w, 400px)) / 2);
+    }
+    .scrim {
+      right: auto;
+      width: var(--pane-w, 400px);
+    }
+    .drawer {
+      right: auto;
+      top: 0;
+      width: min(300px, var(--pane-w, 400px));
+      border-radius: 0;
+      border-right: 1px solid var(--line);
+      box-shadow: var(--shadow-lg);
+      transform: translateX(-104%);
     }
     .pane-grip {
       display: block;

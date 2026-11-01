@@ -1,6 +1,6 @@
 # Status
 
-Facts about the project as of **2026-10-26** (v1.56 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
+Facts about the project as of **2026-10-31** (v2.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 
 Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (they are stale, see Docs).
 
@@ -10,9 +10,10 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - **Import fixes from the daily check:** footer address and phone of a venue's site, `Sept.` dates, $0 ticket ranges and "free donuts", Eventbrite embedded description, already-past events flagged on import, own ticket link per event, `POST` endpoint that saves hand-checked import items.
 - **Archive and age (PR #12, merged 2026-10-23):** past one-off events move to an Archive view (computed per request); `events.min_age` (18/21) read from page text and editable. Migration `c9d0e1f2a3b4` runs on deploy. **Not yet checked on the live site.**
 - **Date-night planner API (PR #15, merged 2026-10-26):** `/api/plans/suggest` and plan CRUD are registered and tested (25 API tests, documented in `docs/API.md`). Not yet checked against the live database; there is no Plan page in the UI, and the `ics` link in a plan is a placeholder.
-- **Map UI:** SvelteKit + MapLibre, self-hosted PMTiles with a fallback to the live basemap, teardrop pins with category icons, rainbow cluster pins, per-category pin colours, filter chips, list, detail/edit, Add box with live job toasts, review picker, per-user status/rating/notes, occurrence calendar, settings, PWA shell, version label.
+- **Map UI:** SvelteKit + MapLibre, self-hosted PMTiles with a fallback to the live basemap, teardrop pins with category icons, rainbow cluster pins, per-category pin colours, list, detail/edit, Add box with live job toasts, review picker, per-user status/rating/notes, occurrence calendar, settings, PWA shell, version label.
+- **Redesign (`UI-08`, PR pending, 2026-10-31):** list and map with the search bar floating over the map. A Filters drawer over the list (phone: a tall sheet) holds Saved status (Want to go, Going, Been, Needs review), When (Today, This weekend, Next 7 days), five category groups, Distance (home or my location) and Archive; active filters show as removable tokens. Details float over the map on desktop; on phones the card expands upward. Type, Price, Tags and the other When options are no longer in the interface (URL and API still accept them, `UI-10`). **Not yet checked on the live site or a real phone** (`UI-09`).
 - **Platform:** Compose stack on the Zephyrus (db, api, worker, photon, osrm-car, osrm-foot, searxng, browser, tester), CI + CD on push to `main` with a self-hosted runner, Caddy + Cloudflare + Authentik (group `dates`: Zaher and Kathy), Homarr tile, weekly map-tile refresh (cron on the Zephyrus), keyed import-tester service for the daily check.
-- **Tests:** backend 314 passed, frontend 27 passed, svelte-check clean (as of the last merge). CI runs ruff with only the minimal error rules (`E9,F63,F7,F82`).
+- **Tests:** backend 314 passed, frontend 33 passed, svelte-check clean (as of the redesign PR). CI runs ruff with only the minimal error rules (`E9,F63,F7,F82`).
 
 ## Half-built (code exists, not wired up)
 

@@ -31,11 +31,13 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 - [ ] `QA-01` Widen the CI lint from `E9,F63,F7,F82` to the default ruff rules plus `I` (imports); fix what it finds without changing behaviour.
 - [ ] `DOC-01` Rewrite the `README.md` status table and "Next step", and the `docs/PLAN.md` header status, from `status.md`. Retire `docs/TODO-ZAHER.md` (point it at `status.md`).
 - [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
+  - Design agreed 2026-10-31 (prototype, not in the repo): a "Plan a night" button in the search bar (key `P`) opens a planner in the left pane with the route on the map; day strip, templates (dinner then a show, drinks then a party), stops with arrival times and travel time, Drive / Rideshare / Walk / Transit, a shortest-route suggestion, share. Add "Add to plan" to the quick actions on the detail card with it. Travel times must come from the OSRM service, not the prototype's formulas.
 
 ## Needs Zaher
 
 - [ ] [Z] `DOC-02` Git housekeeping: 8 stale `auto-improve/*` worktrees under Temp and about 10 fully merged local/remote branches (listed in `status.md`). Approve deleting them; the auto task never deletes branches.
 - [ ] [Z] `LC-02` Check the live site after the 2026-10-23 deploys (Archive chip, 21+ line, pins, Settings > Pin colors) and try the video slow path once with a captionless TikTok. Report what is wrong and the auto task will turn it into `[!]` items.
+- [ ] [Z] `UI-09` Try the redesign (PR for `UI-08`) on the live site on the phone and on desktop: Filters sheet and drawer, details card and expanding, floating details, dark and light. Report what is wrong and the auto task will turn it into `[!]` items. Not yet checked against the real backend or a real phone.
 - [ ] [Z] `UI-01` Set up the "Save to Dates" Shortcut on both phones (`docs/SHORTCUT.md`); check the service worker and Add to Home Screen in real Chrome.
 - [ ] [Z] `IM-02` Decision: how recurring shows are stored ("Every other Saturday, 8 PM"): real RRULE with occurrences (needs `LC-05`) or text only. Recommendation: RRULE, expanded 120 days ahead.
 - [ ] [Z] `IM-03` Decision: when an article links the event's own website, prefer it over the venue's site and use it for the ticket link. Recommendation: yes for events, no for places.
@@ -85,7 +87,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `IB-04` Match score with "why" breakdown per `docs/PLAN.md` (taste vector, tag overlap, distance, time fit, source quality, penalties). Deps: `IB-02`, `IB-03`.
 - [ ] `IB-05` Inbox API: list suggested, accept, dismiss; every action updates the taste profile (`taste_profiles`, negative centroid for dismissals). Deps: `DS-03`, `IB-04`.
 - [ ] `IB-06` Inbox screen: suggestion cards, accept / dismiss, J/K/A/D keys on desktop, match "why" on the detail card. Deps: `IB-05`.
-- [ ] `IB-07` Faded outlined pins for suggested items on the map and a Suggested filter chip that works. Deps: `IB-05`.
+- [ ] `IB-07` Faded outlined pins for suggested items on the map and a Suggested option in the Filters panel that works (the redesign removed it from the panel until this exists). Deps: `IB-05`.
 - [ ] `IB-08` Home Assistant push after a discovery run (`notify/ha.py`), deep link to the inbox. Deps: `IB-01` decided, `DS-04`, `IB-05`.
 
 ### Planner and calendar (PL)
@@ -107,13 +109,14 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 ### App and mobile (UI)
 - [ ] `UI-02` Lighthouse performance on the phone profile with about 500 seeded items; fix the worst offender (virtualised list, pan debounce).
 - [ ] `UI-03` Offline behaviour of the service worker: app shell and last map view; check it does not cache API responses wrongly.
-- [ ] `UI-04` Accessibility pass: focus order, labels on icon buttons, contrast in both themes.
+- [ ] `UI-04` Accessibility pass: focus order, labels on icon buttons, contrast in both themes. The redesign's new parts (search bar, Filters panel, details actions) already have labels and the gray text was raised to 5:1; the rest of the app is still to check.
+- [ ] `UI-10` Filters the redesign took out of the interface (Type, Price, Tags, Open now, Include past, Tomorrow, Next 31 days, Pick dates, Suggested). The URL and API still support them and an active one shows as a token in the search bar. Bring one back only if it is missed.
 - [ ] `UI-05` Empty and error states: first run with no items, API down, import failed (clear message, retry).
 - [ ] `UI-06` Share target (`/share`) tested end to end from an Android share sheet and iOS Shortcut.
 - [ ] `UI-07` Settings: show the Ticketmaster key status and the AI backend (hub or OpenRouter) in use.
 
 ### Tests and CI (QA)
-- [ ] `QA-02` Frontend component tests for the filter bar, detail card and Add dialog (vitest + testing-library).
+- [ ] `QA-02` Frontend component tests for the search bar, Filters panel, detail card and Add dialog (vitest + testing-library).
 - [ ] `QA-03` Browser smoke test against the mock server (Playwright): map loads, pins show, add flow, filters in the URL.
 - [ ] `QA-04` Golden set in CI against saved responses only (no network), failing on any wrong auto-accept.
 - [ ] `QA-05` Migration test in CI: upgrade an empty database to head, downgrade one step, upgrade again.
@@ -128,6 +131,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-10-31 (item) `UI-08` Redesign: new blue / Inter look with glass panels, a Filters drawer (phone: tall sheet) with Saved status, When, five category groups, Distance and Archive, filters shown as removable tokens in the search bar, details floating over the map on desktop, details card that expands on phones with Directions / Website / Call / Tickets / Share, PR PENDING
 - 2026-10-26 (item) `IM-01.1` Footer address, phone and venue name now reach the event extractor and apply to every event on the page, PR #17
 - 2026-10-25 (check) `IM-00` Paramount Drive-In: footer address now read, a toddler-free line no longer marks a paid place Free, PR #16
 - 2026-10-24 (item) `PL-01` Planner API registered in `main.py` and reachable (suggest, save, list, get, patch, delete), 25 API tests, documented in `docs/API.md`, PR #15
