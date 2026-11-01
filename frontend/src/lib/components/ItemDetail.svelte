@@ -402,7 +402,7 @@
           <div class="pics" role="group" aria-label="Choose the main picture">
             {#each gphotos as g, i (g.url)}
               <button class="pic" class:on={googleHero === g.url} onclick={() => (gPick = i)} title={g.author ? `Google Maps photo by ${g.author}` : 'Google Maps photo'}>
-                <img src={g.url} alt="Google Maps photo" loading="lazy" />
+                <img src={g.url} alt="Place on Google Maps" loading="lazy" />
               </button>
             {/each}
             {#if linkThumb}
