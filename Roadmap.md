@@ -131,7 +131,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
-- 2026-10-31 (item) `UI-08` Redesign: new blue / Inter look with glass panels, a Filters drawer (phone: tall sheet) with Saved status, When, five category groups, Distance and Archive, filters shown as removable tokens in the search bar, details floating over the map on desktop, details card that expands on phones with Directions / Website / Call / Tickets / Share, PR PENDING
+- 2026-10-31 (item) `UI-08` Redesign: new blue / Inter look with glass panels, a Filters drawer (phone: tall sheet) with Saved status, When, five category groups, Distance and Archive, filters shown as removable tokens in the search bar, details floating over the map on desktop, details card that expands on phones with Directions / Website / Call / Tickets / Share, PR #24
 - 2026-10-26 (item) `IM-01.1` Footer address, phone and venue name now reach the event extractor and apply to every event on the page, PR #17
 - 2026-10-25 (check) `IM-00` Paramount Drive-In: footer address now read, a toddler-free line no longer marks a paid place Free, PR #16
 - 2026-10-24 (item) `PL-01` Planner API registered in `main.py` and reachable (suggest, save, list, get, patch, delete), 25 API tests, documented in `docs/API.md`, PR #15
