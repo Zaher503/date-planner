@@ -146,3 +146,28 @@ export function activeCount(f: Filters): number {
 export function toggle<T>(arr: T[], v: T): T[] {
   return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
 }
+
+export interface Token {
+  key: string;
+  label: string;
+  /** The filters with this one switched off. */
+  remove: (f: Filters) => Filters;
+}
+
+/** One removable token per active filter, shown in the search bar. */
+export function activeTokens(f: Filters, units: 'mi' | 'km' = 'mi'): Token[] {
+  const out: Token[] = [];
+  if (f.when) out.push({ key: 'when', label: f.when === 'range' && f.from ? `${f.from.slice(5)}${f.to ? ' to ' + f.to.slice(5) : ''}` : WHEN_LABEL[f.when], remove: (x) => ({ ...x, when: '', from: '', to: '' }) });
+  if (f.open_now) out.push({ key: 'open_now', label: 'Open now', remove: (x) => ({ ...x, open_now: false }) });
+  if (f.past) out.push({ key: 'past', label: 'Include past', remove: (x) => ({ ...x, past: false }) });
+  for (const s of f.status) out.push({ key: `status:${s}`, label: STATUS_LABEL[s] ?? s, remove: (x) => ({ ...x, status: x.status.filter((v) => v !== s) }) });
+  if (f.types.length === 1) out.push({ key: 'types', label: f.types[0] === 'place' ? 'Places' : 'Events', remove: (x) => ({ ...x, types: [] }) });
+  for (const p of f.price) out.push({ key: `price:${p}`, label: PRICE_LABEL[p] ?? p, remove: (x) => ({ ...x, price: x.price.filter((v) => v !== p) }) });
+  for (const t of f.tags) out.push({ key: `tag:${t}`, label: t, remove: (x) => ({ ...x, tags: x.tags.filter((v) => v !== t) }) });
+  if (f.dist_km) {
+    const n = units === 'mi' ? Math.round(f.dist_km / 1.609344) : Math.round(f.dist_km);
+    out.push({ key: 'dist', label: `Within ${n} ${units}`, remove: (x) => ({ ...x, dist_km: null }) });
+  }
+  if (f.archive) out.push({ key: 'archive', label: 'Archive', remove: (x) => ({ ...x, archive: false }) });
+  return out;
+}

@@ -24,7 +24,7 @@
   let startH = 0;
   let moved = false;
 
-  const heights = $derived({ peek: PEEK, half: Math.round(vh * 0.5), full: Math.round(vh - 130) });
+  const heights = $derived({ peek: PEEK, half: Math.round(vh * 0.5), full: Math.round(vh - 76) });
   const height = $derived(drag ?? heights[snap]);
 
   $effect(() => {
@@ -93,7 +93,7 @@
     display: flex;
     flex-direction: column;
     background: var(--surface);
-    border-radius: 18px 18px 0 0;
+    border-radius: 20px 20px 0 0;
     box-shadow: 0 -4px 24px rgb(0 0 0 / 0.16);
     transition: height 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
     padding-bottom: var(--safe-bottom);

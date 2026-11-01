@@ -1,5 +1,7 @@
 <script lang="ts">
-  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+  import X from '@lucide/svelte/icons/x';
+  import Navigation from '@lucide/svelte/icons/navigation';
+  import Share2 from '@lucide/svelte/icons/share-2';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import Bookmark from '@lucide/svelte/icons/bookmark';
   import CalendarCheck from '@lucide/svelte/icons/calendar-check';
@@ -263,6 +265,21 @@
     }
   }
 
+  // The address of this page carries the open item, so it works as a link back to it
+  async function share() {
+    if (!item) return;
+    const url = location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: item.title, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        app.info('Link copied');
+      }
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError') app.info('Could not share', 'Copy the address from the browser instead.');
+    }
+  }
+
   function sourceLabel(kind: string): string {
     return (
       { tiktok: 'TikTok', youtube: 'YouTube', gmaps: 'Google Maps', applemaps: 'Apple Maps', event_page: 'Web page', text: 'Note', image: 'Screenshot', instagram: 'Instagram' }[kind] ??
@@ -277,11 +294,13 @@
 
 <div class="detail">
   <header>
-    <button class="icon-btn" aria-label="Back to the list" onclick={onclose}><ChevronLeft size={22} /></button>
     {#if item}
       <span class="cat" style="--c: {color}"><span class="dot" class:event={isEvent}></span>{labelOf(item.category)}{isEvent ? ' event' : ''}</span>
       <button class="icon-btn" aria-label="Show on the map" title="Show on the map" onclick={onfly}><Crosshair size={19} /></button>
+    {:else}
+      <span class="cat"></span>
     {/if}
+    <button class="icon-btn" aria-label="Close details" title="Close" onclick={onclose}><X size={20} /></button>
   </header>
 
   {#if loading && !item}
@@ -386,6 +405,14 @@
           <div class="rate">
             <Stars value={item.me?.rating ?? null} onchange={(v) => setMine({ rating: v })} />
           </div>
+        </div>
+
+        <div class="quick">
+          <a class="qa primary" href={googleMapsUrl(item.lat, item.lon, item.title, item.address_text)} target="_blank" rel="noopener noreferrer"><span class="qi"><Navigation size={19} /></span>Directions</a>
+          {#if item.website}<a class="qa" href={item.website} target="_blank" rel="noopener noreferrer"><span class="qi"><Globe size={19} /></span>Website</a>{/if}
+          {#if item.phone}<a class="qa" href="tel:{item.phone}"><span class="qi"><Phone size={19} /></span>Call</a>{/if}
+          {#if item.ticket_url}<a class="qa" href={item.ticket_url} target="_blank" rel="noopener noreferrer"><span class="qi"><Ticket size={19} /></span>Tickets</a>{/if}
+          <button class="qa" onclick={share}><span class="qi"><Share2 size={19} /></span>Share</button>
         </div>
 
         {#if isEvent && item.archived}
@@ -675,6 +702,7 @@
     gap: 14px;
   }
   h2 {
+    order: -3;
     margin: 0;
     font-size: 22px;
     line-height: 1.2;
@@ -687,6 +715,7 @@
     font-weight: 650;
   }
   .link-row {
+    order: -3;
     align-self: flex-start;
     margin-top: -10px;
     border: none;
@@ -696,6 +725,7 @@
     font-weight: 550;
   }
   .banner {
+    order: -6;
     border-radius: 12px;
     padding: 10px 12px;
     font-size: 14px;
@@ -793,6 +823,7 @@
     gap: 6px;
   }
   .media {
+    order: -5;
     position: relative;
     display: block;
     border-radius: 14px;
@@ -825,6 +856,7 @@
     color: #fff;
   }
   .player {
+    order: -5;
     width: 100%;
     max-height: 70vh;
     border-radius: 14px;
@@ -853,6 +885,7 @@
     font-weight: 600;
   }
   .pics {
+    order: -4;
     display: flex;
     gap: 8px;
     overflow-x: auto;
@@ -892,14 +925,55 @@
     font-weight: 600;
   }
   .mine {
+    order: -2;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
     gap: 10px;
   }
+  .rate {
+    display: flex;
+    justify-content: center;
+  }
+  .quick {
+    order: -2;
+    display: flex;
+    gap: 8px;
+    justify-content: space-around;
+  }
+  .qa {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .qi {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+  }
+  .qa.primary .qi {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .qa:hover .qi {
+    filter: brightness(0.95);
+  }
   .seg {
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     background: var(--surface-2);
     border-radius: 12px;
     padding: 3px;
@@ -908,6 +982,8 @@
   .seg button {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-height: 38px;
     gap: 5px;
     border: none;
     background: transparent;
