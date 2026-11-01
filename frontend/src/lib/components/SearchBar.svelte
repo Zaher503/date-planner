@@ -4,6 +4,7 @@
   import Plus from '@lucide/svelte/icons/plus';
   import SlidersHorizontal from '@lucide/svelte/icons/sliders-horizontal';
   import Settings from '@lucide/svelte/icons/settings';
+  import Archive from '@lucide/svelte/icons/archive';
   import { categoryTokens } from '$lib/categories';
   import { activeCount, activeTokens, type Filters } from '$lib/filters';
 
@@ -73,6 +74,7 @@
       <SlidersHorizontal size={15} />Filters{#if count}<span class="bd">{count}</span>{/if}
     </button>
   {/if}
+  <button class="icon-btn gear" class:on={filters.archive} aria-pressed={filters.archive} aria-label="Archive" title="Archive: past events" onclick={() => set({ archive: !filters.archive })}><Archive size={desktop ? 17 : 19} /></button>
   <button class="add" aria-label="Add a link" title="Add a link (n)" onclick={onadd}><Plus size={desktop ? 17 : 20} strokeWidth={2.2} />{#if desktop}<span>Add</span>{/if}</button>
   {#if desktop}
     <button class="icon-btn gear" aria-label="Settings" title="Settings" onclick={onsettings}><Settings size={17} /></button>
@@ -217,6 +219,10 @@
   }
   .add:hover {
     filter: brightness(1.08);
+  }
+  .gear.on {
+    background: var(--accent-soft);
+    color: var(--accent);
   }
   .gear {
     width: 36px;

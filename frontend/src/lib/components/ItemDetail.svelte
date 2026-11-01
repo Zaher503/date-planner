@@ -265,18 +265,19 @@
     }
   }
 
-  // The address of this page carries the open item, so it works as a link back to it
-  async function share() {
+  // Copy the link the item was saved from (the TikTok or page), else its website
+  async function copySourceLink() {
     if (!item) return;
-    const url = location.href;
+    const url = item.sources?.[0]?.url || item.website || item.ticket_url;
+    if (!url) {
+      app.info('No source link', 'This item has no website or saved link to copy.');
+      return;
+    }
     try {
-      if (navigator.share) await navigator.share({ title: item.title, url });
-      else {
-        await navigator.clipboard.writeText(url);
-        app.info('Link copied');
-      }
-    } catch (e) {
-      if ((e as Error).name !== 'AbortError') app.info('Could not share', 'Copy the address from the browser instead.');
+      await navigator.clipboard.writeText(url);
+      app.info('Link copied', url);
+    } catch {
+      app.info('Could not copy', url);
     }
   }
 
@@ -377,6 +378,8 @@
           </a>
         {:else if heroSrc}
           <div class="media"><img src={heroSrc} alt="" /></div>
+        {:else}
+          <div class="media blank" style="--c: {color}" aria-hidden="true"><span>{labelOf(item.category)}</span></div>
         {/if}
 
         {#if canChange}
@@ -412,7 +415,7 @@
           {#if item.website}<a class="qa" href={item.website} target="_blank" rel="noopener noreferrer"><span class="qi"><Globe size={19} /></span>Website</a>{/if}
           {#if item.phone}<a class="qa" href="tel:{item.phone}"><span class="qi"><Phone size={19} /></span>Call</a>{/if}
           {#if item.ticket_url}<a class="qa" href={item.ticket_url} target="_blank" rel="noopener noreferrer"><span class="qi"><Ticket size={19} /></span>Tickets</a>{/if}
-          <button class="qa" onclick={share}><span class="qi"><Share2 size={19} /></span>Share</button>
+          <button class="qa" onclick={copySourceLink}><span class="qi"><Share2 size={19} /></span>Copy link</button>
         </div>
 
         {#if isEvent && item.archived}
@@ -838,6 +841,18 @@
     padding: 0;
     width: 100%;
     cursor: pointer;
+  }
+  .blank {
+    display: grid;
+    place-items: center;
+    height: 140px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--c) 78%, #fff), color-mix(in srgb, var(--c) 92%, #000));
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 13px;
   }
   .noimg {
     display: block;

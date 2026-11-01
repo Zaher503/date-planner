@@ -246,6 +246,7 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
     if h.kind == "event" and h.starts_at and h.ends_at and h.ends_at - h.starts_at > timedelta(days=3):
         h.all_day = True
         if h.recurrence:
+            h.recurrence_until = h.ends_at
             h.starts_at = h.ends_at = None
             h.flags.append("recurring series, dates unclear")
     if h.kind == "event" and h.starts_at and (h.ends_at or h.starts_at) < now:
@@ -525,7 +526,7 @@ def run(db: Session, job: Job) -> dict:
                        archived=event_ended(status=event.status, starts_at=event.starts_at, ends_at=event.ends_at,
                                             duration_min=event.duration_min, all_day=event.all_day,
                                             is_recurring=bool(event.rrule or event.recurrence_text),
-                                            now=datetime.now(timezone.utc)))
+                                            now=datetime.now(timezone.utc), rrule=event.rrule))
         store.link(db, src, place=place, position=i, confidence=res.confidence)
         if hint.kind != "event":
             images.page_images(db, src, hint, place=place, event=None, multi=len(resolved) > 1)

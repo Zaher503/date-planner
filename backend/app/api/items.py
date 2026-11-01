@@ -194,7 +194,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "archived": event_ended(status=item.status, starts_at=item.starts_at, ends_at=item.ends_at,
                                     duration_min=item.duration_min, all_day=item.all_day,
                                     is_recurring=bool(item.rrule or item.recurrence_text),
-                                    now=datetime.now(_tz())),
+                                    now=datetime.now(_tz()), rrule=item.rrule),
             "occurrences": [{"starts_at": _iso(o.starts_at), "ends_at": _iso(o.ends_at)} for o in db.scalars(
                 select(Occurrence).where(Occurrence.event_id == item.id).order_by(Occurrence.starts_at)
                 .limit(MAX_OCCURRENCES)).all()],

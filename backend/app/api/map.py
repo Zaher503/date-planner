@@ -130,7 +130,8 @@ def event_props(r, now: datetime) -> dict:
         "tags": list(r.tags or [])[:MAX_TAGS],
         "archived": event_ended(status=r.status, starts_at=r.starts_at, ends_at=r.ends_at,
                                 duration_min=r.duration_min, all_day=r.all_day,
-                                is_recurring=r.rrule is not None or r.recurrence_text is not None, now=now),
+                                is_recurring=r.rrule is not None or r.recurrence_text is not None, now=now,
+                                rrule=r.rrule),
     }
 
 

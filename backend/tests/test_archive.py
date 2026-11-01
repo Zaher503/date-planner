@@ -62,3 +62,11 @@ def test_filters_pick_the_archive():
     assert len(event_conditions(default)) == 1 and not event_conditions(past)
     assert sql(default).startswith("NOT (") and not sql(only).startswith("NOT")
     assert "events.status" in sql(only)
+
+
+def test_seasonal_run_with_until_archives_after_it_closes():
+    rule = "FREQ=DAILY;UNTIL=20261018T235959"
+    assert ended(starts_at=datetime(2026, 10, 25, tzinfo=timezone.utc), is_recurring=True, rrule=rule)
+    assert not ended(starts_at=datetime(2026, 10, 25, tzinfo=timezone.utc), is_recurring=True,
+                     rrule="FREQ=DAILY;UNTIL=20261031T235959")
+    assert not ended(starts_at=datetime(2026, 10, 25, tzinfo=timezone.utc), is_recurring=True, rrule="FREQ=DAILY")

@@ -186,34 +186,26 @@
   // Map padding so flyTo centres the pin in the uncovered part of the map
   const padding = $derived(app.desktop ? { top: 70, bottom: 40, left: 40, right: sel ? DETAIL_W + 40 : 40 } : { top: 90, bottom: Math.min(sheetPx, 420) + 10, left: 20, right: 20 });
 
-  // Map data for the viewport (padded so small pans need no refetch)
-  let fetched: { bbox: number[]; key: string; version: number } | null = null;
+  // Map data for every place that matches (the list keeps them all while the map zooms); refetched when the filters change
+  const WORLD = [-180, -85, 180, 85];
+  let fetched: { key: string; version: number } | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
   let controller: AbortController | null = null;
 
-  function padBbox(b: number[]): number[] {
-    const dx = (b[2] - b[0]) * 0.5;
-    const dy = (b[3] - b[1]) * 0.5;
-    return [b[0] - dx, b[1] - dy, b[2] + dx, b[3] + dy];
-  }
-  const inside = (outer: number[], inner: number[]) => inner[0] >= outer[0] && inner[1] >= outer[1] && inner[2] <= outer[2] && inner[3] <= outer[3];
-
   $effect(() => {
-    if (!view || !settings) return;
+    if (!settings) return;
     if (filters.near === 'me' && !me) return;
     const key = apiQuery(filters, { me });
     const version = app.version;
-    const bbox = view.bbox;
-    if (fetched && fetched.key === key && fetched.version === version && inside(fetched.bbox, bbox)) return;
+    if (fetched && fetched.key === key && fetched.version === version) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(async () => {
       controller?.abort();
       controller = new AbortController();
-      const padded = padBbox(bbox);
       mapLoading = true;
       try {
-        mapData = await api.map(apiQuery(filters, { me, bbox: padded }), controller.signal);
-        fetched = { bbox: padded, key, version };
+        mapData = await api.map(apiQuery(filters, { me, bbox: WORLD }), controller.signal);
+        fetched = { key, version };
         mapError = '';
       } catch (e) {
         if ((e as Error).name !== 'AbortError') mapError = e instanceof Error ? e.message : String(e);
@@ -304,16 +296,14 @@
     );
   });
 
-  // Rows for the list: features in view, alphabetical
+  // Rows for the list: every matching feature, alphabetical
   const byName = (a: ListItem, b: ListItem) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }) || a.t.localeCompare(b.t);
   const liveRows = $derived.by((): ListItem[] => {
     if (listMode && globalList) return globalList;
-    if (!mapData || !view) return [];
-    const [w, s, e, n] = view.bbox;
+    if (!mapData) return [];
     const out: ListItem[] = [];
     for (const f of mapData.features) {
       const [lon, lat] = f.geometry.coordinates;
-      if (lon < w || lon > e || lat < s || lat > n) continue;
       out.push({ ...f.properties, lat, lon });
     }
     return group(out.sort(byName));
@@ -356,9 +346,20 @@
   // With the details floating over the map the list stays put while the map moves
   const shownRows = $derived(app.desktop && sel && frozen.length ? frozen : rows);
 
-  const counts = $derived({
-    places: shownRows.filter((r) => r.t === 'place').length,
-    events: shownRows.reduce((n, r) => n + (r.t === 'event' ? 1 : (r.group?.count ?? 0)), 0)
+  // The number on top counts what the map shows right now; the list below keeps everything
+  const counts = $derived.by(() => {
+    let places = 0;
+    let events = 0;
+    if (mapData && view) {
+      const [w, s, e, n] = view.bbox;
+      for (const f of mapData.features) {
+        const [lon, lat] = f.geometry.coordinates;
+        if (lon < w || lon > e || lat < s || lat > n) continue;
+        if (f.properties.t === 'place') places++;
+        else events++;
+      }
+    }
+    return { places, events };
   });
 
   // Item detail
@@ -540,6 +541,10 @@
         }}
         onselect={select}
         oncandidate={onCandidate}
+        onmapclick={() => {
+          if (panel === 'settings') nav((sp) => sp.delete('panel'), true);
+          else if (sel) closeDetail();
+        }}
         onlocate={(pos) => (me = pos)}
       />
       {#if mapLoading}<div class="loading-bar"></div>{/if}
