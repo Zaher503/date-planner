@@ -28,7 +28,7 @@ from app.resolve.candidates import km
 
 log = logging.getLogger(__name__)
 REGION = "Los Angeles"
-MAX_EXTRA_PAGES = 4
+MAX_EXTRA_PAGES = 6
 MAX_IMAGES = 12
 PAGE_TEXT = 4500
 
@@ -44,8 +44,8 @@ Rules:
 - address: the venue's street address, one line.
 - phone: as written.
 - opening_hours: OpenStreetMap syntax, e.g. "Mo-Fr 10:00-18:00; Sa,Su 09:00-20:00" (24 hour clock). null if the regular hours are not stated or are too irregular to write that way.
-- hours_text: the hours as the site words them, short.
-- price_tiers: every ticket or admission type with its price in dollars per person (label such as Adult, Child, Senior, Weekend, Group of 6+; note for conditions). One entry per price shown.
+- hours_text: the hours as the site words them, short. When a page gives day-by-day hours for the current season next to a general "typical hours" line, use the day-by-day hours and mention days marked closed.
+- price_tiers: every ticket or admission type with its price in dollars per person (label such as Adult, Child, Senior, Weekend, Group of 6+; note for conditions). One entry per price shown, including "starting at" prices (label with the item name, e.g. the tour or course).
 - is_free: true only when the text says entry is free.
 - price_text: one short sentence on how pricing works (discounts, peak times, memberships), or null."""
 FACTS_SCHEMA = {
@@ -64,8 +64,12 @@ FACTS_SCHEMA = {
     "required": ["address", "phone", "opening_hours", "hours_text", "price_tiers", "is_free", "price_text"],
 }
 
-PAGE_WORDS = ((r"contact|hours|opening|visit|plan-your|directions|location|find-us|getting-here|tickets?|pricing|prices|"
-               r"admission|rates|book|reserve|faq|info", 3), (r"about|experience|what-to|how-it", 1))
+# Hours and prices first: they are what the model is asked for. Pages that list what the venue sells
+# (tours, packages, passes) come next, since their prices are often not on the home or visit page.
+PAGE_WORDS = ((r"contact|hours|opening|directions|tickets?|pricing|prices|admission|rates", 4),
+              (r"visit|plan-your|location|find-us|getting-here|book|reserve|faq|info|tours?|packages?|combo|passes|"
+               r"rides|activities", 3),
+              (r"about|experience|what-to|how-it", 1))
 
 
 def _tokens(name: str) -> list[str]:
@@ -226,6 +230,7 @@ def with_footer(text: str, html: str) -> str:
     return text
 
 
+PRICE_LINE = re.compile(r"\$\s?\d")
 LABEL_ATTR = re.compile(r"""(?:aria-label|title|alt|data-[\w-]+)=["']([^"']*\$\s?\d[^"']*)["']""", re.I)
 TIME_PREFIX = re.compile(r"^\s*\d{1,2}:\d{2}\s*[ap]m\s*", re.I)
 NOT_VENUE = re.compile(r"apps\.apple\.com|play\.google\.com|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|youtube\.|maps\.", re.I)
@@ -239,6 +244,33 @@ def price_labels(html: str) -> str:
         label = " ".join(htmllib.unescape(raw).split())
         seen.setdefault(TIME_PREFIX.sub("", label), label)
     return "\n".join(list(seen)[:30])
+
+
+def price_lines(html: str, text: str) -> str:
+    """Price lines in the visible page that article extraction dropped (price cards: 'Original Course ...
+    Starting at $99'), each with the lines just above it, which name the item."""
+    try:
+        root = lxml_html.fromstring(html)
+    except (ValueError, lxml_html.etree.ParserError):
+        return ""
+    for bad in root.xpath("//script|//style|//noscript|//nav|//header"):
+        bad.drop_tree()
+    lines = [" ".join(x.split()) for x in root.itertext()]
+    lines = [x for x in lines if x]
+    flat = " ".join(text.split())
+    out: list[list[str]] = []
+    for i, line in enumerate(lines):
+        if not PRICE_LINE.search(line) or line in flat or len(line) > 160:
+            continue
+        above: list[str] = []
+        for x in reversed(lines[max(0, i - 5):i]):
+            if PRICE_LINE.search(x):
+                break  # the previous card's price: its lines are not this card's
+            above.insert(0, x)
+        block = [x for x in above if len(x) <= 120] + [line]
+        if block not in out:
+            out.append(block)
+    return "\n".join(" / ".join(b) for b in out[:20])
 
 
 def maps_point(html: str, out: dict) -> tuple[float, float, str] | None:
