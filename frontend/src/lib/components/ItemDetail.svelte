@@ -104,17 +104,18 @@
   const hero = $derived(pics.find((i) => i.chosen) ?? null);
   // The link's own thumbnail is the default hero until a picture is picked; with none, the first picture is
   const linkThumb = $derived(thumbSource?.thumb ?? videoSource?.thumb ?? null);
-  // Google Maps photos are the last resort: asked for only when the item has no picture of its own, and the
-  // server stops at a daily cap. One photo is the hero; the rest load when "More photos" is tapped.
+  // Google Maps photos are the last resort: asked for only when the item has no picture of its own. The first
+  // one is saved on the server as the hero (so the list shows it too); the rest load when "More photos" is tapped.
+  const savedGoogle = $derived(pics.find((p) => p.kind === 'google') ?? null);
+  const gActive = $derived(!!item && !pics.some((p) => p.kind !== 'google') && !linkThumb);
   let gphotos = $state<{ url: string; author: string | null }[]>([]);
   let gPick = $state(0);
+  let gAsked = $state(false);
   let gMore = $state(false);
-  const gKey = $derived(item && !hero && pics.length === 0 && !linkThumb ? `${item.type}:${item.id}` : null);
+  const gKey = $derived(item && gActive && (!savedGoogle || gAsked) ? `${item.type}:${item.id}` : null);
   $effect(() => {
     const key = gKey;
     gphotos = [];
-    gPick = 0;
-    gMore = false;
     if (!key) return;
     const [type, id] = key.split(':') as [ItemType, string];
     api
@@ -124,11 +125,27 @@
       })
       .catch(() => {});
   });
-  const googleHero = $derived(gphotos[gPick]?.url ?? null);
+  // A new item starts over
+  $effect(() => {
+    void item?.id;
+    gPick = 0;
+    gAsked = false;
+    gMore = false;
+  });
+  // The first download saves the hero on the server: refresh so the list picks it up
+  $effect(() => {
+    const first = gphotos[0]?.url;
+    if (!first || savedGoogle) return;
+    const img = new Image();
+    img.onload = () => app.changed();
+    img.src = first;
+  });
+  const googleHero = $derived(savedGoogle && gPick === 0 ? null : (gphotos[gPick]?.url ?? null));
   const linkIsHero = $derived(!hero && !!linkThumb);
   const heroPic = $derived(hero ?? (linkThumb ? null : (pics[0] ?? null)));
   const heroSrc = $derived(googleHero ?? heroPic?.url ?? linkThumb);
-  const canChange = $derived(pics.length + (linkThumb ? 1 : 0) > 1);
+  const canChange = $derived(pics.filter((p) => p.kind !== 'google').length + (linkThumb ? 1 : 0) > 1);
+  const gCredit = $derived(googleHero ? (gphotos[gPick]?.author ?? null) : (savedGoogle?.attribution ?? null));
   const stamp = (s: number | null) => (s == null ? '' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 
   async function pickImage(id: number | null) {
@@ -420,11 +437,11 @@
           </div>
         {/if}
 
-        {#if gphotos.length}
-          {#if gphotos.length > 1 && !gMore}
-            <button class="btn small" onclick={() => (gMore = true)}>More photos ({gphotos.length - 1})</button>
+        {#if gActive && (savedGoogle || gphotos.length)}
+          {#if !gMore && (savedGoogle ? !gAsked : gphotos.length > 1)}
+            <button class="btn small" onclick={() => ((gMore = true), (gAsked = true))}>More photos</button>
           {/if}
-          {#if gMore}
+          {#if gMore && gphotos.length}
             <div class="pics" role="group" aria-label="Place photos">
               {#each gphotos as g, i (g.url)}
                 <button class="pic" class:on={gPick === i} onclick={() => (gPick = i)} title={g.author ? `Photo by ${g.author}` : 'Place photo'}>
@@ -433,7 +450,7 @@
               {/each}
             </div>
           {/if}
-          <p class="muted gcredit">Place photos from Google Maps{gphotos[gPick]?.author ? `, by ${gphotos[gPick].author}` : ''}</p>
+          <p class="muted gcredit">Place photo from Google Maps{gCredit ? `, by ${gCredit}` : ''}</p>
         {/if}
 
         <div class="mine">

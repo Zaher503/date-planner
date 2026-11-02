@@ -49,3 +49,43 @@ def test_downloads_stop_at_the_daily_cap(monkeypatch):
     assert google_places.capped()
     assert google_places.fetch_photo("places/p1/photos/a") is None
     assert google_places.photos_for("anything") == []
+
+
+class FakeDB:
+    def __init__(self, existing=None):
+        self.existing, self.added, self.committed = existing, [], False
+
+    def scalars(self, _):
+        return self
+
+    def first(self):
+        return self.existing
+
+    def add(self, row):
+        self.added.append(row)
+
+    def commit(self):
+        self.committed = True
+
+
+def test_first_google_photo_is_kept_as_the_hero(monkeypatch, tmp_path):
+    from app.api import google
+    from app.ingest import media
+    monkeypatch.setattr(media, "media_root", lambda: tmp_path)
+    import uuid
+    db = FakeDB()
+    assert google.save_hero(db, "place", uuid.uuid4(), b"img", "image/jpeg", "Sam")
+    row = db.added[0]
+    assert row.kind == "google" and row.chosen and row.attribution == "Sam" and row.source_id is None
+    assert (tmp_path / row.path).read_bytes() == b"img" and db.committed
+
+
+def test_hero_is_not_saved_when_the_item_has_a_picture_or_the_switch_is_off(monkeypatch, tmp_path):
+    from app.api import google
+    from app.ingest import media
+    import uuid
+    monkeypatch.setattr(media, "media_root", lambda: tmp_path)
+    busy = FakeDB(existing=1)
+    assert not google.save_hero(busy, "place", uuid.uuid4(), b"img", "image/jpeg", None) and not busy.added
+    monkeypatch.setattr(get_settings(), "google_save_hero", False)
+    assert not google.save_hero(FakeDB(), "place", uuid.uuid4(), b"img", "image/jpeg", None)

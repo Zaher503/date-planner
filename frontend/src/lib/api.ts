@@ -94,8 +94,9 @@ export interface SourceInfo {
 
 export interface ItemImage {
   id: number;
-  kind: 'frame' | 'page';
+  kind: 'frame' | 'page' | 'google';
   at: number | null;
+  attribution?: string | null;
   chosen: boolean;
   url: string;
   video: string | null;

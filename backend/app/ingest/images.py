@@ -49,6 +49,12 @@ def _cues(src: Source, video: Path) -> list[tuple[float, str]]:
 
 def _forget(db: Session, src: Source, col, item_id, kind: str) -> bool:
     """Drop this source's earlier candidates for the item. True when the user had picked another image."""
+    # A real picture from an import replaces the stand-in Google one
+    for g in db.scalars(select(ItemImage).where(col == item_id, ItemImage.kind == "google")).all():
+        if g.path:
+            (media.media_root() / g.path).unlink(missing_ok=True)
+        db.delete(g)
+    db.flush()
     rows = db.scalars(select(ItemImage).where(ItemImage.source_id == src.id, col == item_id,
                                               ItemImage.kind == kind)).all()
     for r in rows:
