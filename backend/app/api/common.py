@@ -1,7 +1,7 @@
 """Helpers shared by the map, list and item routes."""
 from decimal import Decimal
 
-from sqlalchemy import or_
+from sqlalchemy import and_, func, or_
 
 from app.db.models import Source
 
@@ -13,7 +13,9 @@ IMAGE_PATHS = (("tiktok", "thumbnail_url"), ("youtube", "thumbnail"), ("page", "
 
 
 def image_url(raw: dict | None) -> str | None:
-    """First candidate image URL stored on a source."""
+    """First candidate image URL stored on a source (none once it was found to be dead)."""
+    if (raw or {}).get("image_dead"):
+        return None
     for path in IMAGE_PATHS:
         v = raw or {}
         for k in path:
@@ -25,7 +27,8 @@ def image_url(raw: dict | None) -> str | None:
 
 def has_image():
     """SQL: the source has a candidate image URL (mirrors image_url)."""
-    return or_(Source.kind == "image", *(Source.raw[path].astext.like("http%") for path in IMAGE_PATHS))
+    alive = func.coalesce(Source.raw["image_dead"].astext, "") != "true"
+    return or_(Source.kind == "image", and_(alive, or_(*(Source.raw[path].astext.like("http%") for path in IMAGE_PATHS))))
 
 
 def _money(v: float | Decimal) -> str:

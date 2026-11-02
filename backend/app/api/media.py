@@ -84,6 +84,15 @@ def fresh_tiktok_thumb(client: httpx.Client, db: Session, src: Source) -> str | 
     return url
 
 
+def gone(src: Source, err: Exception) -> bool:
+    """The picture link itself is dead for good (not a timeout, not a TikTok link that only expired)."""
+    if src.kind == "tiktok":
+        return False
+    if isinstance(err, httpx.HTTPStatusError):
+        return err.response.status_code in (404, 410)
+    return isinstance(err, NotImage)
+
+
 def download(db: Session, src: Source) -> tuple[bytes, str]:
     url = image_url(src.raw)
     with public_client(timeout=15) as client:
@@ -137,8 +146,12 @@ def thumb(source_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends
         raise HTTPException(404, "no such source")
     try:
         body, ctype = download(db, src)
-    except (httpx.HTTPError, BlockedURL, NotImage, ValueError):
+    except (httpx.HTTPError, BlockedURL, NotImage, ValueError) as e:
         _misses[source_id] = time.monotonic()
+        if gone(src, e):
+            # A dead link (a 404 logo, an HTML page) is no picture: items fall back to other sources or Google
+            src.raw = {**(src.raw or {}), "image_dead": True}
+            db.commit()
         raise HTTPException(404, "no image for this source") from None
     return _file(save(db, source_id, body, ctype))
 

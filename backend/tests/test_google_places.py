@@ -89,3 +89,19 @@ def test_hero_is_not_saved_when_the_item_has_a_picture_or_the_switch_is_off(monk
     assert not google.save_hero(busy, "place", uuid.uuid4(), b"img", "image/jpeg", None) and not busy.added
     monkeypatch.setattr(get_settings(), "google_save_hero", False)
     assert not google.save_hero(FakeDB(), "place", uuid.uuid4(), b"img", "image/jpeg", None)
+
+
+def test_a_dead_picture_link_is_no_picture():
+    import httpx as hx
+
+    from app.api.common import image_url
+    from app.api.media import NotImage, gone
+    from app.db.models import Source
+
+    raw = {"page": {"image": "http://x.test/logo.png"}}
+    assert image_url(raw) == "http://x.test/logo.png"
+    assert image_url({**raw, "image_dead": True}) is None
+    page = Source(kind="event_page", raw=raw)
+    not_found = hx.HTTPStatusError("x", request=hx.Request("GET", "http://x.test"), response=hx.Response(404))
+    assert gone(page, not_found) and gone(page, NotImage("html"))
+    assert not gone(page, hx.ReadTimeout("slow")) and not gone(Source(kind="tiktok", raw=raw), not_found)
