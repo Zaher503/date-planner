@@ -105,3 +105,32 @@ def test_a_dead_picture_link_is_no_picture():
     not_found = hx.HTTPStatusError("x", request=hx.Request("GET", "http://x.test"), response=hx.Response(404))
     assert gone(page, not_found) and gone(page, NotImage("html"))
     assert not gone(page, hx.ReadTimeout("slow")) and not gone(Source(kind="tiktok", raw=raw), not_found)
+
+
+def test_a_picked_google_photo_replaces_the_hero(monkeypatch, tmp_path):
+    import uuid
+
+    from app.api import google
+    from app.db.models import ItemImage
+    from app.ingest import media
+    monkeypatch.setattr(media, "media_root", lambda: tmp_path)
+    old_file = tmp_path / "item-images" / "google-old.jpg"
+    old_file.parent.mkdir(parents=True)
+    old_file.write_bytes(b"old")
+    old_google = ItemImage(kind="google", path="item-images/google-old.jpg", chosen=True)
+    page = ItemImage(kind="page", url="http://x.test/a.jpg", chosen=False)
+    other = ItemImage(kind="page", url="http://x.test/b.jpg", chosen=True)
+
+    class DB(FakeDB):
+        deleted = []
+
+        def all(self):
+            return [old_google, page, other]
+
+        def delete(self, row):
+            self.deleted.append(row)
+
+    db = DB(existing=1)
+    assert google.save_hero(db, "place", uuid.uuid4(), b"new", "image/jpeg", "Sam", replace=True)
+    assert db.deleted == [old_google] and not old_file.exists()
+    assert other.chosen is False and db.added[0].chosen and db.added[0].attribution == "Sam"

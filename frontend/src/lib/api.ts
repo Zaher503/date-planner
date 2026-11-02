@@ -296,6 +296,7 @@ export const api = {
   map: (query: string, signal?: AbortSignal) => request<MapData>('GET', `/api/map?${query}`, undefined, signal),
   list: (query: string, signal?: AbortSignal) =>
     request<{ items: ListItem[]; total: number }>('GET', `/api/list?${query}`, undefined, signal),
+  useGooglePhoto: (type: ItemType, id: string, index: number) => request<{ ok: boolean }>('POST', `/api/google-photo/${type}/${id}/${index}/use`),
   googlePhotos: (type: ItemType, id: string) => request<{ photos: { url: string; author: string | null }[] }>('GET', `/api/google-photos/${type}/${id}`),
   item: (type: ItemType, id: string) => request<Item>('GET', `/api/items/${type}/${id}`),
   patch: (type: ItemType, id: string, body: Record<string, unknown>) =>

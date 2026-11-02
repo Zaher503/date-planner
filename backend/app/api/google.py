@@ -35,24 +35,35 @@ def _query(db: Session, kind: str, item_id: uuid.UUID) -> str:
 EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 
-def save_hero(db: Session, kind: str, item_id: uuid.UUID, body: bytes, ctype: str, author: str | None) -> bool:
-    """Keep the first Google photo as the hero of an item that has no picture at all, so the list can show it
-    without asking Google again. A real picture from a later import replaces it."""
+def save_hero(db: Session, kind: str, item_id: uuid.UUID, body: bytes, ctype: str, author: str | None,
+              *, replace: bool = False) -> bool:
+    """Keep a Google photo as the hero of an item. By default only an item with no picture at all gets one, so the
+    list can show it without asking Google again (a real picture from a later import replaces it). With `replace`
+    (the user picked it) it becomes the hero whatever else the item has, and the earlier Google photo goes."""
     ext = EXT.get(ctype.split(";")[0].strip().lower())
     if ext is None or not get_settings().google_save_hero:
         return False
     col, link = (ItemImage.event_id, ItemSource.event_id) if kind == "event" else (ItemImage.place_id, ItemSource.place_id)
-    if db.scalars(select(ItemImage.id).where(col == item_id)).first() is not None:
-        return False
-    if db.scalars(select(Source.id).join(ItemSource, ItemSource.source_id == Source.id)
-                  .where(link == item_id, has_image())).first() is not None:
-        return False
+    if not replace:
+        if db.scalars(select(ItemImage.id).where(col == item_id)).first() is not None:
+            return False
+        if db.scalars(select(Source.id).join(ItemSource, ItemSource.source_id == Source.id)
+                      .where(link == item_id, has_image())).first() is not None:
+            return False
     folder = media.media_root() / "item-images"
     folder.mkdir(parents=True, exist_ok=True)
     name = f"google-{uuid.uuid4().hex}{ext}"
     tmp = folder / f".{name}.tmp"
     tmp.write_bytes(body)
     os.replace(tmp, folder / name)
+    if replace:
+        for row in db.scalars(select(ItemImage).where(col == item_id)).all():
+            if row.kind == "google":
+                if row.path:
+                    (media.media_root() / row.path).unlink(missing_ok=True)
+                db.delete(row)
+            else:
+                row.chosen = False
     db.add(ItemImage(kind="google", path=f"item-images/{name}", rank=0, chosen=True, attribution=author,
                      **{col.key: item_id}))
     db.commit()
@@ -77,3 +88,18 @@ def photo(kind: str, item_id: uuid.UUID, index: int, db: Session = Depends(get_d
     if index == 0:
         save_hero(db, kind, item_id, got[0], got[1], photos[0]["author"])
     return Response(got[0], media_type=got[1], headers={"Cache-Control": CACHE_CONTROL})
+
+
+@router.post("/api/google-photo/{kind}/{item_id}/{index}/use")
+def use_photo(kind: str, item_id: uuid.UUID, index: int, db: Session = Depends(get_db),
+              _: User = Depends(current_user)):
+    """Make this Google photo the item's hero (one counted download)."""
+    photos = google_places.photos_for(_query(db, kind, item_id))
+    if not 0 <= index < len(photos):
+        raise HTTPException(404)
+    got = google_places.fetch_photo(photos[index]["name"])
+    if got is None:
+        raise HTTPException(429 if google_places.capped() else 502, "No Google photo right now")
+    if not save_hero(db, kind, item_id, got[0], got[1], photos[index]["author"], replace=True):
+        raise HTTPException(409, "Saving Google photos is switched off")
+    return {"ok": True}
