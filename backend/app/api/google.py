@@ -41,5 +41,5 @@ def photo(kind: str, item_id: uuid.UUID, index: int, db: Session = Depends(get_d
         raise HTTPException(404)
     got = google_places.fetch_photo(photos[index]["name"])
     if got is None:
-        raise HTTPException(502, "Google did not return the photo")
+        raise HTTPException(429 if google_places.capped() else 502, "No Google photo right now")
     return Response(got[0], media_type=got[1], headers={"Cache-Control": CACHE_CONTROL})
