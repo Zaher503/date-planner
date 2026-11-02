@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     notify_targets: str = ""
 
     ticketmaster_key: str = ""
+    google_places_key: str = ""  # photos of places from Google Places (New); empty turns it off
+    google_photo_daily_cap: int = 30  # image downloads a day (the only billed request)
 
     photon_url: str = "http://photon:2322"
     osrm_car_url: str = "http://osrm-car:5000"

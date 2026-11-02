@@ -104,9 +104,30 @@
   const hero = $derived(pics.find((i) => i.chosen) ?? null);
   // The link's own thumbnail is the default hero until a picture is picked; with none, the first picture is
   const linkThumb = $derived(thumbSource?.thumb ?? videoSource?.thumb ?? null);
+  // Google Maps photos are the last resort: asked for only when the item has no picture of its own, and the
+  // server stops at a daily cap. One photo is the hero; the rest load when "More photos" is tapped.
+  let gphotos = $state<{ url: string; author: string | null }[]>([]);
+  let gPick = $state(0);
+  let gMore = $state(false);
+  const gKey = $derived(item && !hero && pics.length === 0 && !linkThumb ? `${item.type}:${item.id}` : null);
+  $effect(() => {
+    const key = gKey;
+    gphotos = [];
+    gPick = 0;
+    gMore = false;
+    if (!key) return;
+    const [type, id] = key.split(':') as [ItemType, string];
+    api
+      .googlePhotos(type, id)
+      .then((r) => {
+        if (gKey === key) gphotos = r.photos;
+      })
+      .catch(() => {});
+  });
+  const googleHero = $derived(gphotos[gPick]?.url ?? null);
   const linkIsHero = $derived(!hero && !!linkThumb);
   const heroPic = $derived(hero ?? (linkThumb ? null : (pics[0] ?? null)));
-  const heroSrc = $derived(heroPic?.url ?? linkThumb);
+  const heroSrc = $derived(googleHero ?? heroPic?.url ?? linkThumb);
   const canChange = $derived(pics.length + (linkThumb ? 1 : 0) > 1);
   const stamp = (s: number | null) => (s == null ? '' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 
@@ -397,6 +418,22 @@
               </button>
             {/each}
           </div>
+        {/if}
+
+        {#if gphotos.length}
+          {#if gphotos.length > 1 && !gMore}
+            <button class="btn small" onclick={() => (gMore = true)}>More photos ({gphotos.length - 1})</button>
+          {/if}
+          {#if gMore}
+            <div class="pics" role="group" aria-label="Place photos">
+              {#each gphotos as g, i (g.url)}
+                <button class="pic" class:on={gPick === i} onclick={() => (gPick = i)} title={g.author ? `Photo by ${g.author}` : 'Place photo'}>
+                  <img src={g.url} alt="Place on Google Maps" loading="lazy" />
+                </button>
+              {/each}
+            </div>
+          {/if}
+          <p class="muted gcredit">Place photos from Google Maps{gphotos[gPick]?.author ? `, by ${gphotos[gPick].author}` : ''}</p>
         {/if}
 
         <div class="mine">
@@ -853,6 +890,10 @@
     letter-spacing: 0.04em;
     text-transform: uppercase;
     font-size: 13px;
+  }
+  .gcredit {
+    margin: 4px 0 0;
+    font-size: 11.5px;
   }
   .noimg {
     display: block;
