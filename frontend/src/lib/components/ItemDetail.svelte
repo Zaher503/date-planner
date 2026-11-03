@@ -130,8 +130,9 @@
       .catch(() => (gLoaded = gKey === key));
   });
   // A new item starts over
+  const itemId = $derived(item?.id);
   $effect(() => {
-    void item?.id;
+    void itemId;
     gAsked = false;
   });
   // With no picture at all the first Google photo is the hero; its download saves it on the server, so refresh

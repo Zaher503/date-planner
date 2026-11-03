@@ -342,9 +342,17 @@
   // top, until the map is moved by hand.
   let frozen: ListItem[] = [];
   let restore = $state<{ rows: ListItem[]; top: string } | null>(null);
-  const rows = $derived(restore?.rows ?? liveRows);
+  // The kept rows stay in place but take the latest pictures, so a hero changed in the details shows in the list
+  function withFreshPictures(kept: ListItem[]): ListItem[] {
+    const now = new Map(liveRows.map((r) => [`${r.t}:${r.id}`, r]));
+    return kept.map((r) => {
+      const live = now.get(`${r.t}:${r.id}`);
+      return live ? { ...r, thumb: live.thumb, thumb_src: live.thumb_src, hero: live.hero } : r;
+    });
+  }
+  const rows = $derived(restore ? withFreshPictures(restore.rows) : liveRows);
   // With the details floating over the map the list stays put while the map moves
-  const shownRows = $derived(app.desktop && sel && frozen.length ? frozen : rows);
+  const shownRows = $derived(app.desktop && sel && frozen.length ? withFreshPictures(frozen) : rows);
 
   // The number on top counts what the map shows right now; the list below keeps everything
   const counts = $derived.by(() => {
