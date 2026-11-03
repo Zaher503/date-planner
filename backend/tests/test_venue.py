@@ -238,3 +238,31 @@ def test_vague_address_is_replaced_by_the_sites_street_address():
     k = ItemHint("place", "X", address="12 Main St")
     apply(k, {"address": "99 Other St"})
     assert k.address == "12 Main St"
+
+
+NAV_PAGE = """<html><body><nav>
+<a href="/plan-your-visit/">Plan Your Visit</a><a href="/our-adventures/">Our Adventures</a>
+<a href="/zipline-tours/">Zipline Tours</a><a href="/combo-packages/">Combo Packages</a>
+<a href="/parties/">Parties</a><a href="/groups/">Groups</a><a href="/faqs/">FAQs</a>
+<a href="/contact-directions/">Contact &amp; Directions</a><a href="/donations/">Donation Request</a></nav></body></html>"""
+
+
+def test_page_links_keep_hours_and_tour_price_pages_in_a_long_menu():
+    links = venue.page_links(NAV_PAGE, "https://zip.example.com/")
+    assert links[0] == "https://zip.example.com/contact-directions/"
+    assert "https://zip.example.com/zipline-tours/" in links
+    assert "https://zip.example.com/combo-packages/" in links
+    assert "https://zip.example.com/donations/" not in links
+
+
+PRICE_CARDS = """<html><body><nav>Tours from $5</nav><div class="card"><h3>Original Course</h3><p>10-minute hike</p>
+<p>6 ziplines</p><span>Starting at $99</span></div><div class="card"><h3>Speed Run</h3><span>Starting at $39</span></div>
+<p>Kids ride for $10 today</p></body></html>"""
+
+
+def test_price_lines_recovers_cards_the_text_extractor_dropped():
+    found = venue.price_lines(PRICE_CARDS, "Kids ride for $10 today")
+    assert "Original Course / 10-minute hike / 6 ziplines / Starting at $99" in found
+    assert "Speed Run / Starting at $39" in found
+    assert "Tours from $5" not in found  # the menu is skipped
+    assert "Kids ride" not in found  # already in the extracted text

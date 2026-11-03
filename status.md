@@ -1,6 +1,6 @@
 # Status
 
-Facts about the project as of **2026-10-31** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
+Facts about the project as of **2026-11-02** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 
 Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (they are stale, see Docs).
 
@@ -14,10 +14,9 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - **Standing venues and repeating events (PR #19, merged 2026-10-26):** places can be marked standing and their page is re-read weekly (`watch_scan`, 03:40); events the page drops are archived, never deleted. `recurrence.py` turns explicit patterns ("every Tuesday at 6pm", "every other Saturday", "third Friday") into an RRULE; `occurrences` is expanded 120 days ahead on save and nightly (03:55). The place page lists its events. Nothing is marked standing yet, so no scan has run.
 - **Live data cleanup (2026-10-30, done by hand on prod):** 56 places / 30 events became 43 / 22 (`scripts/cleanup-2026-10-30.sql` and `cleanup-2026-10-30-review.sql`). Rooms and exhibits that were saved as places (Cinegrill, Library Bar, Spare Room, Marilyn Monroe, The Horror Show, the Tutu Fun workshops, Sender City) are events on their parent venue; shows saved as places (The Empire Strips Back, Creep LA) are an event or deleted; wrong cities and websites fixed; 7 street-only addresses given street numbers; Academy exhibits have real dates; nothing is marked needs_review. Backups: `/srv/dateplanner/backups/pre-cleanup-2026-10-30.dump` and `pre-review-fixes-2026-10-30.dump`.
 - **Date-night planner API (PR #15, merged 2026-10-26):** `/api/plans/suggest` and plan CRUD are registered and tested (25 API tests, documented in `docs/API.md`). Not yet checked against the live database; there is no Plan page in the UI, and the `ics` link in a plan is a placeholder.
-- **Map UI:** SvelteKit + MapLibre, self-hosted PMTiles with a fallback to the live basemap, teardrop pins with category icons, rainbow cluster pins, per-category pin colours, list, detail/edit, Add box with live job toasts, review picker, per-user status/rating/notes, occurrence calendar, settings, PWA shell, version label.
-- **Redesign (`UI-08`, PR #24, 2026-10-31):** list and map with the search bar floating over the map. A Filters drawer over the list (phone: a tall sheet) holds Saved status (Want to go, Going, Been, Needs review), When (Today, This weekend, Next 7 days), five category groups, Distance (home or my location) and Archive; active filters show as removable tokens. Details float over the map on desktop; on phones the card expands upward. Type, Price, Tags and the other When options are no longer in the interface (URL and API still accept them, `UI-10`). **Not yet checked on the live site or a real phone** (`UI-09`).
+- **Map UI:** SvelteKit + MapLibre, self-hosted PMTiles with a fallback to the live basemap, teardrop pins with category icons, rainbow cluster pins, per-category pin colours, filter chips, list, detail/edit, Add box with live job toasts, review picker, per-user status/rating/notes, occurrence calendar, settings, PWA shell, version label.
 - **Platform:** Compose stack on the Zephyrus (db, api, worker, photon, osrm-car, osrm-foot, searxng, browser, tester), CI + CD on push to `main` with a self-hosted runner, Caddy + Cloudflare + Authentik (group `dates`: Zaher and Kathy), Homarr tile, weekly map-tile refresh (cron on the Zephyrus), keyed import-tester service for the daily check.
-- **Tests:** backend 382 passed, frontend 33 passed, svelte-check clean (as of PR #24). CI runs ruff with only the minimal error rules (`E9,F63,F7,F82`).
+- **Tests:** backend 382 passed, frontend 27 passed, svelte-check clean (on the #22 branch). CI runs ruff with only the minimal error rules (`E9,F63,F7,F82`).
 
 ## Half-built (code exists, not wired up)
 
@@ -40,7 +39,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 
 ## Open import-quality gaps (from the daily reports, plain words)
 
-- Page-wide address, hotel name and phone in a listing page's footer now go to the event extractor for text-read pages (PR pending, `IM-01.1`); not yet checked live, and pages with JSON-LD events do not get the footer (2026-10-17).
+- Page-wide address and phone in a listing page's footer now reach every event on text-read pages (checked live 2026-11-01, `IM-01`); pages with JSON-LD events do not get the footer yet (`IM-25`). The same page shows a hotel's $49 destination fee as an event price (`IM-26`) and has four events with room names as titles and no dates (`IM-05`).
 - Recurring shows with an explicit pattern now become an RRULE (#19); show times written as "8 PM" or "doors 7, show 8" are still not turned into a start time (2026-10-17, `IM-04`).
 - A street without a number is accepted as an address, and the local Photon can return a wrong match for a full street address (an AM radio station, a ranger station, a law firm); 7 live places needed fixing by hand (2026-10-30, `IM-22`).
 - Rooms, exhibits and workshops inside a bigger venue were saved as separate places, some geocoded to other states (2026-10-30, `IM-23`).
@@ -53,6 +52,8 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - The price shown is the original ticket price while the page says the event is off sale (2026-10-23).
 - A free line in a price list ("toddlers free") no longer marks a paid place Free; the range still starts at $0 (2026-10-25, `IM-20`).
 - Drive-in showtimes and "box office opens an hour before" are not read (2026-10-25, `IM-21`).
+- Single-business pages read only from structured data get no description, minimum age or booking link; the branch-name-only title is fixed (2026-10-31, `IM-24`).
+- Venue sites: tour and package pages are now opened and price-card lines recovered (PR for 2026-11-02, not yet live), but the model still leaves "Starting at $99" prices empty (`IM-27`); structured hours can override the page's fall hours (`IM-28`).
 - Instagram is a review stub only (by choice).
 
 ## Waiting on Zaher
