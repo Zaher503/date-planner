@@ -200,6 +200,11 @@ def map_point(html: str) -> tuple[float, float, str] | None:
     return None
 
 
+# A city or county site's footer is the town hall's address, not that of the park or venue
+# whose page it sits on (the Oak Canyon Nature Center page ended in City Hall's street).
+CIVIC_FOOTER = re.compile(r"\b(?:city|county|town|village) of (?!industry|commerce|angels)|\bcity hall\b|\bcivicplus\b|\bcivicengage\b", re.I)
+
+
 def footer_text(html: str) -> str:
     """Text of the page's footer. Article extraction drops it, but small venue sites keep their
     address and phone only there."""
@@ -215,7 +220,8 @@ def footer_text(html: str) -> str:
         text = " ".join(" ".join(el.itertext()).split())
         if text and not any(text in p for p in parts):
             parts = [p for p in parts if p not in text] + [text]
-    return "\n".join(parts)[:800]
+    foot = "\n".join(parts)[:800]
+    return "" if CIVIC_FOOTER.search(foot) else foot
 
 
 def with_footer(text: str, html: str) -> str:

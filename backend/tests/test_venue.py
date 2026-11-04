@@ -238,3 +238,15 @@ def test_vague_address_is_replaced_by_the_sites_street_address():
     k = ItemHint("place", "X", address="12 Main St")
     apply(k, {"address": "99 Other St"})
     assert k.address == "12 Main St"
+
+
+def test_city_site_footer_is_not_taken_as_the_park_address():
+    html = ("<html><body><div id='content'><p>Oak Canyon Nature Center</p></div><footer>"
+            "City of Anaheim 200 S. Anaheim Blvd. Anaheim, CA 92805 (714) 765-5162</footer></body></html>")
+    assert venue.footer_text(html) == ""
+    assert venue.with_footer("Oak Canyon Nature Center", html) == "Oak Canyon Nature Center"
+
+
+def test_footer_with_city_of_industry_address_is_kept():
+    html = "<html><body><footer>Fun Zone 1 Main St, City of Industry, CA 91746</footer></body></html>"
+    assert "City of Industry" in venue.footer_text(html)
