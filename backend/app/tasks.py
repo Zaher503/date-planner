@@ -57,6 +57,17 @@ def expand_occurrences(db: Session, job: Job) -> dict:
     return occurrences.refresh_all(db)
 
 
+@handler("backup")
+def backup(db: Session, job: Job) -> dict:
+    """Nightly pg_dump into DATA_DIR/backups; the newest 7 are kept."""
+    from app import backup as bk
+    try:
+        return bk.run_backup()
+    except bk.BackupError as e:
+        e.permanent = False  # a failed dump is worth another try
+        raise
+
+
 @handler("refresh_home")
 def refresh_home(db: Session, job: Job) -> dict:
     """Map center and discovery origin follow HA zone.home unless set by hand."""
