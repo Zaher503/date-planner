@@ -11,8 +11,8 @@ RUN if [ -f package.json ]; then \
 FROM python:3.12-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1 PIP_ROOT_USER_ACTION=ignore
 WORKDIR /app
-# ffmpeg for audio and frames (slow path)
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*
+# ffmpeg for audio and frames (slow path); pg_dump 17 (same major as the db image) for the nightly backup job
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl gnupg  && install -d /usr/share/keyrings  && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/pgdg.gpg  && echo "deb [signed-by=/usr/share/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list  && apt-get update && apt-get install -y --no-install-recommends postgresql-client-17  && rm -rf /var/lib/apt/lists/*
 COPY backend/requirements.txt .
 RUN pip install -r requirements.txt
 COPY backend/ .
