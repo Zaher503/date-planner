@@ -141,6 +141,7 @@ def run_import(url: str, state: dict) -> dict:
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc)
     hints = [pipeline.tidy(h, now) for h in g.hints if h.name or h.event_title]
+    hints = pipeline.demote_offerings(hints, src.url if src.kind == "event_page" else None)
     if any(h.kind == "event" and not pricing.has_price(h) for h in hints):
         jobs.set_stage(db, job, "checking ticket prices", 44)
         try:
