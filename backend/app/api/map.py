@@ -107,7 +107,7 @@ def place_props(r) -> dict:
         "thumb": r.thumb_src is not None or _hero_id(r) is not None,
         **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
         **({"hero": _hero_id(r)} if _hero_id(r) else {}),
-        "tags": list(r.tags or [])[:MAX_TAGS],
+        "tags": list(r.tags or [])[:MAX_TAGS], "added": _iso(r.created_at),
     }
 
 
@@ -127,7 +127,7 @@ def event_props(r, now: datetime) -> dict:
         "thumb": r.thumb_src is not None or _hero_id(r) is not None,
         **({"thumb_src": str(r.thumb_src)} if r.thumb_src else {}),
         **({"hero": _hero_id(r)} if _hero_id(r) else {}),
-        "tags": list(r.tags or [])[:MAX_TAGS],
+        "tags": list(r.tags or [])[:MAX_TAGS], "added": _iso(r.created_at),
         "archived": event_ended(status=r.status, starts_at=r.starts_at, ends_at=r.ends_at,
                                 duration_min=r.duration_min, all_day=r.all_day,
                                 is_recurring=r.rrule is not None or r.recurrence_text is not None, now=now,

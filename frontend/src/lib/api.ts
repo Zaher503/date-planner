@@ -48,6 +48,8 @@ export interface ItemProps {
   tags: string[];
   place_id?: string | null;
   archived?: boolean;
+  /** When the item was saved */
+  added?: string | null;
 }
 
 export interface MapFeature {
