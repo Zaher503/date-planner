@@ -97,3 +97,14 @@ def archive(db: Session, job: Job) -> dict:
     except Exception as e:  # pictures are a nicety
         log.warning("frame pictures failed for %s: %s", src.id, e)
     return {"archived": kinds, "bytes": sum(p.stat().st_size for p in (dl.video, dl.thumb) if p)}
+
+
+@handler("ytdlp_update")
+def ytdlp_update_job(db: Session, job: Job) -> dict:
+    """Weekly: fetch the newest yt-dlp so TikTok / YouTube downloads keep working."""
+    from app import ytdlp_update
+    try:
+        return ytdlp_update.run_update()
+    except ytdlp_update.UpdateError as e:
+        e.permanent = True  # the next weekly run tries again
+        raise
