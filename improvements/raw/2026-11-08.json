@@ -1,0 +1,26 @@
+{
+ "id": "4077e8d9",
+ "url": "https://www.youtube.com/watch?v=_NFglU-VI3g",
+ "status": "failed",
+ "stage": "reading with the local model",
+ "pct": 35,
+ "stages": [
+  {
+   "t": 0.1,
+   "stage": "reading the link",
+   "pct": 10
+  },
+  {
+   "t": 6.9,
+   "stage": "reading with the local model",
+   "pct": 35
+  }
+ ],
+ "logs": [
+  "11:26:13 INFO app.ingest.media: no subtitles: yt-dlp failed: ERROR: Unable to download video subtitles for 'en': HTTP Error 429: Too Many Requests",
+  "Traceback (most recent call last):\n  File \"/app/app/llm/ollama.py\", line 142, in chat_json\n    r.raise_for_status()\n  File \"/usr/local/lib/python3.12/site-packages/httpx/_models.py\", line 829, in raise_for_status\n    raise HTTPStatusError(message, request=request, response=self)\nhttpx.HTTPStatusError: Server error '502 Bad Gateway' for url 'http://ai-hub:11434/api/chat'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502\n\nThe above exception was the direct cause of the following exception:\n\nTraceback (most recent call last):\n  File \"/app/import-tester/server.py\", line 184, in worker\n    state[\"result\"] = run_import(url, state)\n                      ^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/import-tester/server.py\", line 131, in run_import\n    g = pipeline._from_youtube(db, job, src)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/ingest/pipeline.py\", line 138, in _from_youtube\n    is_list, hints = _llm(db, job, llm.extract, text, posted=posted)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/ingest/pipeline.py\", line 70, in _llm\n    return fn(*args, **kwargs)\n           ^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/llm/extract.py\", line 210, in extract\n    out = chat_json(system, text[:12000], SCHEMA)\n          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/app/app/llm/ollama.py\", line 149, in chat_json\n    raise LLMError(f\"local model call failed: {type(e).__name__}: {e}\") from e\napp.llm.ollama.LLMError: local model call failed: HTTPStatusError: Server error '502 Bad Gateway' for url 'http://ai-hub:11434/api/chat'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502\n"
+ ],
+ "result": null,
+ "error": "LLMError: local model call failed: HTTPStatusError: Server error '502 Bad Gateway' for url 'http://ai-hub:11434/api/chat'\nFor more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/502",
+ "elapsed": 7.0
+}
