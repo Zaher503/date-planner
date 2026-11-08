@@ -21,13 +21,9 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
-- [~] `IM-01` Page-wide address, hotel name and phone from a listing page's footer apply to every event on it (report 2026-10-17). Test with the saved fixture.
-  - [x] `IM-01.1` Footer is passed to the extractor for pages read as text, with a rule that it applies to every event without its own address (2026-10-26, unit tests only).
-  - [ ] `IM-01.2` Rerun the Hollywood Roosevelt link on the live tester after the PR is deployed; if the model still ignores the footer, copy a single footer address onto events that have none in code. Pages that carry JSON-LD events do not get the footer yet.
-- [ ] `DS-01` Wire the iCal adapter: add `ical_feeds` to `ADAPTERS`, feed list kept in settings (API only), tests from a saved feed.
-- [ ] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
-  - [ ] `LC-01.1` Backup job and its test (command built correctly, retention).
-  - [ ] `LC-01.2` Weekly yt-dlp update job.
+- [x] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
+  - [x] `LC-01.1` Backup job and its test (command built correctly, retention). Runs 02:30 daily; needs `pg_dump` 17 in the app image (Dockerfile.app changed), so check the first real backup after deploy.
+  - [x] `LC-01.2` Weekly yt-dlp update job (done 2026-11-07): Sundays 03:10, installs the newest yt-dlp into `DATA_DIR/ytdlp`, swapped in only if it starts; downloads prefer that copy. Check the first run in the worker log after deploy (`LC-10`).
 - [ ] `QA-01` Widen the CI lint from `E9,F63,F7,F82` to the default ruff rules plus `I` (imports); fix what it finds without changing behaviour.
 - [ ] `DOC-01` Rewrite the `README.md` status table and "Next step", and the `docs/PLAN.md` header status, from `status.md`. Retire `docs/TODO-ZAHER.md` (point it at `status.md`).
 - [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
@@ -35,6 +31,7 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Needs Zaher
 
+- [!] [Z] `LC-11` The Zephyrus GPU driver is hung (found 2026-11-08, about 03:36 local): 554 `nvidia-smi` processes stuck in uninterruptible wait, load average about 563, about 200 MB RAM free, `docker ps` hangs. The AI hub answers 502, so every import that needs the model fails on the live app too (and Foodbox / the Transcriber share the GPU). Needs a reboot of the Zephyrus (or an NVIDIA driver reset); the auto task does not restart servers. Recommendation: reboot, then look at why `nvidia-smi` hangs (driver update, or whatever polls it every few minutes, e.g. a monitoring widget). After that, `LC-12`.
 - [ ] [Z] `DOC-02` Git housekeeping: 8 stale `auto-improve/*` worktrees under Temp and about 10 fully merged local/remote branches (listed in `status.md`). Approve deleting them; the auto task never deletes branches.
 - [ ] [Z] `LC-02` Check the live site after the 2026-10-23 deploys (Archive chip, 21+ line, pins, Settings > Pin colors) and try the video slow path once with a captionless TikTok. Report what is wrong and the auto task will turn it into `[!]` items.
 - [ ] [Z] `UI-09` Try the redesign (PR for `UI-08`) on the live site on the phone and on desktop: Filters sheet and drawer, details card and expanding, floating details, dark and light. Report what is wrong and the auto task will turn it into `[!]` items. Not yet checked against the real backend or a real phone.
@@ -49,7 +46,7 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 ### Import quality (IM)
 Source of most items: the daily reports in `improvements/` ("Still not fixed"). Fix the general cause, add a test from a saved fixture.
 - [ ] `IM-04` Show times like "8 PM" or "doors 7, show 8" in event text become a start time when the date is known; verified against the page text.
-- [ ] `IM-05` Event titles: when a listing gives only a room or stage name, take the show title from the line next to it. Check the $0 price on the magic show against its ticket page.
+- [ ] `IM-05` Event titles: when a listing gives only a room or stage name (still true 2026-11-01: the Hollywood Roosevelt page gives four events named Cinegrill Theater, Cinegrill Theater, Library Bar, Spare Room, none with a date), take the show title from the line next to it. Check the $0 price on the magic show against its ticket page.
 - [ ] `IM-06` Opening hours only found on third-party pages: store them flagged "from another site, please check" instead of dropping them.
 - [ ] `IM-07` Read a venue's tours / experiences pages (day rides, evening rides, private rides) and fill durations and price tiers. Deps: `IM-06`.
 - [ ] `IM-08` "Free" only from the event's own text, never from a site's menus or "create your event page for free" footers (finish what #11 started, with a regression fixture).
@@ -65,6 +62,16 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] [Z] `IM-19` Decisions from the live-DB check: multi-location businesses (Lumee: one item per store?), undated workshops/classes (an "offerings" concept or place-with-note?), minimum age on places. Stopgap used on 2026-10-30: each Sender One gym stays its own place; the Tutu Fun workshops are events on the place, with prices and "Book online for a time slot" instead of a date. Confirm or change.
 - [ ] `IM-22` Addresses: do not accept a street without a house number as final (look the number up on the venue's own page or by web search), and reject a Photon match whose name or street does not fit the venue. Seven live places had street-only addresses and three got a wrong Photon match (an AM radio station, a ranger station, a law firm). Found 2026-10-30.
 - [ ] `IM-23` A room, exhibit, show or workshop inside a bigger venue becomes an event on that venue, not a place (Cinegrill and Library Bar inside the Hollywood Roosevelt, exhibits at the Academy Museum, Tutu Fun workshops, a touring show geocoded to another state). Check the host-venue field (`inside`) and the address overlap with an existing place before creating a place. Found 2026-10-30; the live rows were fixed by hand.
+- [ ] `IM-25` Pages that carry JSON-LD events do not get the page footer (address, phone, venue name) yet; pass it to that path too, or copy a single footer address onto events that have none. Split off from `IM-01` on 2026-11-01 (the text-read path works live).
+- [ ] `IM-26` A hotel's "Daily Destination Fee" ($49) was saved as the price tier of the Cinegrill and Library Bar events (Hollywood Roosevelt, 2026-11-01). Ignore resort / destination / service fees as ticket or entry prices, and do not read a venue's room-rate or fee text for an event inside a hotel.
+- [ ] `IM-27` Price cards ("Original Course ... Starting at $99") reach the model now (2026-11-02) but gemma4:e4b still leaves the price empty (Skull Canyon). Build tiers from the card lines directly: item name from the lines above, number after "Starting at", checked against the page. Found 2026-11-02.
+- [ ] `IM-28` When the site's structured hours and its page text disagree (Skull Canyon: Friday to Tuesday 9-5 vs fall list with Wed/Thu closed), prefer the page's day-by-day hours for the weekly-hours field. Found 2026-11-02.
+- [ ] `IM-29` Municipal park pages (Oak Canyon Nature Center, 2026-11-04): with the City Hall footer gone the address stays empty. Find the park's own address, phone and "sunrise to sunset, seven days" hours by searching the name plus city, and prefer the page that was shared (www.anaheim.net/1096) over an old subdomain (local.anaheim.net) as the website. Also "suggested $5 donation" is free entry.
+- [ ] `IM-30` Safety check: when the geocoded point is more than a few km from the place found by name search, or the address equals the address of a city office / unrelated organisation, mark the place "address unsure" instead of pinning it. Found 2026-11-04.
+- [ ] `IM-31` Booking-widget businesses (Sunburst Railbikes, 2026-11-06): the price per bike and the trip calendar live inside a FareHarbor widget that the plain page read cannot render, so price and hours stay empty. Try the browser path for `fareharbor.com` embeds, or read the price from the page's "From $" text; never invent a number.
+- [ ] `IM-32` A business home page should give one place for the business itself (the 2-hour railbike ride, 8 miles) plus dated events; today the ride is missing and only promotions came out. Ask the model for the main experience when the page lists seasonal banners.
+- [ ] `IM-33` Rerun the City of Los Angeles video "Things To Do (for the weekend of November 6th)" (https://www.youtube.com/watch?v=_NFglU-VI3g) once the AI hub is back: its description lists three free events with full date, time and address, a good test of one video becoming several events (two are already past by now, so it also tests the past-event flag). Blocked 2026-11-08 by `LC-11`; the expected values are in `improvements/2026-11-08.md`.
+- [ ] `IM-24` Single-business pages read only from structured data (Activate Culver City, 2026-10-31) get no description, minimum age or booking link; run the page text through the model for the missing fields, or use the page's own summary. Name fix done 2026-10-31.
 - [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed).
 - [ ] `IM-21` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
 - [ ] `IM-15` Import checks beyond TikTok and articles: Reddit threads, Google Maps lists, Yelp / Time Out roundups, a shared screenshot. One per daily check, record the result.
@@ -81,7 +88,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `DS-07` Overpass new places in interest categories (cache 30 days, about 100 calls a day at most).
 - [ ] `DS-08` Adapter health shown in Settings (dot per source, last ok, last error).
 - [ ] `DS-09` Ticketmaster terms: purge Ticketmaster events 30 days after they end; link back to the ticket page; stay under 2 req/s. Deps: `DS-03`.
-- [ ] `DS-10` Settings screen to add iCal/RSS feeds. Deps: `DS-01`.
+- [ ] `DS-10` Settings screen to add iCal/RSS feeds (the `GET/PUT /api/discover/feeds` API exists since `DS-01`). Deps: `DS-01` done.
 
 ### Inbox and interests (IB)
 - [ ] `IB-02` Interests API (`GET/PUT /api/interests`) and a seed-tag picker in Settings; controlled tag vocabulary (category, vibe, setting, time of day, budget).
@@ -101,6 +108,9 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `PL-07` Homarr widget `GET /widget` ("This weekend: N plans, M suggestions", next 3 items). Deps: `IB-05`.
 
 ### Lifecycle and ops (LC)
+- [ ] `LC-09` After the first deploy with `LC-01.1`, check `/srv/dateplanner/backups` has a `dates-*.dump` and that `pg_restore -l` reads it. Folds into the restore test of `LC-03`.
+- [ ] `LC-10` After the first deploy with `LC-01.2`, check the worker log on a Sunday for "yt-dlp X -> Y" and that `/srv/dateplanner/data/ytdlp` exists (needs PyPI reachable from the worker container).
+- [ ] `LC-12` GPU watchdog: a small check (cron on the Zephyrus or a worker job) that runs `timeout 10 nvidia-smi` and asks the AI hub for `/api/tags`; on failure send one Home Assistant push ("Dates: AI hub down") instead of letting imports fail silently. Found 2026-11-08 (`LC-11`). Deps: `LC-11`.
 - [ ] `LC-03` NAS backup pull (`datespull` forced-command account, same shape as `recipebox-pull.sh`) plus a restore test of the latest dump into a scratch database. Deps: `LC-01`. Script only; Zaher runs the NAS side.
 - [ ] `LC-04` Monthly re-verify of places in batches (closed venues, moved addresses); flag, never delete.
 - [x] `LC-05` RRULE expansion into `occurrences` 120 days ahead, nightly, plus on save (done in #19: `recurrence.py`, `expand_occurrences` at 03:55).
@@ -134,6 +144,14 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
+- 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
+- 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests
+- 2026-11-04 (check) `IM-00` Oak Canyon Nature Center (Anaheim city page): a city or county site's footer (City Hall address) is no longer taken as the park's address; phone, hours, free entry and the right website still missed (`IM-29`, `IM-30`)
+- 2026-11-03 (item) `DS-01` iCal feed adapter wired in: registered in `ADAPTERS`, feed list kept in `adapter_state` and edited with `GET/PUT /api/discover/feeds`, the dry run builds it from the stored list; `icalendar` and `recurring-ical-events` added to requirements (they were missing); 7 tests from the saved sample feed
+- 2026-11-02 (check) `IM-00` Skull Canyon Ziplines: more site pages read (tours, packages, six instead of four, hours and price pages first), dropped price-card lines recovered, current-season hours preferred; card prices still missing (`IM-27`, `IM-28`)
+- 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
 - 2026-10-31 (item) `UI-08` Redesign: new blue / Inter look with glass panels, a Filters drawer (phone: tall sheet) with Saved status, When, five category groups, Distance and Archive, filters shown as removable tokens in the search bar, details floating over the map on desktop, details card that expands on phones with Directions / Website / Call / Tickets / Share, PR #24
 - 2026-10-30 (item) `IM-00` Exhibitions keep their start and end dates at import and age into the Archive by themselves; an event with only a closing date also archives; Archive / Restore button on the event card; prod data cleanup (56 places / 30 events to 43 / 22, nothing left to review) with its two SQL scripts, PR #22 (open)
 - 2026-10-26 (item) `IM-00` Standing venues: weekly page scan, repeating events with RRULE expansion (`LC-05`), events list on the place page, PR #19
