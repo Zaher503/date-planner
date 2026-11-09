@@ -7,7 +7,6 @@ Built to stay inside Google's free tiers, and its rules:
 - Place ids may be remembered, photo names may not (Google's terms): each image looks its name up fresh."""
 import json
 import logging
-import time
 from datetime import date
 
 import httpx

@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.dialects import postgresql
 
-from app.api.filters import archived, event_conditions, event_ended, parse_filters
+from app.api.filters import event_conditions, event_ended, parse_filters
 
 NOW = datetime(2026, 10, 23, 12, tzinfo=timezone.utc)
 
