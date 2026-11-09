@@ -6,12 +6,11 @@ Create Date: 2026-10-10 08:20:50.274227
 """
 from collections.abc import Sequence
 
-import geoalchemy2
 import pgvector.sqlalchemy
 import sqlalchemy as sa
 from alembic import op
-from sqlalchemy.dialects import postgresql
 from geoalchemy2 import Geography
+from sqlalchemy.dialects import postgresql
 
 revision: str = '2c0040aef50e'
 down_revision: str | None = None

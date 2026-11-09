@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from app.hours import is_open, parse
+from app.hours import is_open
 
 # 2026-10-05 is a Monday
 MON, TUE, WED, THU, FRI, SAT, SUN = (datetime(2026, 10, d) for d in range(5, 12))

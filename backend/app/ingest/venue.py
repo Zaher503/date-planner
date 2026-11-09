@@ -15,9 +15,9 @@ from lxml import html as lxml_html
 from sqlalchemy.orm import Session
 
 from app import browser, hours
+from app.ingest import maps_links, pricing
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
-from app.ingest import maps_links, pricing
 from app.ingest.page_images import SKIP_URL, _side, _src
 from app.llm import verify
 from app.llm.ollama import LLMError, chat_json

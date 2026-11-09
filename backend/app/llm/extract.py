@@ -4,8 +4,8 @@ from zoneinfo import ZoneInfo
 
 from app.ingest.items import CATEGORIES, ItemHint
 from app.llm import verify
-from app.textclean import clean_name
 from app.llm.ollama import chat_json
+from app.textclean import clean_name
 
 MAX_ITEMS = 15
 

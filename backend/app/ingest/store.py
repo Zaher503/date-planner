@@ -9,8 +9,9 @@ from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.db.models import AppSettings, Candidate as CandidateRow, Event, ItemSource, Occurrence, Place, Source
 from app import occurrences
+from app.db.models import AppSettings, Event, ItemSource, Occurrence, Place, Source
+from app.db.models import Candidate as CandidateRow
 from app.ingest import completeness, provenance
 from app.ingest.items import ItemHint
 from app.resolve.candidates import Candidate
@@ -214,10 +215,10 @@ def link(db: Session, source: Source, *, place: Place | None = None, event: Even
          position: int = 0, confidence: float | None = None) -> None:
     values = {"source_id": source.id, "position": position, "confidence": confidence}
     if event is not None:
-        values["event_id"], idx = event.id, "uq_item_sources_event"
+        values["event_id"] = event.id
         where = text("event_id IS NOT NULL")
     else:
-        values["place_id"], idx = place.id, "uq_item_sources_place"
+        values["place_id"] = place.id
         where = text("place_id IS NOT NULL")
     cols = ["source_id", "event_id" if event is not None else "place_id"]
     db.execute(insert(ItemSource).values(**values).on_conflict_do_nothing(index_elements=cols, index_where=where))
