@@ -143,7 +143,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
-- 2026-11-09 (item) `QA-01` CI lint widened to ruff's default rules plus import sorting; 25 findings fixed (import order, 7 unused imports, one unused variable, two test-style nits), tests 391 passed before and after; import check skipped because the Zephyrus is still hung (`LC-11`), PR #PRNUM
+- 2026-11-09 (item) `QA-01` CI lint widened to ruff's default rules plus import sorting; 25 findings fixed (import order, 7 unused imports, one unused variable, two test-style nits), tests 391 passed before and after; import check skipped because the Zephyrus is still hung (`LC-11`), PR #33
 - 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
 - 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
 - 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests
