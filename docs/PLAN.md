@@ -6,22 +6,11 @@ Zaher saves date ideas as TikToks, event pages and map links, and they get lost 
 
 Constraints: everything runs on the **Zephyrus** (RTX 3070 8 GB, 16 GB RAM, Debian 13), only free services (no trials, nothing that needs a card), it lives behind Caddy and Authentik at **dates.zkocr.com**, and it shows up in **Homarr**. Recipe Box (`~/recipebox` on the Zephyrus, documented in `~/.claude/skills/homelab/recipe-box.md`) already solves video download, Whisper, the Ollama vision model and the Cloudflare browser fallback, so this app reuses those patterns and shares its Ollama container.
 
-## Status (updated 2026-10-10, end of session 2)
+## Status (updated 2026-11-10)
 
-**Phases 1-3 are done and deployed. Phases 4-5 (and most of 6) are built and committed on `main` but NOT yet deployed/verified** - that's blocked on Zaher running `scripts/deploy.sh` himself (see `docs/TODO-ZAHER.md`). Two further phases are partially built on unmerged worktree branches. This file (`docs/PLAN.md` in the repo `C:\Users\z503\Desktop\Date planner`, local git only, one commit per task) is the main copy of the plan; keep it updated as phases finish. The README has the current layout, commands and what works.
+The current state is kept in [status.md](../status.md) and the build order in [Roadmap.md](../Roadmap.md); read those first. This file is the design: the original plan below, with the changes made during the build listed under "Changes made during the build".
 
-| Phase | State |
-|---|---|
-| 1 Foundation | Done. Compose project `dates` (db, api, worker), Alembic, `/healthz`, keyed `/api/add`, identity header trusted only from the NAS, `scripts/deploy.sh` |
-| 2 Geo infra | Done. Photon US db (14 GB), SoCal PMTiles (487 MB, `/srv/dateplanner/tiles/region.pmtiles`), OSRM car + foot (SoCal), SearXNG. `/api/health/services` all green |
-| 3 Ingestion fast path | Done. TikTok, maps links, JSON-LD pages, free text; resolver; dedup/merge; review API. Golden set 28/28, 0 wrong auto-accepts |
-| Ticketmaster adapter | Built and tested, key set 2026-10-10 (`TICKETMASTER_KEY` in `~/dateplanner/.env`); dry run returns ~760 events in 4 calls |
-| 4 UI v1 | **Built, not deployed.** Full SvelteKit app (map, filters, list, detail/edit, Add box with live job toasts, settings, PWA shell) plus the backend routes it needs (`map.py`, `items.py`, etc.), served from the API image. Needs `scripts/deploy.sh` + a live check (map loads, pins show, worker has GPU). Known bug: in the offline mock the map sometimes never fires `style.load`, so pins don't show - may be mock-only (no tiles/sprites there) |
-| 5 Slow path + inputs | **Built, not deployed.** yt-dlp, faster-whisper, frame OCR, media archive, screenshot uploads, YouTube metadata/subtitles; worker given `runtime: nvidia`. Needs the same deploy + verify pass as Phase 4, plus one real captionless-TikTok test to exercise Whisper |
-| 6 Edge wiring | **Partially done.** Caddy block (`deploy/caddy-snippet.txt`), the Shortcut guide (`docs/SHORTCUT.md`) and `add-date.ps1` are written. Cloudflare CNAME, the Authentik app/group (`dates`, add Katherine), and installing the Caddy block on the NAS still need Zaher |
-| 7 Interests + discovery | Started. Ticketmaster adapter done, waiting on key. RA/Luma/Eventbrite/iCal adapters half-built on branch `worktree-agent-acbe7cae544aaddc2`, stopped partway and not merged |
-| 8 Planner + calendar | Half-built on branch `worktree-agent-a110dca7936cb47f7` (OSRM picker + per-item ICS), stopped partway and not merged |
-| 9 Lifecycle + ops | Not started |
+In short: phases 1-6 are live at dates.zkocr.com (repo `Zaher503/date-planner` on GitHub, CI and CD on every push to `main`). Phase 7 has the discovery adapters but nothing writes, schedules or scores their results yet. Phase 8 has the planner API but no Plan page or calendar export. Phase 9 has the Archive, standing-venue scan, repeating events and the Homarr tile; backups and the yt-dlp update are written but not merged.
 
 **Answers given after the quiz:** partner is **Katherine** (HA `mobile_app_katherines_phone`, already in NOTIFY_TARGETS; add her to the Authentik `dates` group in Phase 6). Radius is **40 km** (HA uses miles, so show miles in the UI). Home = HA `zone.home` = Los Angeles (34.0461, -118.3265). Big downloads were approved and are done.
 
