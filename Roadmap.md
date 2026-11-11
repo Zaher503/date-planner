@@ -146,7 +146,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
-- 2026-11-11 (check) `IM-33` City of Los Angeles weekend video (YouTube, three free events): a start time written as a range with one am/pm ("3–7 PM", "2–4 PM") is no longer dropped as unverified; the Zephyrus is back (`LC-11` closed) but the 2026-11-07 deploy never finished (`LC-13`); info links, the parade's pin and captions still missed (`IM-34`, `IM-35`, `IM-36`), PR #PRNUM
+- 2026-11-11 (check) `IM-33` City of Los Angeles weekend video (YouTube, three free events): a start time written as a range with one am/pm ("3–7 PM", "2–4 PM") is no longer dropped as unverified; the Zephyrus is back (`LC-11` closed) but the 2026-11-07 deploy never finished (`LC-13`); info links, the parade's pin and captions still missed (`IM-34`, `IM-35`, `IM-36`), PR #35
 - 2026-11-10 (item) `DOC-01` README status table, "Next step" and layout table, and the `docs/PLAN.md` header status rewritten from `status.md`; `docs/TODO-ZAHER.md` retired to a pointer; import check skipped again because the Zephyrus is still hung (`LC-11`), PR #34
 - 2026-11-09 (item) `QA-01` CI lint widened to ruff's default rules plus import sorting; 25 findings fixed (import order, 7 unused imports, one unused variable, two test-style nits), tests 391 passed before and after; import check skipped because the Zephyrus is still hung (`LC-11`), PR #33
 - 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
