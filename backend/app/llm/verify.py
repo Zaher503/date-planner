@@ -42,8 +42,14 @@ def time_supported(hhmm: str | None, text: str) -> bool:
         # 8:00 / 08:00 / 8:30 / 8.30
         if re.search(rf"(?<![\d:]){hr:d}[:.]{mi:02d}(?!\d)", low) or re.search(rf"(?<![\d:]){hr:02d}:{mi:02d}(?!\d)", low):
             return True
+    if mi != 0:
+        return False
     # 8pm / 8 p.m. / 8 o'clock (whole hours only)
-    return mi == 0 and bool(re.search(rf"(?<![\d:]){h12}\s*(am|pm|a\.m\.|p\.m\.|o'?clock)", low))
+    if re.search(rf"(?<![\d:]){h12}\s*(am|pm|a\.m\.|p\.m\.|o'?clock)", low):
+        return True
+    # Start of a range that names am/pm once, after the end: "3-7 PM", "3 to 7:30 p.m."
+    return bool(re.search(
+        rf"(?<![\d:$.]){h12}\s*(?:[-–—]|to|until|till?)\s*\d{{1,2}}(?:[:.]\d{{2}})?\s*(am|pm|a\.m\.|p\.m\.)", low))
 
 
 def date_supported(d: date | None, text: str) -> bool:

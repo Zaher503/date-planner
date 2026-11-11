@@ -14,6 +14,12 @@ def test_time_supported():
     assert verify.time_supported("12:00", "brunch from noon")
     assert not verify.time_supported("21:00", "Doors at 8pm")
     assert not verify.time_supported("20:00", "top 8 rooftops")  # bare number is not a time
+    # A range that names am/pm once backs its start too
+    assert verify.time_supported("15:00", "Friday, November 6, 2026 | 3–7 PM")
+    assert verify.time_supported("14:00", "2-4 PM")
+    assert verify.time_supported("18:00", "6 to 9:30 p.m.")
+    assert not verify.time_supported("15:00", "ages 3-7 welcome")
+    assert not verify.time_supported("15:00", "$3-7 pm specials")
 
 
 def test_date_supported():
