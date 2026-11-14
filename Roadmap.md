@@ -153,7 +153,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
-- 2026-11-14 (check) `IM-37` Hollywood Bowl Steve Lacy concert page: structured data that points to the venue and to the dated show by `@id` is now resolved, so it comes out as a Nov 21 event at Hollywood Bowl (2301 Highland Ave) instead of an undated "museum"; price and gate time still missed (`IM-38`), PR pending
+- 2026-11-14 (check) `IM-37` Hollywood Bowl Steve Lacy concert page: structured data that points to the venue and to the dated show by `@id` is now resolved, so it comes out as a Nov 21 event at Hollywood Bowl (2301 Highland Ave) instead of an undated "museum"; price and gate time still missed (`IM-38`), PR #37
 - 2026-11-12 (item) `PL-02.1` Planner client for the app: types, API calls and helpers for the suggest / save / list / delete plan routes, 5 tests; no visible change yet, `PL-02` split into four sub tasks, PR #36
 - 2026-11-11 (check) `IM-33` City of Los Angeles weekend video (YouTube, three free events): a start time written as a range with one am/pm ("3–7 PM", "2–4 PM") is no longer dropped as unverified; the Zephyrus is back (`LC-11` closed) but the 2026-11-07 deploy never finished (`LC-13`); info links, the parade's pin and captions still missed (`IM-34`, `IM-35`, `IM-36`), PR #35
 - 2026-11-10 (item) `DOC-01` README status table, "Next step" and layout table, and the `docs/PLAN.md` header status rewritten from `status.md`; `docs/TODO-ZAHER.md` retired to a pointer; import check skipped again because the Zephyrus is still hung (`LC-11`), PR #34
