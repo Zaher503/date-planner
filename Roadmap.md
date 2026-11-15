@@ -68,6 +68,8 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] `IM-28` When the site's structured hours and its page text disagree (Skull Canyon: Friday to Tuesday 9-5 vs fall list with Wed/Thu closed), prefer the page's day-by-day hours for the weekly-hours field. Found 2026-11-02.
 - [ ] `IM-29` Municipal park pages (Oak Canyon Nature Center, 2026-11-04): with the City Hall footer gone the address stays empty. Find the park's own address, phone and "sunrise to sunset, seven days" hours by searching the name plus city, and prefer the page that was shared (www.anaheim.net/1096) over an old subdomain (local.anaheim.net) as the website. Also "suggested $5 donation" is free entry.
 - [ ] `IM-30` Safety check: when the geocoded point is more than a few km from the place found by name search, or the address equals the address of a city office / unrelated organisation, mark the place "address unsure" instead of pinning it. Found 2026-11-04.
+- [ ] `IM-31` Booking-widget businesses (Sunburst Railbikes, 2026-11-06): the price per bike and the trip calendar live inside a FareHarbor widget that the plain page read cannot render, so price and hours stay empty. Try the browser path for `fareharbor.com` embeds, or read the price from the page's "From $" text; never invent a number.
+- [ ] `IM-32` A business home page should give one place for the business itself (the 2-hour railbike ride, 8 miles) plus dated events; today the ride is missing and only promotions came out. Ask the model for the main experience when the page lists seasonal banners.
 - [ ] `IM-24` Single-business pages read only from structured data (Activate Culver City, 2026-10-31) get no description, minimum age or booking link; run the page text through the model for the missing fields, or use the page's own summary. Name fix done 2026-10-31.
 - [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed).
 - [ ] `IM-21` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
@@ -138,6 +140,8 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are now kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`)
+- 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
 - 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests
 
 - 2026-11-04 (check) `IM-00` Oak Canyon Nature Center (Anaheim city page): a city or county site's footer (City Hall address) is no longer taken as the park's address; phone, hours, free entry and the right website still missed (`IM-29`, `IM-30`)
