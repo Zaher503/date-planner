@@ -21,6 +21,9 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
+- [x] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
+  - [x] `LC-01.1` Backup job and its test (command built correctly, retention). Runs 02:30 daily; needs `pg_dump` 17 in the app image (Dockerfile.app changed), so check the first real backup after deploy.
+  - [x] `LC-01.2` Weekly yt-dlp update job (done 2026-11-07): Sundays 03:10, installs the newest yt-dlp into `DATA_DIR/ytdlp`, swapped in only if it starts; downloads prefer that copy. Check the first run in the worker log after deploy (`LC-10`).
 - [~] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
   - [x] `LC-01.1` Backup job and its test (command built correctly, retention). Runs 02:30 daily; needs `pg_dump` 17 in the app image (Dockerfile.app changed), so check the first real backup after deploy.
 - [ ] `DS-01` Wire the iCal adapter: add `ical_feeds` to `ADAPTERS`, feed list kept in settings (API only), tests from a saved feed.
@@ -108,6 +111,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 ### Lifecycle and ops (LC)
 - [ ] `LC-09` After the first deploy with `LC-01.1`, check `/srv/dateplanner/backups` has a `dates-*.dump` and that `pg_restore -l` reads it. Folds into the restore test of `LC-03`.
+- [ ] `LC-10` After the first deploy with `LC-01.2`, check the worker log on a Sunday for "yt-dlp X -> Y" and that `/srv/dateplanner/data/ytdlp` exists (needs PyPI reachable from the worker container).
 - [ ] `LC-03` NAS backup pull (`datespull` forced-command account, same shape as `recipebox-pull.sh`) plus a restore test of the latest dump into a scratch database. Deps: `LC-01`. Script only; Zaher runs the NAS side.
 - [ ] `LC-04` Monthly re-verify of places in batches (closed venues, moved addresses); flag, never delete.
 - [x] `LC-05` RRULE expansion into `occurrences` 120 days ahead, nightly, plus on save (done in #19: `recurrence.py`, `expand_occurrences` at 03:55).
@@ -140,6 +144,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
 - 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are now kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`)
 - 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
 - 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests

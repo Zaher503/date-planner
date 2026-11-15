@@ -1,5 +1,6 @@
 # Status
 
+Facts about the project as of **2026-11-07** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-06** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-05** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-04** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
@@ -39,6 +40,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - Inbox (Suggested) API and UI, interests picker, match score with "why".
 - Adapters: SearXNG queries, Overpass new places (the venue watch is the standing-venue scan above). SeatGeek only if a key can be had.
 - ICS: per-item `.ics`, subscribable `/cal/{token}.ics` feed.
+- Lifecycle: monthly re-verify of places (closed venues), Ticketmaster 30-day purge, weekly yt-dlp update is written (worker job `ytdlp_update`, Sundays 03:10, PR of 2026-11-07, not deployed yet; the image still pins `yt-dlp>=2025.1.1` as the fallback).
 - Lifecycle: monthly re-verify of places (closed venues), Ticketmaster 30-day purge, weekly yt-dlp update (requirements only pins `yt-dlp>=2025.1.1`).
 - Ops: nightly `pg_dump` is written (worker job `backup`, 02:30, keeps 7 `dates-*.dump`, PR of 2026-11-05, not deployed or checked on prod yet); NAS pull backup is not (earlier dumps are manual, in `/srv/dateplanner/backups`), SMB appdata share, Homarr widget, `homelab/date-planner.md` skill doc. The scheduler runs `backup` (02:30, once deployed), `refresh_home` (04:10), `watch_scan` (03:40) and `expand_occurrences` (03:55).
 
