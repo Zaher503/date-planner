@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from app import backup, worker
-from app.config import Settings, get_settings
+from app.config import Settings
 from app.tasks import HANDLERS
 
 
