@@ -1,5 +1,6 @@
 # Status
 
+Facts about the project as of **2026-11-08** (v3.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-07** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-06** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-05** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
@@ -66,6 +67,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 
 ## Waiting on Zaher
 
+- **Urgent (2026-11-08):** the Zephyrus GPU driver is hung (hundreds of stuck `nvidia-smi` processes, load about 563); the AI hub answers 502, so imports that need the model fail. Reboot the Zephyrus (`LC-11`).
 - Check the live site after the 2026-10-23 deploys: Archive chip, 21+ line, teardrop pins, rainbow pin, Settings > Pin colors.
 - Set up the "Save to Dates" Shortcut on both phones (`docs/SHORTCUT.md`).
 - Try the video slow path once with a TikTok that has no captions (Whisper through the hub has never run on a real video).
@@ -87,3 +89,4 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - `DEV_USER` must never be set in prod (skips Authentik).
 - Photon, OSRM and tiles cover Southern California only; items outside it will not resolve well.
 - One GPU lane shared with Foodbox and the Transcriber: discovery and re-verify jobs must run at low priority.
+- A hung GPU driver takes every model-based import down with no alert (2026-11-08); nothing watches the hub yet (`LC-12`).

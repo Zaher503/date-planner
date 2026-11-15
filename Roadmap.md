@@ -36,6 +36,7 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Needs Zaher
 
+- [!] [Z] `LC-11` The Zephyrus GPU driver is hung (found 2026-11-08, about 03:36 local): 554 `nvidia-smi` processes stuck in uninterruptible wait, load average about 563, about 200 MB RAM free, `docker ps` hangs. The AI hub answers 502, so every import that needs the model fails on the live app too (and Foodbox / the Transcriber share the GPU). Needs a reboot of the Zephyrus (or an NVIDIA driver reset); the auto task does not restart servers. Recommendation: reboot, then look at why `nvidia-smi` hangs (driver update, or whatever polls it every few minutes, e.g. a monitoring widget). After that, `LC-12`.
 - [ ] [Z] `DOC-02` Git housekeeping: 8 stale `auto-improve/*` worktrees under Temp and about 10 fully merged local/remote branches (listed in `status.md`). Approve deleting them; the auto task never deletes branches.
 - [ ] [Z] `LC-02` Check the live site after the 2026-10-23 deploys (Archive chip, 21+ line, pins, Settings > Pin colors) and try the video slow path once with a captionless TikTok. Report what is wrong and the auto task will turn it into `[!]` items.
 - [ ] [Z] `UI-01` Set up the "Save to Dates" Shortcut on both phones (`docs/SHORTCUT.md`); check the service worker and Add to Home Screen in real Chrome.
@@ -73,6 +74,7 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] `IM-30` Safety check: when the geocoded point is more than a few km from the place found by name search, or the address equals the address of a city office / unrelated organisation, mark the place "address unsure" instead of pinning it. Found 2026-11-04.
 - [ ] `IM-31` Booking-widget businesses (Sunburst Railbikes, 2026-11-06): the price per bike and the trip calendar live inside a FareHarbor widget that the plain page read cannot render, so price and hours stay empty. Try the browser path for `fareharbor.com` embeds, or read the price from the page's "From $" text; never invent a number.
 - [ ] `IM-32` A business home page should give one place for the business itself (the 2-hour railbike ride, 8 miles) plus dated events; today the ride is missing and only promotions came out. Ask the model for the main experience when the page lists seasonal banners.
+- [ ] `IM-33` Rerun the City of Los Angeles video "Things To Do (for the weekend of November 6th)" (https://www.youtube.com/watch?v=_NFglU-VI3g) once the AI hub is back: its description lists three free events with full date, time and address, a good test of one video becoming several events (two are already past by now, so it also tests the past-event flag). Blocked 2026-11-08 by `LC-11`; the expected values are in `improvements/2026-11-08.md`.
 - [ ] `IM-24` Single-business pages read only from structured data (Activate Culver City, 2026-10-31) get no description, minimum age or booking link; run the page text through the model for the missing fields, or use the page's own summary. Name fix done 2026-10-31.
 - [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed).
 - [ ] `IM-21` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
@@ -112,6 +114,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 ### Lifecycle and ops (LC)
 - [ ] `LC-09` After the first deploy with `LC-01.1`, check `/srv/dateplanner/backups` has a `dates-*.dump` and that `pg_restore -l` reads it. Folds into the restore test of `LC-03`.
 - [ ] `LC-10` After the first deploy with `LC-01.2`, check the worker log on a Sunday for "yt-dlp X -> Y" and that `/srv/dateplanner/data/ytdlp` exists (needs PyPI reachable from the worker container).
+- [ ] `LC-12` GPU watchdog: a small check (cron on the Zephyrus or a worker job) that runs `timeout 10 nvidia-smi` and asks the AI hub for `/api/tags`; on failure send one Home Assistant push ("Dates: AI hub down") instead of letting imports fail silently. Found 2026-11-08 (`LC-11`). Deps: `LC-11`.
 - [ ] `LC-03` NAS backup pull (`datespull` forced-command account, same shape as `recipebox-pull.sh`) plus a restore test of the latest dump into a scratch database. Deps: `LC-01`. Script only; Zaher runs the NAS side.
 - [ ] `LC-04` Monthly re-verify of places in batches (closed venues, moved addresses); flag, never delete.
 - [x] `LC-05` RRULE expansion into `occurrences` 120 days ahead, nightly, plus on save (done in #19: `recurrence.py`, `expand_occurrences` at 03:55).
@@ -145,6 +148,8 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
 - 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
+- 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
+- 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests
 - 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are now kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`)
 - 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
 - 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests
