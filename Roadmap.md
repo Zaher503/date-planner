@@ -21,6 +21,7 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
+- [ ] `DS-01` Wire the iCal adapter: add `ical_feeds` to `ADAPTERS`, feed list kept in settings (API only), tests from a saved feed.
 - [ ] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
   - [ ] `LC-01.1` Backup job and its test (command built correctly, retention).
   - [ ] `LC-01.2` Weekly yt-dlp update job.
@@ -139,6 +140,13 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - 2026-11-02 (check) `IM-00` Skull Canyon Ziplines: more site pages read (tours, packages, six instead of four, hours and price pages first), dropped price-card lines recovered, current-season hours preferred; card prices still missing (`IM-27`, `IM-28`)
 - 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
 - 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-11-02 (check) `IM-00` Skull Canyon Ziplines: more site pages read (tours, packages, six instead of four, hours and price pages first), dropped price-card lines recovered, current-season hours preferred; card prices still missing (`IM-27`, `IM-28`)
+- 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-10-31 (item) `UI-08` Redesign: new blue / Inter look with glass panels, a Filters drawer (phone: tall sheet) with Saved status, When, five category groups, Distance and Archive, filters shown as removable tokens in the search bar, details floating over the map on desktop, details card that expands on phones with Directions / Website / Call / Tickets / Share, PR #24
 - 2026-10-30 (item) `IM-00` Exhibitions keep their start and end dates at import and age into the Archive by themselves; an event with only a closing date also archives; Archive / Restore button on the event card; prod data cleanup (56 places / 30 events to 43 / 22, nothing left to review) with its two SQL scripts, PR #22 (open)
 - 2026-10-26 (item) `IM-00` Standing venues: weekly page scan, repeating events with RRULE expansion (`LC-05`), events list on the place page, PR #19
 - 2026-10-26 (item) `IM-00` Importer provenance (`import_info`) and flexible missing-field flags, PR #18
