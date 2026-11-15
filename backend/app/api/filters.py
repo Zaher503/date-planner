@@ -182,6 +182,7 @@ def recurring():
     return or_(Event.rrule.isnot(None), Event.recurrence_text.isnot(None))
 
 
+MAX_INDEXED_SPAN = 90  # degrees
 UNTIL_RE = re.compile(r"UNTIL=(\d{8})")
 
 
@@ -240,8 +241,10 @@ def common_conditions(model, f: Filters, lon_sql, lat_sql, origin) -> list:
     conds = []
     if f.bbox:
         w, s, e, n = f.bbox
-        env = func.ST_MakeEnvelope(w, s, e, n, 4326).cast(GEOG)
-        conds += [model.geom.op("&&")(env), lon_sql.between(w, e), lat_sql.between(s, n)]
+        conds += [lon_sql.between(w, e), lat_sql.between(s, n)]
+        # The index prefilter is only right for a small box: a geography polygon the size of the world matches nothing
+        if e - w < MAX_INDEXED_SPAN and n - s < MAX_INDEXED_SPAN:
+            conds.append(model.geom.op("&&")(func.ST_MakeEnvelope(w, s, e, n, 4326).cast(GEOG)))
     if f.tags:
         conds.append(model.tags.contains(f.tags))
     if f.cats:

@@ -70,3 +70,18 @@ def test_seasonal_run_with_until_archives_after_it_closes():
     assert not ended(starts_at=datetime(2026, 10, 25, tzinfo=timezone.utc), is_recurring=True,
                      rrule="FREQ=DAILY;UNTIL=20261031T235959")
     assert not ended(starts_at=datetime(2026, 10, 25, tzinfo=timezone.utc), is_recurring=True, rrule="FREQ=DAILY")
+
+
+def test_world_sized_bbox_skips_the_geography_prefilter():
+    from sqlalchemy import and_, func
+
+    from app.api.filters import common_conditions
+    from app.db.models import Place
+
+    def where(bbox):
+        f = parse_filters(bbox=bbox, now=NOW)
+        conds = common_conditions(Place, f, func.ST_X(Place.geom), func.ST_Y(Place.geom), None)
+        return str(and_(*conds).compile(dialect=postgresql.dialect()))
+
+    assert "&&" in where("-118.5,33.9,-118.1,34.2")
+    assert "&&" not in where("-180,-85,180,85")
