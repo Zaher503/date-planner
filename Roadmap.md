@@ -21,6 +21,8 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
+- [~] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
+  - [x] `LC-01.1` Backup job and its test (command built correctly, retention). Runs 02:30 daily; needs `pg_dump` 17 in the app image (Dockerfile.app changed), so check the first real backup after deploy.
 - [ ] `DS-01` Wire the iCal adapter: add `ical_feeds` to `ADAPTERS`, feed list kept in settings (API only), tests from a saved feed.
 - [ ] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
   - [ ] `LC-01.1` Backup job and its test (command built correctly, retention).
@@ -103,6 +105,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `PL-07` Homarr widget `GET /widget` ("This weekend: N plans, M suggestions", next 3 items). Deps: `IB-05`.
 
 ### Lifecycle and ops (LC)
+- [ ] `LC-09` After the first deploy with `LC-01.1`, check `/srv/dateplanner/backups` has a `dates-*.dump` and that `pg_restore -l` reads it. Folds into the restore test of `LC-03`.
 - [ ] `LC-03` NAS backup pull (`datespull` forced-command account, same shape as `recipebox-pull.sh`) plus a restore test of the latest dump into a scratch database. Deps: `LC-01`. Script only; Zaher runs the NAS side.
 - [ ] `LC-04` Monthly re-verify of places in batches (closed venues, moved addresses); flag, never delete.
 - [x] `LC-05` RRULE expansion into `occurrences` 120 days ahead, nightly, plus on save (done in #19: `recurrence.py`, `expand_occurrences` at 03:55).
@@ -134,6 +137,8 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 ## Done
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
+
+- 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests
 
 - 2026-11-04 (check) `IM-00` Oak Canyon Nature Center (Anaheim city page): a city or county site's footer (City Hall address) is no longer taken as the park's address; phone, hours, free entry and the right website still missed (`IM-29`, `IM-30`)
 - 2026-11-03 (item) `DS-01` iCal feed adapter wired in: registered in `ADAPTERS`, feed list kept in `adapter_state` and edited with `GET/PUT /api/discover/feeds`, the dry run builds it from the stored list; `icalendar` and `recurring-ical-events` added to requirements (they were missing); 7 tests from the saved sample feed
