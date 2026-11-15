@@ -1,5 +1,6 @@
 # Status
 
+Facts about the project as of **2026-11-02** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-01** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 
 Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (they are stale, see Docs).
@@ -53,6 +54,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - A free line in a price list ("toddlers free") no longer marks a paid place Free; the range still starts at $0 (2026-10-25, `IM-20`).
 - Drive-in showtimes and "box office opens an hour before" are not read (2026-10-25, `IM-21`).
 - Single-business pages read only from structured data get no description, minimum age or booking link; the branch-name-only title is fixed (2026-10-31, `IM-24`).
+- Venue sites: tour and package pages are now opened and price-card lines recovered (PR for 2026-11-02, not yet live), but the model still leaves "Starting at $99" prices empty (`IM-27`); structured hours can override the page's fall hours (`IM-28`).
 - Instagram is a review stub only (by choice).
 
 ## Waiting on Zaher
