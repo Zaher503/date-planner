@@ -1,5 +1,6 @@
 # Status
 
+Facts about the project as of **2026-11-11** (v3.36 on `main`, v3.26 live: the 2026-11-07 deploy did not finish, `LC-13`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-10** (v3.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-09** (v3.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-08** (v3.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
@@ -16,6 +17,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 ## What works (deployed, live at dates.zkocr.com)
 
 - **Import:** TikTok, YouTube, Google/Apple Maps links, event pages (JSON-LD, embedded descriptions, Eventbrite), plain text and screenshots become place/event items. Local model (gemma4:e4b through the AI hub; an OpenRouter text-only option exists in config), strict "no invented numbers" check, resolver with Photon, Nominatim and SearXNG, website lookup for hours, phone, prices and photos. Golden set: 28/28.
+- **Import fixes from the daily check:** a start time given as a range with one am/pm ("3–7 PM") is kept (PR of 2026-11-11, open), sale banners on a venue page ("Save 15%...") become part of the venue's offers instead of events (PR #30, open), footer address and phone of a venue's site, `Sept.` dates, $0 ticket ranges and "free donuts", Eventbrite embedded description, already-past events flagged on import, own ticket link per event, `POST` endpoint that saves hand-checked import items.
 - **Import fixes from the daily check:** sale banners on a venue page ("Save 15%...") become part of the venue's offers instead of events (PR #30, open), footer address and phone of a venue's site, `Sept.` dates, $0 ticket ranges and "free donuts", Eventbrite embedded description, already-past events flagged on import, own ticket link per event, `POST` endpoint that saves hand-checked import items.
 - **Archive and age (PR #12, merged 2026-10-23):** past one-off events move to an Archive view (computed per request); `events.min_age` (18/21) read from page text and editable. Migration `c9d0e1f2a3b4` runs on deploy. **Not yet checked on the live site.**
 - **Exhibitions and the Archive button (PR #22, merged):** a long-running event (an exhibition) keeps its start and end dates at import instead of becoming an "ongoing until" series, and an event with only a closing date also ages into the Archive. Event detail has an Archive / Restore button (sets `status`).
@@ -66,10 +68,12 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - Single-business pages read only from structured data get no description, minimum age or booking link; the branch-name-only title is fixed (2026-10-31, `IM-24`).
 - City and county park pages: the City Hall footer address was saved as the park's address (Oak Canyon Nature Center); footers that name a city or county are now ignored (PR of 2026-11-04, not yet live), but phone, hours and free entry are still not found (`IM-29`, `IM-30`).
 - Venue sites: tour and package pages are now opened and price-card lines recovered (PR for 2026-11-02, not yet live), but the model still leaves "Starting at $99" prices empty (`IM-27`); structured hours can override the page's fall hours (`IM-28`).
+- A video description listing several events (City of Los Angeles weekend video, 2026-11-11) gives the right events, dates, venues and "Free", and past ones are flagged. Still missed: the "more info" link next to each event (`IM-34`), a pin for an event on a stretch of street, which also gets the category "park" (`IM-35`), and the video's captions, which the server cannot download (429, `IM-36`).
 - Instagram is a review stub only (by choice).
 
 ## Waiting on Zaher
 
+- **Urgent (2026-11-11):** the live app is still v3.26. The CD run of 2026-11-07 ("List sort switch", v3.36) was cancelled after 6 hours while the Zephyrus was hung, so that change is on `main` but not deployed. Re-run CD from the Actions tab (`LC-13`). The Zephyrus itself is back since the reboot of 2026-11-10 (tester, app and AI hub answer; `LC-11` closed).
 - **Urgent (2026-11-08):** the Zephyrus GPU driver is hung (hundreds of stuck `nvidia-smi` processes, load about 563); the AI hub answers 502, so imports that need the model fail. Reboot the Zephyrus (`LC-11`). Still down on 2026-11-09 and 2026-11-10: it answers ping but SSH, the tester, the app UI on :8820 and the AI hub time out, and the public tester gives 503.
 - **Urgent (2026-11-08):** the Zephyrus GPU driver is hung (hundreds of stuck `nvidia-smi` processes, load about 563); the AI hub answers 502, so imports that need the model fail. Reboot the Zephyrus (`LC-11`). Still down on 2026-11-09: it answers ping but SSH, the tester and the AI hub time out, and the public tester gives 503.
 - **Urgent (2026-11-08):** the Zephyrus GPU driver is hung (hundreds of stuck `nvidia-smi` processes, load about 563); the AI hub answers 502, so imports that need the model fail. Reboot the Zephyrus (`LC-11`).
@@ -94,4 +98,5 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - `DEV_USER` must never be set in prod (skips Authentik).
 - Photon, OSRM and tiles cover Southern California only; items outside it will not resolve well.
 - One GPU lane shared with Foodbox and the Transcriber: discovery and re-verify jobs must run at low priority.
+- A hung GPU driver takes every model-based import down with no alert (2026-11-08); nothing watches the hub yet (`LC-12`). The same hang left a deploy half done: version commit pushed, images not rolled out (`LC-13`).
 - A hung GPU driver takes every model-based import down with no alert (2026-11-08); nothing watches the hub yet (`LC-12`).
