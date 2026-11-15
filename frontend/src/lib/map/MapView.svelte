@@ -28,6 +28,7 @@
     onview?: (bbox: [number, number, number, number], center: { lat: number; lon: number; zoom: number }, user: boolean) => void;
     onselect?: (t: ItemType, id: string) => void;
     oncandidate?: (id: number) => void;
+    onmapclick?: () => void;
     onlocate?: (pos: { lat: number; lon: number }) => void;
   }
 
@@ -49,6 +50,7 @@
     onview,
     onselect,
     oncandidate,
+    onmapclick,
     onlocate
   }: Props = $props();
 
@@ -485,7 +487,13 @@
 
         // While moving a pin, any click places it; feature clicks are ignored
         map.on('click', (e) => {
-          if (picking) onpick?.({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+          if (picking) {
+            onpick?.({ lat: e.lngLat.lat, lon: e.lngLat.lng });
+            return;
+          }
+          // A click on bare map (not a pin or cluster) closes the details panel
+          const hit = map!.queryRenderedFeatures(e.point, { layers: ['places', 'events', 'clusters', 'candidates'].filter((l) => map!.getLayer(l)) });
+          if (!hit.length) onmapclick?.();
         });
         const pick = (e: { features?: MapGeoJSONFeature[] }) => {
           if (picking) return;

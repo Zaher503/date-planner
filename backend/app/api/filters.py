@@ -1,4 +1,5 @@
 """Filters shared by /api/map and /api/list: query parsing and SQL conditions."""
+import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -181,6 +182,15 @@ def recurring():
     return or_(Event.rrule.isnot(None), Event.recurrence_text.isnot(None))
 
 
+MAX_INDEXED_SPAN = 90  # degrees
+UNTIL_RE = re.compile(r"UNTIL=(\d{8})")
+
+
+def series_over(now: datetime):
+    """SQL: a repeating event whose rule has an UNTIL date that is before today (a seasonal run that closed)."""
+    return func.substring(Event.rrule, r"UNTIL=([0-9]{8})") < now.strftime("%Y%m%d")
+
+
 def archived(now: datetime):
     """SQL: the event belongs in the Archive. This is the one rule for it: set by hand (status archived), or a
     one-off event that has ended (an exhibition with only a closing date counts). It reads the clock, so old and
@@ -188,13 +198,18 @@ def archived(now: datetime):
     undated events never age out."""
     return or_(Event.status == "archived",
                and_(~recurring(), or_(Event.starts_at.isnot(None), Event.ends_at.isnot(None)),
-                    event_end(Event.starts_at, Event.ends_at) < now))
+                    event_end(Event.starts_at, Event.ends_at) < now),
+               series_over(now))
 
 
 def event_ended(*, status: str | None, starts_at: datetime | None, ends_at: datetime | None,
-                duration_min: int | None, all_day: bool | None, is_recurring: bool, now: datetime) -> bool:
+                duration_min: int | None, all_day: bool | None, is_recurring: bool, now: datetime,
+                rrule: str | None = None) -> bool:
     """Python twin of archived(), for rows already in memory. Keep the two in step."""
     if status == "archived":
+        return True
+    m = UNTIL_RE.search(rrule or "")
+    if m and m.group(1) < now.strftime("%Y%m%d"):
         return True
     if is_recurring or (starts_at is None and ends_at is None):
         return False
@@ -226,8 +241,10 @@ def common_conditions(model, f: Filters, lon_sql, lat_sql, origin) -> list:
     conds = []
     if f.bbox:
         w, s, e, n = f.bbox
-        env = func.ST_MakeEnvelope(w, s, e, n, 4326).cast(GEOG)
-        conds += [model.geom.op("&&")(env), lon_sql.between(w, e), lat_sql.between(s, n)]
+        conds += [lon_sql.between(w, e), lat_sql.between(s, n)]
+        # The index prefilter is only right for a small box: a geography polygon the size of the world matches nothing
+        if e - w < MAX_INDEXED_SPAN and n - s < MAX_INDEXED_SPAN:
+            conds.append(model.geom.op("&&")(func.ST_MakeEnvelope(w, s, e, n, 4326).cast(GEOG)))
     if f.tags:
         conds.append(model.tags.contains(f.tags))
     if f.cats:

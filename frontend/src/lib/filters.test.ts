@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { activeCount, apiQuery, EMPTY, filterParams, parseFilters, sameFilters } from './filters';
+import { activeCount, activeTokens, apiQuery, EMPTY, filterParams, parseFilters, sameFilters } from './filters';
 
 describe('filters', () => {
   it('round-trips through the URL', () => {
@@ -59,5 +59,19 @@ describe('archive filter', () => {
     expect(apiQuery(f)).toBe('archive=1');
     expect(activeCount(f)).toBe(1);
     expect(parseFilters(new URLSearchParams('')).archive).toBe(false);
+  });
+});
+
+describe('active tokens', () => {
+  it('has one removable token per active filter', () => {
+    const f = { ...EMPTY, when: 'weekend' as const, status: ['going', 'review'], dist_km: 16.09344, archive: true };
+    const tokens = activeTokens(f, 'mi');
+    expect(tokens.map((t) => t.label)).toEqual(['This weekend', 'Going', 'Needs review', 'Within 10 mi', 'Archive']);
+    expect(tokens[1].remove(f).status).toEqual(['review']);
+    expect(tokens[3].remove(f).dist_km).toBeNull();
+  });
+
+  it('has none when nothing is active', () => {
+    expect(activeTokens(EMPTY)).toEqual([]);
   });
 });

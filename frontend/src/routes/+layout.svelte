@@ -1,4 +1,5 @@
 <script lang="ts">
+  import '@fontsource-variable/inter';
   import '../app.css';
   import type { Snippet } from 'svelte';
   import { theme } from '$lib/theme.svelte';

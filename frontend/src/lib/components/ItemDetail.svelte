@@ -1,5 +1,8 @@
 <script lang="ts">
-  import ChevronLeft from '@lucide/svelte/icons/chevron-left';
+  import X from '@lucide/svelte/icons/x';
+  import Navigation from '@lucide/svelte/icons/navigation';
+  import Share2 from '@lucide/svelte/icons/share-2';
+  import Images from '@lucide/svelte/icons/images';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import Bookmark from '@lucide/svelte/icons/bookmark';
   import CalendarCheck from '@lucide/svelte/icons/calendar-check';
@@ -102,10 +105,62 @@
   const hero = $derived(pics.find((i) => i.chosen) ?? null);
   // The link's own thumbnail is the default hero until a picture is picked; with none, the first picture is
   const linkThumb = $derived(thumbSource?.thumb ?? videoSource?.thumb ?? null);
+  // Google Maps photos are the last resort: asked for only when the item has no picture of its own. The first
+  // one is saved on the server as the hero (so the list shows it too); the rest load when "More photos" is tapped.
+  const savedGoogle = $derived(pics.find((p) => p.kind === 'google') ?? null);
+  const gActive = $derived(!!item && !pics.some((p) => p.kind !== 'google') && !linkThumb);
+  let gphotos = $state<{ url: string; author: string | null }[]>([]);
+  let gLoaded = $state(false);
+  let gAsked = $state(false); // "Find photos on Google" or "More photos" was tapped
+  const gKey = $derived(item && ((gActive && !savedGoogle) || gAsked) ? `${item.type}:${item.id}` : null);
+  $effect(() => {
+    const key = gKey;
+    gphotos = [];
+    gLoaded = false;
+    if (!key) return;
+    const [type, id] = key.split(':') as [ItemType, string];
+    api
+      .googlePhotos(type, id)
+      .then((r) => {
+        if (gKey === key) {
+          gphotos = r.photos;
+          gLoaded = true;
+        }
+      })
+      .catch(() => (gLoaded = gKey === key));
+  });
+  // A new item starts over
+  const itemId = $derived(item?.id);
+  $effect(() => {
+    void itemId;
+    gAsked = false;
+  });
+  // With no picture at all the first Google photo is the hero; its download saves it on the server, so refresh
+  const autoHero = $derived(gActive && !savedGoogle ? (gphotos[0]?.url ?? null) : null);
+  $effect(() => {
+    const first = autoHero;
+    if (!first) return;
+    const img = new Image();
+    img.onload = () => app.changed();
+    img.src = first;
+  });
   const linkIsHero = $derived(!hero && !!linkThumb);
   const heroPic = $derived(hero ?? (linkThumb ? null : (pics[0] ?? null)));
-  const heroSrc = $derived(heroPic?.url ?? linkThumb);
-  const canChange = $derived(pics.length + (linkThumb ? 1 : 0) > 1);
+  const heroSrc = $derived(autoHero ?? heroPic?.url ?? linkThumb);
+  const canChange = $derived(pics.filter((p) => p.kind !== 'google').length + (linkThumb ? 1 : 0) > 1);
+  const gCredit = $derived(autoHero ? (gphotos[0]?.author ?? null) : (savedGoogle?.attribution ?? null));
+
+  // Make one of the Google photos the hero (a counted download on the server)
+  async function useGoogle(i: number) {
+    if (!item) return;
+    const it = item;
+    const ok = await run('image', () => api.useGooglePhoto(it.type, it.id, i));
+    if (ok) {
+      const fresh = await run('reload', () => api.item(it.type, it.id));
+      if (fresh) onchanged(fresh);
+      app.changed();
+    }
+  }
   const stamp = (s: number | null) => (s == null ? '' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 
   async function pickImage(id: number | null) {
@@ -263,6 +318,22 @@
     }
   }
 
+  // Copy the link the item was saved from (the TikTok or page), else its website
+  async function copySourceLink() {
+    if (!item) return;
+    const url = item.sources?.[0]?.url || item.website || item.ticket_url;
+    if (!url) {
+      app.info('No source link', 'This item has no website or saved link to copy.');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      app.info('Link copied', url);
+    } catch {
+      app.info('Could not copy', url);
+    }
+  }
+
   function sourceLabel(kind: string): string {
     return (
       { tiktok: 'TikTok', youtube: 'YouTube', gmaps: 'Google Maps', applemaps: 'Apple Maps', event_page: 'Web page', text: 'Note', image: 'Screenshot', instagram: 'Instagram' }[kind] ??
@@ -277,11 +348,13 @@
 
 <div class="detail">
   <header>
-    <button class="icon-btn" aria-label="Back to the list" onclick={onclose}><ChevronLeft size={22} /></button>
     {#if item}
       <span class="cat" style="--c: {color}"><span class="dot" class:event={isEvent}></span>{labelOf(item.category)}{isEvent ? ' event' : ''}</span>
       <button class="icon-btn" aria-label="Show on the map" title="Show on the map" onclick={onfly}><Crosshair size={19} /></button>
+    {:else}
+      <span class="cat"></span>
     {/if}
+    <button class="icon-btn" aria-label="Close details" title="Close" onclick={onclose}><X size={20} /></button>
   </header>
 
   {#if loading && !item}
@@ -340,6 +413,7 @@
       {/if}
 
       {#if editing}
+        {@render googlePicker()}
         <ItemEdit {item} {tz} {saving} onsave={save} oncancel={() => (editing = false)} {onmovepin} />
       {:else}
         {#if videoSource && playing}
@@ -358,6 +432,8 @@
           </a>
         {:else if heroSrc}
           <div class="media"><img src={heroSrc} alt="" /></div>
+        {:else}
+          <div class="media blank" style="--c: {color}" aria-hidden="true"><span>{labelOf(item.category)}</span></div>
         {/if}
 
         {#if canChange}
@@ -377,6 +453,8 @@
           </div>
         {/if}
 
+        {@render googlePicker()}
+
         <div class="mine">
           <div class="seg" role="group" aria-label="My status">
             <button class:on={item.me?.status === 'want'} disabled={busy === 'me'} onclick={() => status('want')}><Bookmark size={16} /> Want</button>
@@ -386,6 +464,14 @@
           <div class="rate">
             <Stars value={item.me?.rating ?? null} onchange={(v) => setMine({ rating: v })} />
           </div>
+        </div>
+
+        <div class="quick">
+          <a class="qa primary" href={googleMapsUrl(item.lat, item.lon, item.title, item.address_text)} target="_blank" rel="noopener noreferrer"><span class="qi"><Navigation size={19} /></span>Directions</a>
+          {#if item.website}<a class="qa" href={item.website} target="_blank" rel="noopener noreferrer"><span class="qi"><Globe size={19} /></span>Website</a>{/if}
+          {#if item.phone}<a class="qa" href="tel:{item.phone}"><span class="qi"><Phone size={19} /></span>Call</a>{/if}
+          {#if item.ticket_url}<a class="qa" href={item.ticket_url} target="_blank" rel="noopener noreferrer"><span class="qi"><Ticket size={19} /></span>Tickets</a>{/if}
+          <button class="qa" onclick={copySourceLink}><span class="qi"><Share2 size={19} /></span>Copy link</button>
         </div>
 
         {#if isEvent && item.archived}
@@ -625,6 +711,30 @@
   {/if}
 </div>
 
+{#snippet googlePicker()}
+  {#if item}
+    <div class="gpick">
+      {#if !gAsked}
+        <button class="btn small" disabled={!!busy} onclick={() => (gAsked = true)}><Images size={15} /> {gActive && savedGoogle ? 'More photos' : 'Find photos on Google'}</button>
+      {:else if !gLoaded}
+        <p class="muted gcredit">Looking on Google Maps...</p>
+      {:else if gphotos.length}
+        <div class="pics" role="group" aria-label="Pick a Google Maps photo">
+          {#each gphotos as g, i (g.url)}
+            <button class="pic" disabled={!!busy} onclick={() => useGoogle(i)} title={g.author ? `Use this photo by ${g.author}` : 'Use this photo'}>
+              <img src={g.url} alt="Place on Google Maps" loading="lazy" />
+            </button>
+          {/each}
+        </div>
+        <p class="muted gcredit">Tap a photo to use it as the main picture.</p>
+      {:else}
+        <p class="muted gcredit">No Google photos found, or today's limit is reached.</p>
+      {/if}
+      {#if savedGoogle || autoHero}<p class="muted gcredit">Main photo from Google Maps{gCredit ? `, by ${gCredit}` : ''}</p>{/if}
+    </div>
+  {/if}
+{/snippet}
+
 <style>
   .detail {
     display: flex;
@@ -675,6 +785,7 @@
     gap: 14px;
   }
   h2 {
+    order: -3;
     margin: 0;
     font-size: 22px;
     line-height: 1.2;
@@ -687,6 +798,7 @@
     font-weight: 650;
   }
   .link-row {
+    order: -3;
     align-self: flex-start;
     margin-top: -10px;
     border: none;
@@ -696,6 +808,7 @@
     font-weight: 550;
   }
   .banner {
+    order: -6;
     border-radius: 12px;
     padding: 10px 12px;
     font-size: 14px;
@@ -793,6 +906,7 @@
     gap: 6px;
   }
   .media {
+    order: -5;
     position: relative;
     display: block;
     border-radius: 14px;
@@ -807,6 +921,27 @@
     padding: 0;
     width: 100%;
     cursor: pointer;
+  }
+  .blank {
+    display: grid;
+    place-items: center;
+    height: 140px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--c) 78%, #fff), color-mix(in srgb, var(--c) 92%, #000));
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 13px;
+  }
+  .gpick {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0;
+  }
+  .gcredit {
+    margin: 4px 0 0;
+    font-size: 11.5px;
   }
   .noimg {
     display: block;
@@ -825,6 +960,7 @@
     color: #fff;
   }
   .player {
+    order: -5;
     width: 100%;
     max-height: 70vh;
     border-radius: 14px;
@@ -853,6 +989,7 @@
     font-weight: 600;
   }
   .pics {
+    order: -4;
     display: flex;
     gap: 8px;
     overflow-x: auto;
@@ -892,14 +1029,55 @@
     font-weight: 600;
   }
   .mine {
+    order: -2;
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: stretch;
     gap: 10px;
   }
+  .rate {
+    display: flex;
+    justify-content: center;
+  }
+  .quick {
+    order: -2;
+    display: flex;
+    gap: 8px;
+    justify-content: space-around;
+  }
+  .qa {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    border: none;
+    background: none;
+    padding: 0;
+    color: var(--accent);
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .qi {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+  }
+  .qa.primary .qi {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .qa:hover .qi {
+    filter: brightness(0.95);
+  }
   .seg {
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     background: var(--surface-2);
     border-radius: 12px;
     padding: 3px;
@@ -908,6 +1086,8 @@
   .seg button {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+    min-height: 38px;
     gap: 5px;
     border: none;
     background: transparent;

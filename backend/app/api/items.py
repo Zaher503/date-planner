@@ -194,7 +194,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "archived": event_ended(status=item.status, starts_at=item.starts_at, ends_at=item.ends_at,
                                     duration_min=item.duration_min, all_day=item.all_day,
                                     is_recurring=bool(item.rrule or item.recurrence_text),
-                                    now=datetime.now(_tz())),
+                                    now=datetime.now(_tz()), rrule=item.rrule),
             "occurrences": [{"starts_at": _iso(o.starts_at), "ends_at": _iso(o.ends_at)} for o in db.scalars(
                 select(Occurrence).where(Occurrence.event_id == item.id).order_by(Occurrence.starts_at)
                 .limit(MAX_OCCURRENCES)).all()],
@@ -219,8 +219,8 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
     pics = db.scalars(select(ItemImage).where((ItemImage.place_id if is_place else ItemImage.event_id) == item.id)
                       .order_by(ItemImage.source_id, ItemImage.rank)).all()
     out["images"] = [{"id": p.id, "kind": p.kind, "at": p.at_seconds, "chosen": p.chosen,
-                      "url": f"/api/item-image/{p.id}", "video": f"/api/media/{p.source_id}/video"
-                      if p.kind == "frame" else None} for p in pics]
+                      "url": f"/api/item-image/{p.id}", "attribution": p.attribution,
+                      "video": f"/api/media/{p.source_id}/video" if p.kind == "frame" else None} for p in pics]
     states = db.scalars(select(UserItemState).where(_state_col(item) == item.id)).all()
     out["me"] = _me(next((s for s in states if s.user_id == user.id), None))
     out["others"] = [{"user": names.get(s.user_id), "status": s.status, "rating": s.rating, "notes": s.notes}

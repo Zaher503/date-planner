@@ -255,15 +255,16 @@ class ItemImage(Base):
         Index("ix_item_images_source", "source_id"),
     )
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
-    source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
+    source_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))  # none for google
     place_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("places.id", ondelete="CASCADE"))
     event_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("events.id", ondelete="CASCADE"))
-    kind: Mapped[str] = mapped_column(Text)  # frame or page
+    kind: Mapped[str] = mapped_column(Text)  # frame, page or google
     path: Mapped[str | None] = mapped_column(Text)  # relative to DATA_DIR/media
     url: Mapped[str | None] = mapped_column(Text)  # remote photo, cached into path on first view
     at_seconds: Mapped[float | None] = mapped_column(Float)
     rank: Mapped[int] = mapped_column(SmallInteger, server_default="0")
     chosen: Mapped[bool] = mapped_column(Boolean, server_default=text("false"))
+    attribution: Mapped[str | None] = mapped_column(Text)  # photographer credit Google asks us to show
 
 
 class Media(Base):

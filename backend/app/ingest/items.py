@@ -27,6 +27,7 @@ class ItemHint:
     all_day: bool = False
     tz: str | None = None
     recurrence: str | None = None
+    recurrence_until: datetime | None = None  # last day of a repeating run (a seasonal event)
     price_min: float | None = None
     price_max: float | None = None
     currency: str | None = None

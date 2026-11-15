@@ -183,6 +183,9 @@ def upsert_event(db: Session, hint: ItemHint, place: Place, res: Resolution, use
     if (event.recurrence_text and not event.rrule and "recurrence_text" not in (event.user_overrides or {})
             and "rrule" not in (event.user_overrides or {})):
         occurrences.apply_rule(event)
+    if (hint.recurrence_until and event.rrule and "UNTIL=" not in event.rrule
+            and "rrule" not in (event.user_overrides or {})):
+        event.rrule += ";UNTIL=" + hint.recurrence_until.strftime("%Y%m%dT235959")  # the run ends, then it archives
     for f in ("price_min", "price_max", "currency", "is_free", "price_text", "ticket_url", "min_age"):
         _set(event, f, getattr(hint, f), overwrite=refresh)
     if "tags" not in event.user_overrides:
