@@ -21,12 +21,23 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
+- [~] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
+  - Design agreed 2026-10-31 (prototype, not in the repo): a "Plan a night" button in the search bar (key `P`) opens a planner in the left pane with the route on the map; day strip, templates (dinner then a show, drinks then a party), stops with arrival times and travel time, Drive / Rideshare / Walk / Transit, a shortest-route suggestion, share. Add "Add to plan" to the quick actions on the detail card with it. Travel times must come from the OSRM service, not the prototype's formulas.
+  - Split 2026-11-12 (too big for one run, and the backend is already done in `PL-01`):
+  - [x] `PL-02.1` Frontend plan client and pure helpers (`frontend/src/lib/plan.ts`: types, `api.suggestPlans / savePlan / plans / deletePlan`, request and save bodies, clock / travel / price labels) with vitest tests. Done 2026-11-12.
+  - [ ] `PL-02.2` "Plan a night" button (key `P`) and the planner panel in the left pane: date, time window, budget, vibe tags, start point, drive / walk; shows the 2-3 itineraries as cards with arrival times, travel time between stops, price and notes. Add the endpoints to the mock server (`frontend/mock/api.ts`).
+  - [ ] `PL-02.3` Draw the chosen itinerary's route and numbered stops on the map; Save plan and a list of saved plans (open, delete). Deps: `PL-02.2`.
+  - [ ] `PL-02.4` "Add to plan" in the detail card's quick actions (pins that item as the anchor for a new suggestion). Needs a small `anchor` option on `/api/plans/suggest`, so check the picker first. Deps: `PL-02.2`.
 - [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
   - Design agreed 2026-10-31 (prototype, not in the repo): a "Plan a night" button in the search bar (key `P`) opens a planner in the left pane with the route on the map; day strip, templates (dinner then a show, drinks then a party), stops with arrival times and travel time, Drive / Rideshare / Walk / Transit, a shortest-route suggestion, share. Add "Add to plan" to the quick actions on the detail card with it. Travel times must come from the OSRM service, not the prototype's formulas.
 - [ ] `PL-03` Per-item `.ics` download (`GET /api/items/{id}.ics`) and an "Add to calendar" button on the detail card. Moved up from the Backlog 2026-11-09.
 - [ ] `DS-03.1` Discovery writer and dedup with fixtures, no network (first sub task of `DS-03`). Moved up 2026-11-09.
 - [ ] `QA-05` Migration test in CI: upgrade an empty database to head, downgrade one step, upgrade again. Moved up 2026-11-09.
 - [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid ($7-14, not $0-14). Moved up 2026-11-09; small, no server needed.
+
+## Needs Zaher
+
+- [!] [Z] `LC-13` The deploy of 2026-11-07 never finished: the CD run for "List sort switch" was cancelled after 6 hours while the Zephyrus was hung (`LC-11`), but the version commit (v3.36) was already pushed. The live app still shows v3.26 (build 11-02), so the list sort switch is not live. The auto task never deploys. Recommendation: re-run the CD workflow from the Actions tab (it will bump the version once more, which is harmless), then check the version label on the site. Found 2026-11-11.
 
 ## Needs Zaher
 
@@ -185,6 +196,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-12 (item) `PL-02.1` Planner client for the app: types, API calls and helpers for the suggest / save / list / delete plan routes, 5 tests; no visible change yet, `PL-02` split into four sub tasks, PR #36
 - 2026-11-11 (check) `IM-33` City of Los Angeles weekend video (YouTube, three free events): a start time written as a range with one am/pm ("3–7 PM", "2–4 PM") is no longer dropped as unverified; the Zephyrus is back (`LC-11` closed) but the 2026-11-07 deploy never finished (`LC-13`); info links, the parade's pin and captions still missed (`IM-34`, `IM-35`, `IM-36`), PR #35
 - 2026-11-10 (item) `DOC-01` README status table, "Next step" and layout table, and the `docs/PLAN.md` header status rewritten from `status.md`; `docs/TODO-ZAHER.md` retired to a pointer; import check skipped again because the Zephyrus is still hung (`LC-11`), PR #34
 - 2026-11-09 (item) `QA-01` CI lint widened to ruff's default rules plus import sorting; 25 findings fixed (import order, 7 unused imports, one unused variable, two test-style nits), tests 391 passed before and after; import check skipped because the Zephyrus is still hung (`LC-11`), PR #33

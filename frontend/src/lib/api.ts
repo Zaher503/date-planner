@@ -1,4 +1,5 @@
 // Typed wrappers for the JSON API (docs/API.md)
+import type { Plan, SavePlanBody, SuggestRequest, SuggestResponse } from './plan';
 
 export type ItemType = 'place' | 'event';
 export type MyStatus = 'want' | 'going' | 'been' | 'dismissed';
@@ -335,6 +336,11 @@ export const api = {
     }
     return (await res.json()) as AddResult;
   },
+  suggestPlans: (body: SuggestRequest, signal?: AbortSignal) =>
+    request<SuggestResponse>('POST', '/api/plans/suggest', body, signal),
+  savePlan: (body: SavePlanBody) => request<Plan>('POST', '/api/plans', body),
+  plans: () => request<Plan[]>('GET', '/api/plans'),
+  deletePlan: (id: string) => request<void>('DELETE', `/api/plans/${id}`),
   jobs: () => request<Job[]>('GET', '/api/jobs'),
   services: () => request<ServiceHealth[]>('GET', '/api/health/services')
 };
