@@ -1,5 +1,6 @@
 # Status
 
+Facts about the project as of **2026-11-14** (v3.36 on `main`, v3.26 live: the 2026-11-07 deploy did not finish, `LC-13`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-12** (v3.36 on `main`, v3.26 live: the 2026-11-07 deploy did not finish, `LC-13`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-11** (v3.36 on `main`, v3.26 live: the 2026-11-07 deploy did not finish, `LC-13`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-10** (v3.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
@@ -75,6 +76,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - City and county park pages: the City Hall footer address was saved as the park's address (Oak Canyon Nature Center); footers that name a city or county are now ignored (PR of 2026-11-04, not yet live), but phone, hours and free entry are still not found (`IM-29`, `IM-30`).
 - Venue sites: tour and package pages are now opened and price-card lines recovered (PR for 2026-11-02, not yet live), but the model still leaves "Starting at $99" prices empty (`IM-27`); structured hours can override the page's fall hours (`IM-28`).
 - A video description listing several events (City of Los Angeles weekend video, 2026-11-11) gives the right events, dates, venues and "Free", and past ones are flagged. Still missed: the "more info" link next to each event (`IM-34`), a pin for an event on a stretch of street, which also gets the category "park" (`IM-35`), and the video's captions, which the server cannot download (429, `IM-36`).
+- A concert page whose structured data links the venue and the dated show by `@id` (Hollywood Bowl, Steve Lacy, 2026-11-14) now gives an event at the venue with its date; before it gave an undated "museum" named after the artist (`IM-37`, PR of 2026-11-14, open). Ticket price and gate time are still missed (`IM-38`).
 - Instagram is a review stub only (by choice).
 
 ## Waiting on Zaher

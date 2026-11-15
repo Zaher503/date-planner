@@ -68,7 +68,48 @@ def _nodes(data) -> list[dict]:
     return out
 
 
+def _resolve_refs(nodes: list[dict]) -> list[dict]:
+    """Replace {"@id": x} stubs (a @graph node pointing at another) with the node they name."""
+    by_id = {n["@id"]: n for n in nodes if isinstance(n.get("@id"), str)}
+
+    def look(v):
+        if isinstance(v, dict) and set(v) == {"@id"} and v["@id"] in by_id:
+            return by_id[v["@id"]]
+        return v
+
+    out = []
+    for n in nodes:
+        fixed = dict(n)
+        for key in ("location", "organizer", "performer", "offers"):
+            v = fixed.get(key)
+            if isinstance(v, list):
+                fixed[key] = [look(x) for x in v]
+            elif v is not None:
+                fixed[key] = look(v)
+        out.append(fixed)
+    return out
+
+
+def _drop_umbrella_events(nodes: list[dict]) -> list[dict]:
+    """A dated instance event (with startDate) makes its dateless parent redundant (Hollywood Bowl: the
+    show node lists its dates as subEvents that sit in the same @graph)."""
+    dated_ids = {n.get("@id") for n in nodes if _is_event(n) and n.get("startDate") and n.get("@id")}
+    out = []
+    for n in nodes:
+        subs = n.get("subEvent")
+        subs = subs if isinstance(subs, list) else [subs] if subs else []
+        refs = {x.get("@id") for x in subs if isinstance(x, dict)}
+        if _is_event(n) and not n.get("startDate") and refs & dated_ids:
+            continue
+        out.append(n)
+    return out
+
+
 def jsonld_nodes(html: str) -> list[dict]:
+    return _drop_umbrella_events(_resolve_refs(_jsonld_nodes(html)))
+
+
+def _jsonld_nodes(html: str) -> list[dict]:
     nodes: list[dict] = []
     for block in LD_BLOCK.findall(html):
         try:

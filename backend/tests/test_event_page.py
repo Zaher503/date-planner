@@ -125,6 +125,28 @@ def test_domain_name_from_json_ld_is_replaced_by_the_site_name():
     assert parse_page("https://www.losangelesmuseumoflove.com/", other).items[0].name == "Some Real Name"
 
 
+HOLLYWOOD_BOWL_LD = """<html><head><script type="application/ld+json">{"@context":"https://schema.org","@graph":[
+{"@id":"https://x.test/venues/bowl#place","@type":"Place","name":"Hollywood Bowl","url":"https://x.test/venues/bowl",
+ "address":{"@type":"PostalAddress","streetAddress":"2301 Highland Ave","addressLocality":"Los Angeles","addressRegion":"California","postalCode":"90068"}},
+{"@id":"https://x.test/events/lacy#event","@type":"Event","name":"Steve Lacy","url":"https://x.test/events/lacy",
+ "subEvent":[{"@id":"https://x.test/events/instances/1/lacy#event-instance"}],"location":{"@id":"https://x.test/venues/bowl#place"}},
+{"@id":"https://x.test/events/instances/1/lacy#event-instance","@type":"Event","name":"Steve Lacy",
+ "url":"https://x.test/events/instances/1/lacy","startDate":"2026-11-22T04:00:00.000Z",
+ "superEvent":{"@id":"https://x.test/events/lacy#event"},"location":{"@id":"https://x.test/venues/bowl#place"}}]}
+</script></head><body>Steve Lacy</body></html>"""
+
+
+def test_graph_id_references_resolve_to_the_venue_and_the_dated_instance():
+    page = parse_page("https://x.test/events/instances/1/lacy", HOLLYWOOD_BOWL_LD)
+    assert len(page.items) == 1
+    it = page.items[0]
+    assert it.kind == "event"
+    assert it.name == "Hollywood Bowl"
+    assert it.event_title == "Steve Lacy"
+    assert it.address.startswith("2301 Highland Ave")
+    assert it.starts_at is not None and it.starts_at.isoformat().startswith("2026-11-22T04:00")
+
+
 def test_branch_name_takes_the_full_name_from_the_page_title():
     html = ('<html><head><title>Activate Culver City | Active Games in California</title>'
             '<script type="application/ld+json">{"@type":"EntertainmentBusiness","name":"Culver City",'
