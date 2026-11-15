@@ -4,19 +4,23 @@ The single list of what to build next. The daily auto task reads it to decide wh
 
 ## How to use (auto task)
 
-1. **Alternate.** Look at the newest entry in **Done**. If it is tagged `(check)`, do a roadmap item today; otherwise do the daily real-link import check (the routine in the task prompt). An import check that finds a gap adds a new `IM-` item here; a small fix is done in the same run, a bigger one stays on the list.
-2. **Pick the item.** Read **Now** top to bottom. Take the first item that is not `[Z]` and whose `Deps` are all `[x]`. If **Now** is empty, take the first such item from the Backlog, top of the track that has been waiting longest. A `[!]` item (something broken in production or in tests) always goes first.
-3. **One run = one item or one sub task.** If an item is bigger than one run, do its first unchecked sub task, tick it, and leave the item `[~]`. Write the code, add or update tests (backend `pytest`, frontend `npm test` and `npm run check`), run them, then mark the item.
-4. **Mark it.** Change the marker, and when an item is fully finished move a one-line entry to **Done** (newest first: date, tag `(item)` or `(check)`, the code tag, what changed, PR number).
-5. **Refill Now** to about 6 items when it drops below 3, mixing tracks. Add new work to the Backlog with the next free number in its track. Never reuse or renumber a code tag.
-6. **Expand when needed.** An item that turns out vague or large gets sub tasks (`IM-07.1`, `IM-07.2`, ...). Say why in one line under the item.
-7. **`[Z]` items need Zaher.** Do not build them. Write the question and your recommendation under the item, and do something else.
-8. **Report the roadmap changes** in the PR description under "Roadmap changes" (marked, added, split, dropped, reordered) and in the day's file in `improvements/`. Update the touched sections of `status.md` and its date.
-9. **Every 5th roadmap run** re-read the whole list: stale items, wrong order, track balance, items the code already did.
-10. The rules in the task prompt still apply: work in a worktree, never push to `main`, never edit `frontend/VERSION`, no `Co-Authored-By`. Roadmap and status edits ride in the day's PR. If an earlier `auto-improve/*` PR is still open, start from the newest one's `Roadmap.md` and `status.md` so marks accumulate, and say so.
+This section is the only place the rules for choosing, doing and recording work live. The task prompt covers setup, safety, the import-check steps and the report format; on anything below, this section wins.
+
+1. **What today is.** Count the entries in **Done** above the newest one tagged `(tidy)`. If there are 4 or more, today is a tidy run (rule 8). Otherwise look at the newest entry: if it is tagged `(check)`, do a roadmap item; if not, do the daily real-link import check. A `[!]` item (something broken in production or in tests) always goes first and replaces any kind of day.
+2. **Pick the item.** Read **Now** top to bottom. Take the first item that is not `[Z]` and whose `Deps` are all `[x]`. If **Now** is empty, take the first such item from the Backlog, top of the track that has been waiting longest. If nothing is workable, do an import check and name the blocking `[Z]` items.
+3. **One run = one item or one sub task.** If an item is bigger than one run, do its first unchecked sub task, tick it, and leave the item `[~]`. An item that needs a schema change, a new service or an undecided product choice is not guessed at: do the safe first part and turn the rest into a `[Z]` item with the question and a recommendation.
+4. **Where a fix goes.** Every rule has one home. Before adding a helper, a pattern or a check, search for the code that already decides that thing and change it there. Never add a second copy. No pattern written for one site: when only one link shows a problem and the only fix would match that site or wording, record an `IM-` item with the link and what was seen, and fix it when a second link shows the same thing. A fix for a general cause (a date wording, a structured-data shape, a page section that is never read) is done right away.
+5. **Every import fix ships with a saved case** in `backend/tests/replay/` (the saved page, the saved model answers, the expected result; see the README there). It fails before the fix and passes after, and the whole replay suite and the full test suite pass before the PR. Do not change an existing test's expected values unless changing that behaviour is the point of the run; say so in the PR.
+6. **The import tester is not a second pipeline.** `import-tester/` calls the pipeline's own functions. If the tester and the live import disagree, that is a `[!]` bug in the shared code; never copy a pipeline step into the tester.
+7. **Mark it.** Change the marker, and when an item is fully finished add a one-line entry at the top of **Done** (date, `(item)`, `(check)` or `(tidy)`, the item's own code tag, what changed, PR number). Every entry carries a real tag: a check that fixes something new gets the next free `IM-` number first. Never use a catch-all tag, never reuse or renumber a tag.
+8. **Tidy run (every 5th).** No new behaviour. Re-read the whole list (stale items, wrong order, duplicates, items the code already did) and remove one piece of duplication or one dead piece from the code, with every test passing unchanged. Record it in **Done** as `(tidy)`.
+9. **Refill Now** to about 6 items when it drops below 3, mixing tracks. New work goes to the Backlog with the next free number in its track. A vague or large item gets sub tasks (`IM-07.1`, `IM-07.2`, ...) with one line saying why.
+10. **`[Z]` items need Zaher.** Do not build them. Write the question and your recommendation under the item, and do something else.
+11. **Report the roadmap changes** in the PR under "Roadmap changes" and in the day's file in `improvements/`. Update the touched sections of `status.md` and its date.
+12. **One rolling PR.** The task works on a single `auto-improve/*` branch and PR until Zaher merges it, then starts a new one (the prompt has the steps). Roadmap and status edits ride in it. Work in the task's worktree, never push to `main`, never edit `frontend/VERSION`, no `Co-Authored-By`.
 
 Markers: `[ ]` todo, `[~]` in progress, `[x]` done, `[-]` dropped (say why), `[Z]` needs Zaher, `[!]` broken.
-Tracks: `IM` import quality, `DS` discovery, `IB` inbox and interests, `PL` planner and calendar, `LC` lifecycle and ops, `UI` app and mobile, `QA` tests and CI, `DOC` docs and housekeeping.
+Tracks: `IM` import quality, `DS` discovery, `IB` inbox and interests, `PL` planner and calendar, `LC` lifecycle and ops, `UI` app and mobile, `QA` tests and CI, `DOC` docs and housekeeping, `RF` code consolidation.
 Rules that never bend: no paid services, no invented numbers in imports, user edits survive reprocess, nothing in the app breaks the shared map for Zaher and Katherine.
 
 ## Now
@@ -31,12 +35,12 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 - [ ] `PL-03` Per-item `.ics` download (`GET /api/items/{id}.ics`) and an "Add to calendar" button on the detail card. Moved up from the Backlog 2026-11-09.
 - [ ] `DS-03.1` Discovery writer and dedup with fixtures, no network (first sub task of `DS-03`). Moved up 2026-11-09.
 - [ ] `QA-05` Migration test in CI: upgrade an empty database to head, downgrade one step, upgrade again. Moved up 2026-11-09.
-- [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid ($7-14, not $0-14). Moved up 2026-11-09; small, no server needed.
+- [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed). Moved up 2026-11-09; small, no server needed.
 
 ## Needs Zaher
 
-- [!] [Z] `LC-13` The deploy of 2026-11-07 never finished: the CD run for "List sort switch" was cancelled after 6 hours while the Zephyrus was hung (`LC-11`), but the version commit (v3.36) was already pushed. The live app still shows v3.26 (build 11-02), so the list sort switch is not live. The auto task never deploys. Recommendation: re-run the CD workflow from the Actions tab (it will bump the version once more, which is harmless), then check the version label on the site. Found 2026-11-11.
-- [ ] [Z] `DOC-02` Git housekeeping: 8 stale `auto-improve/*` worktrees under Temp and about 10 fully merged local/remote branches (listed in `status.md`). Approve deleting them; the auto task never deletes branches.
+- [ ] [Z] `LC-13` Check the version label on the live site. The 2026-11-07 deploy was cancelled while the Zephyrus was hung, but the CD run after the merges of 2026-11-14 finished (v3.96 on `main`), so the site should now show v3.96 with the list sort switch. If it does, close this; if not, re-run the CD workflow from the Actions tab.
+- [ ] [Z] `DOC-02` Git housekeeping, mostly done 2026-11-14: the 30 emptied `auto-improve/*` and feature worktrees under Temp and the local branches of merged PRs are removed. Left for Zaher: delete the remote branches of merged PRs on GitHub (about 35: every `auto-improve/*` except `2026-10-18` and `2026-10-19`, plus `ui-redesign`, `archive-and-exhibit-dates`, `provenance-and-flags`, `fix-import-1-6`, `roadmap-and-status`, `archive-past-events`, `verified-import-endpoint`, `standing-venues`), and decide on the worktree `Desktop\dp-prov` and the local branches `consolidate-pending-work`, `import-website-lookup`, `google-maps-photos`, `openrouter-nemotron-test`. Turning on "Automatically delete head branches" in the repo settings stops the pile from coming back.
 - [ ] [Z] `LC-02` Check the live site after the 2026-10-23 deploys (Archive chip, 21+ line, pins, Settings > Pin colors) and try the video slow path once with a captionless TikTok. Report what is wrong and the auto task will turn it into `[!]` items.
 - [ ] [Z] `UI-01` Set up the "Save to Dates" Shortcut on both phones (`docs/SHORTCUT.md`); check the service worker and Add to Home Screen in real Chrome.
 - [ ] [Z] `IM-02` Decision: how recurring shows are stored ("Every other Saturday, 8 PM"): real RRULE with occurrences (needs `LC-05`) or text only. Recommendation: RRULE, expanded 120 days ahead. Built that way in #19 for explicit patterns (vague words stay text); confirm it is what you want.
@@ -79,15 +83,15 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 - [ ] `IM-36` YouTube captions could not be downloaded from the server on 2026-11-08 and 2026-11-11 ("429 Too Many Requests"), so only the title and description are read; a video that only says its details out loud would lose them. Check after `LC-10` (yt-dlp update live) whether it still happens, then try a retry with a pause or the slow path (audio through Whisper) as the fallback. Found 2026-11-11.
 - [x] `IM-37` Pages whose structured data links nodes by `@id` (Hollywood Bowl: the event's location and its dated instance are separate nodes) gave a "museum" named after the artist with no date; fixed 2026-11-14.
 - [ ] `IM-38` Hollywood Bowl and similar ticketing pages (Tessitura) load the ticket price and the buy link by script, so price stays empty ("Individual tickets, on sale"); the page also says "Gate open 6:30pm" and the show time only in page text. Read the gate time into the description and try the browser path for the price; never invent a number. Found 2026-11-14.
+- [ ] `IM-39` Links collected from a venue's own site keep HTML entities (`&amp;`) in their address, so a page link with two query parameters is fetched with a broken address. The ticket-link reader already decodes them; make the venue-page reader do the same (`anchors(..., unescape=False)` in `venue.page_links`). Found 2026-11-14.
 - [ ] `IM-24` Single-business pages read only from structured data (Activate Culver City, 2026-10-31) get no description, minimum age or booking link; run the page text through the model for the missing fields, or use the page's own summary. Name fix done 2026-10-31.
-- [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid, so a place with free toddlers shows $7-14 instead of $0-14 (found 2026-10-25; the Free flag itself is fixed).
 - [ ] `IM-21` Drive-in / cinema pages: daily showtimes ("7:30pm, 10:40pm") and "box office opens an hour before" into hours text (found 2026-10-25). Related to `IM-04`.
 - [ ] `IM-15` Import checks beyond TikTok and articles: Reddit threads, Google Maps lists, Yelp / Time Out roundups, a shared screenshot. One per daily check, record the result.
 
 ### Discovery (DS)
 Goal: every 3 days find nearby events that match interests and land them in the Suggested inbox.
 - [ ] `DS-03` Discovery runner that writes: normalise, geocode venues with local Photon, dedup against the DB (same place, start within 60 min, title similarity > 0.7), save as `origin=discovered`, `review_status=suggested`, record a `discovery_runs` row and `adapter_state`. Keep `--dry-run`.
-  - [ ] `DS-03.1` Writer and dedup with fixtures, no network (listed in Now).
+  - `DS-03.1` Writer and dedup with fixtures, no network: listed in Now.
   - [ ] `DS-03.2` `adapter_state` backoff and health so a dead adapter never fails the run.
   - [ ] `DS-03.3` `discover` job type and a manual `POST /api/discover/run`.
 - [ ] `DS-04` Schedule discovery every 3 days at 03:00 (jitter), low GPU priority. Deps: `DS-03`.
@@ -119,7 +123,6 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `LC-10` After the first deploy with `LC-01.2`, check the worker log on a Sunday for "yt-dlp X -> Y" and that `/srv/dateplanner/data/ytdlp` exists (needs PyPI reachable from the worker container).
 - [x] `LC-11` The Zephyrus GPU driver hang of 2026-11-08 (hundreds of stuck `nvidia-smi` processes, AI hub 502, imports failing). The server was rebooted on 2026-11-10 (up since about 07:40) and the tester, the app and the AI hub answer again (checked 2026-11-11). Why `nvidia-smi` hung is still unknown; `LC-12` is the guard.
 - [ ] `LC-12` GPU watchdog: a small check (cron on the Zephyrus or a worker job) that runs `timeout 10 nvidia-smi` and asks the AI hub for `/api/tags`; on failure send one Home Assistant push ("Dates: AI hub down") instead of letting imports fail silently. Found 2026-11-08 (`LC-11`). Deps: `LC-11` done.
-- [ ] `LC-12` GPU watchdog: a small check (cron on the Zephyrus or a worker job) that runs `timeout 10 nvidia-smi` and asks the AI hub for `/api/tags`; on failure send one Home Assistant push ("Dates: AI hub down") instead of letting imports fail silently. Found 2026-11-08 (`LC-11`). Deps: `LC-11`.
 - [ ] `LC-03` NAS backup pull (`datespull` forced-command account, same shape as `recipebox-pull.sh`) plus a restore test of the latest dump into a scratch database. Deps: `LC-01`. Script only; Zaher runs the NAS side.
 - [ ] `LC-04` Monthly re-verify of places in batches (closed venues, moved addresses); flag, never delete.
 - [x] `LC-05` RRULE expansion into `occurrences` 120 days ahead, nightly, plus on save (done in #19: `recurrence.py`, `expand_occurrences` at 03:55).
@@ -134,25 +137,39 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `UI-05` Empty and error states: first run with no items, API down, import failed (clear message, retry).
 - [ ] `UI-06` Share target (`/share`) tested end to end from an Android share sheet and iOS Shortcut.
 - [ ] `UI-07` Settings: show the Ticketmaster key status and the AI backend (hub or OpenRouter) in use.
+- [ ] `UI-11` Split the two largest screens into parts: `ItemDetail.svelte` (1,437 lines, half of it styles: hero and photo picker, review box, the venue's events list, sources) and `+page.svelte` (1,059 lines: list rows and grouping, map data loading). No visible change. Low priority.
 
 ### Tests and CI (QA)
 - [ ] `QA-02` Frontend component tests for the filter bar, detail card and Add dialog (vitest + testing-library).
 - [ ] `QA-03` Browser smoke test against the mock server (Playwright): map loads, pins show, add flow, filters in the URL.
 - [ ] `QA-04` Golden set in CI against saved responses only (no network), failing on any wrong auto-accept.
-- [ ] `QA-07` CI/CD tidy (reviewed 2026-10-30): skip CI and CD for changes that only touch `*.md`, `improvements/**` or `scripts/**` (today each daily report merge rebuilds, bumps the version and restarts the stack); drop the unused `workflow_call` trigger in `ci.yml`; build the frontend once instead of in the `frontend` job, the `docker` job and CD; remove the one-off `dates-*-dev-1` cleanup from the deploy step (`LC-08`). No ARM image is built and none is needed (the Zephyrus is x86_64).
-- [ ] `QA-08` After the `QA-01` PR merges, the open daily PRs (#23-#32) that add imports may fail the wider lint (unsorted or unused imports). Run `ruff check --fix backend` on each branch before merging it. Found 2026-11-09.
+- [~] `QA-07` CI/CD tidy. Done 2026-11-14: CI (and so CD) is skipped for changes that only touch `**.md`, `improvements/**` or `docs/**`, and the unused `workflow_call` trigger is gone. Left: build the frontend once instead of in the `frontend` job, the `docker` job and CD; remove the one-off `dates-*-dev-1` cleanup from the deploy step (`LC-08`). No ARM image is built and none is needed (the Zephyrus is x86_64).
+- [-] `QA-08` Dropped 2026-11-14: the daily PRs #23-#37 are all merged and the wider lint passes on `main`.
 - [x] `QA-01` CI lint widened to ruff's default rules plus import sorting (`backend/ruff.toml`, ruff pinned to 0.17.4); 25 findings fixed, no behaviour change (done 2026-11-09).
 - [ ] `QA-06` Fixture refresh: replace fixtures whose live pages changed; list which adapters have no fixture.
 
 ### Docs and housekeeping (DOC)
-- [ ] `DOC-03` `docs/API.md` completeness check against every registered route; add the missing ones.
+- [x] `DOC-03` `docs/API.md` lists every registered route (nine were missing: image upload, bulk add, pictures and Google photos), and `backend/tests/test_api_docs.py` fails when a route is not in the doc. Done 2026-11-14.
 - [ ] `DOC-04` One-page "how the daily task works" in `docs/OPERATIONS.md` (worktree, tester service, roadmap, reports) so the setup survives losing the prompt.
 - [ ] `DOC-05` Prune `improvements/`: keep reports, move bulky raw JSON and old screenshots to a zipped archive folder once a month.
+
+### Code consolidation (RF)
+From the 2026-11-14 review: a month of one-link-at-a-time fixes left rules decided in several places and the import tester running a hand copy of the pipeline. The structure below is in place; what is left changes behaviour, so each item needs saved cases first.
+- [x] `RF-01` One pipeline: `pipeline.read_link` and `pipeline.prepare` are the public first half of an import; `run()`, the import tester, `eval.py` and the verified-items route all call them. The tester's copy of the steps is gone (it now gets the minimum-age step too), the doubled branch in the page reader is one helper (the browser-rendered page now gets its pictures as well), and `event_ended` moved out of the API layer into `app/lifecycle.py`. Done 2026-11-14.
+- [x] `RF-02` Shared helpers: links on a page (`ingest/links.py`), name and domain matching (`ingest/names.py`) and every "is it free?" decision (`ingest/free.py`, one function per source, rules unchanged). Done 2026-11-14.
+- [x] `RF-03` Saved import cases: `backend/tests/replay/` replays a saved page and saved model answers through `read_link` and `prepare` with no network; `python -m app.replay record <url> <folder>` captures one from a live link. Three seed cases from existing fixtures. Done 2026-11-14.
+- [x] `RF-04` The importer version follows the code (a hash of `ingest/`, `llm/` and `resolve/`), so "read by an older importer" is true again. Every item saved before this shows as older once it is deployed. Done 2026-11-14.
+- [ ] `RF-05` Record a saved case for each link of the past daily checks that still exists (Hollywood Bowl, Skull Canyon, Oak Canyon, Sunburst, Activate Culver City, Paramount Drive-In, Hollywood Roosevelt, the Dice and Eventbrite pages). `python -m app.replay record` has only been tested with fakes: the first live recording is also its test. One or two per check day.
+- [ ] `RF-06` Make the four free rules agree (they are side by side in `ingest/free.py` now). Known differences: the venue-site rule matches "free" inside other words ("carefree") and does not drop Free when paid tiers exist; the post rule accepts any "free" ("free parking") where the ticket-page rule needs free-entry wording; only the ticket-page rule drops a $0 with no free wording; structured data marked free wins even next to a paid price. Covers `IM-08`. Needs a saved case per difference first. Deps: `RF-05`.
+- [ ] `RF-07` The replay harness covers the first half of an import only. Extend it to the map lookup and the venue website lookup (saved Photon and SearXNG answers), and to pages that need the browser.
+- [ ] `RF-08` The shape of an item as the app shows it is written three times: the API (`api/items.py`), the mock server (`frontend/mock/api.ts`) and the tester's prod-UI preview (`import-tester/server.py`), and the last two have fallen behind (no `gaps`, `listed`, `archived`). Build the preview from one shared function, and check the mock against a saved API answer in a frontend test.
+- [ ] `RF-09` Small leftovers: `eval.py` cannot read a YouTube link (its stand-in source has no id; no golden case uses one yet); `import-tester/` is not linted in CI (one import-order finding); `places.watch_parser` and the `"watch"` job flag are stored but nothing reads them (wire them with the venue parsers or drop them); `test_venue.py` still calls the private `pipeline._look_up_sites`.
 
 ## Done
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-14 (tidy) `RF-01` `RF-02` `RF-03` `RF-04` `DOC-03` Code consolidation after a full review (by hand, not the auto task): one pipeline that the tester and the eval share, shared link, name and free helpers, saved-case replay tests, importer version from the code, API doc complete with a test, docs-only merges no longer deploy (`QA-07` part), task rules moved into this file, 30 stale worktrees and local branches removed; 455 tests
 - 2026-11-14 (check) `IM-37` Hollywood Bowl Steve Lacy concert page: structured data that points to the venue and to the dated show by `@id` is now resolved, so it comes out as a Nov 21 event at Hollywood Bowl (2301 Highland Ave) instead of an undated "museum"; price and gate time still missed (`IM-38`), PR #37
 - 2026-11-12 (item) `PL-02.1` Planner client for the app: types, API calls and helpers for the suggest / save / list / delete plan routes, 5 tests; no visible change yet, `PL-02` split into four sub tasks, PR #36
 - 2026-11-11 (check) `IM-33` City of Los Angeles weekend video (YouTube, three free events): a start time written as a range with one am/pm ("3–7 PM", "2–4 PM") is no longer dropped as unverified; the Zephyrus is back (`LC-11` closed) but the 2026-11-07 deploy never finished (`LC-13`); info links, the parade's pin and captions still missed (`IM-34`, `IM-35`, `IM-36`), PR #35
