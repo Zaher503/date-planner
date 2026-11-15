@@ -43,6 +43,12 @@ Response:
 
 `changes` lists only fields that differ (all set fields for a new item); `kept_user_edits` are saved fields a person edited, which were not touched. An item that cannot be pinned comes back as `{"name", "error"}` and is not saved. `source_id` is null for a dry run or when nothing was saved.
 
+## Discovery feeds
+
+`GET /api/discover/feeds` -> `{"feeds": [{"url", "name", "default_category"}], "enabled": true, "last_ok_at": null, "last_error": null}`
+
+`PUT /api/discover/feeds` with `{"feeds": [{"url": "webcal://city.example/events.ics", "name": "City events", "default_category": "outdoors"}]}` replaces the whole list and returns the same shape. `url` must be http, https or webcal (422 otherwise); at most 30 feeds; the same url twice keeps the first. The list is stored in `adapter_state.config.feeds` for `ical_feeds`, which `python -m app.discover.run --dry-run --adapter ical_feeds` reads. Feeds are fetched through the SSRF-guarded client. There is no Settings screen yet (`DS-10`).
+
 ## Settings and facets
 
 `GET /api/settings`
