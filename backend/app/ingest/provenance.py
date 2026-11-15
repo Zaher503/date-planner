@@ -1,11 +1,25 @@
 """Which importer and model produced an item. Stored in import_info, never shown in the UI."""
 import hashlib
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.config import get_settings
 
-# Bump when extraction rules, prompts, resolver or parsers change in a way that can alter what is saved
-IMPORTER_VERSION = "2026.10.26-1"
+APP_DIR = Path(__file__).resolve().parent.parent
+CODE_DIRS = ("ingest", "llm", "resolve")
+
+
+def code_version(app_dir: Path = APP_DIR, dirs=CODE_DIRS) -> str:
+    """Hash of the code that shapes what an import saves (line endings ignored)."""
+    h = hashlib.sha1()
+    files = sorted((p.relative_to(app_dir).as_posix(), p) for d in dirs for p in (app_dir / d).rglob("*.py"))
+    for rel, path in files:
+        h.update(rel.encode() + b"\0" + path.read_bytes().replace(b"\r", b"") + b"\0")
+    return "src-" + h.hexdigest()[:10]
+
+
+# Follows the code itself, so it changes whenever rules, prompts, resolver or parsers change
+IMPORTER_VERSION = code_version()
 HISTORY_KEEP = 5
 
 

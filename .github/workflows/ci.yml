@@ -3,8 +3,11 @@ name: CI
 on:
   push:
     branches: [main]
+    # Docs-only changes skip CI, so CD does not bump the version or redeploy.
+    # tests/test_api_docs.py reads docs/API.md; a docs-only edit is only checked on the next code change.
+    paths-ignore: ["**.md", "improvements/**", "docs/**"]
   pull_request:
-  workflow_call:
+    paths-ignore: ["**.md", "improvements/**", "docs/**"]
 
 permissions:
   contents: read
