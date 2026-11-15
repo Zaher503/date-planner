@@ -8,7 +8,7 @@ def test_ticket_links_ranked_and_filtered():
     links = pricing.ticket_links(HOME, "https://venue.com/e/1", {"https://venue.com/e/1"})
     assert links[0] == "https://venue.com/tickets/123"
     assert "https://venue.com/about" not in links
-    assert all(not l.endswith(".png") for l in links)
+    assert all(not link.endswith(".png") for link in links)
 
 
 def test_find_price_follows_ticket_link(monkeypatch):

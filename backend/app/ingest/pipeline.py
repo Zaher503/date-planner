@@ -20,15 +20,13 @@ from sqlalchemy.orm import Session
 from app import browser, jobs
 from app.api.filters import event_ended
 from app.db.models import Event, ItemSource, Job, Place, Source
-from app.ingest import maps_links, media, ocr, store
-from app.ingest import age
+from app.ingest import age, images, maps_links, media, ocr, page_images, pricing, store, venue
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
-from app.llm.ollama import describe, waiting
-from app.ingest import images, page_images, pricing, venue
-from app.ingest.timing import vtt_cues
 from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
+from app.ingest.timing import vtt_cues
 from app.llm import extract as llm
+from app.llm.ollama import describe, waiting
 from app.net import BlockedURL, fetch_text
 from app.resolve.candidates import km
 from app.resolve.resolver import resolve
@@ -263,6 +261,14 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
 
 OFFERS_MAX_CHARS = 300
 
+# A sale banner ("Save 15% on weekday rides") is a venue offer, not something to attend on a date
+PROMO_TITLE = re.compile(r"\bsave\s+(?:up\s+to\s+)?\d+\s*%|\d+\s*%\s*off\b|\bpercent\s+off\b|\bdiscount|\bbogo\b|\bbuy\s+one,?\s+get\s+one\b", re.I)
+
+
+def is_promo(h: ItemHint) -> bool:
+    return bool((h.event_title and PROMO_TITLE.search(h.event_title))
+                or (h.description and PROMO_TITLE.match(h.description.strip())))
+
 
 def demote_offerings(hints: list[ItemHint], source_url: str | None) -> list[ItemHint]:
     """A venue's home page or menu lists what it offers (workshops, exhibits, tours) without dates. Those are not
@@ -272,9 +278,10 @@ def demote_offerings(hints: list[ItemHint], source_url: str | None) -> list[Item
     home_page = bool(source_url) and urlsplit(source_url).path.strip("/") == ""
     dateless: dict[str, list[ItemHint]] = {}
     for h in hints:
-        if h.kind == "event" and not h.starts_at and not h.recurrence and h.name:
+        if h.kind == "event" and h.name and ((not h.starts_at and not h.recurrence) or is_promo(h)):
             dateless.setdefault(h.name.strip().lower(), []).append(h)
-    drop = {id(h) for group in dateless.values() if home_page or len(group) >= 3 for h in group}
+    drop = {id(h) for group in dateless.values() for h in group
+            if is_promo(h) or home_page or len(group) >= 3}
     if not drop:
         return hints
     kept = [h for h in hints if id(h) not in drop]
