@@ -61,7 +61,7 @@ def find_place(db: Session, cand: Candidate, name: str) -> Place | None:
     return None
 
 
-def _place_name(hint: ItemHint, cand: Candidate) -> str:
+def place_name(hint: ItemHint, cand: Candidate) -> str:
     # Prefer the official spelling when it clearly is the same place
     if cand.kind == "poi" and cand.name and name_similarity(hint.name, cand.name) >= 0.8:
         return cand.name
@@ -72,7 +72,7 @@ def upsert_place(db: Session, hint: ItemHint, res: Resolution, user_id: int | No
                  existing: Place | None = None, engine: str = "llm", source_id=None) -> tuple[Place, bool]:
     """existing: the place a link read before (a reread). It is updated in place, pin and name included as is."""
     cand = res.best
-    name = _place_name(hint, cand)
+    name = place_name(hint, cand)
     place = existing or find_place(db, cand, name)
     refresh = existing is not None
     created = place is None

@@ -1,0 +1,24 @@
+{
+  "kind": "event_page",
+  "url": "https://www.meetup.com/la-hiking/events/",
+  "caption": null,
+  "now": "2026-10-10T12:00:00+00:00",
+  "pages": {
+    "https://www.meetup.com/la-hiking/events/": {
+      "final": "https://www.meetup.com/la-hiking/events/",
+      "file": "page.html"
+    },
+    "https://www.meetup.com/los-angeles-hiking-group/events/316760628/": {
+      "error": "ConnectError"
+    },
+    "https://www.meetup.com/los-angeles-hiking-group/events/316650549/": {
+      "error": "ConnectError"
+    },
+    "https://www.meetup.com/los-angeles-hiking-group/events/316217144/": {
+      "error": "ConnectError"
+    },
+    "https://www.meetup.com/los-angeles-hiking-group/events/316864383/": {
+      "error": "ConnectError"
+    }
+  }
+}

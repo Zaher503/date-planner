@@ -18,13 +18,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import browser, jobs
-from app.api.filters import event_ended
 from app.db.models import Event, ItemSource, Job, Place, Source
 from app.ingest import age, images, maps_links, media, ocr, page_images, pricing, store, venue
-from app.ingest.event_page import parse_page
+from app.ingest.event_page import PageData, parse_page
 from app.ingest.items import ItemHint
 from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
 from app.ingest.timing import vtt_cues
+from app.lifecycle import event_ended
 from app.llm import extract as llm
 from app.llm.ollama import describe, waiting
 from app.net import BlockedURL, fetch_text
@@ -57,13 +57,13 @@ def _json_safe(d: dict) -> dict:
     return {k: (v.isoformat() if isinstance(v, (datetime, date)) else v) for k, v in d.items()}
 
 
-def _in_line(db: Session, job: Job, pct: int):
+def in_line(db: Session, job: Job, pct: int):
     """While the AI hub makes this job wait, show where it is in line."""
     return waiting(lambda est: jobs.set_stage(db, job, describe(est), pct))
 
 
 def _llm(db: Session, job: Job, fn, *args, **kwargs):
-    with _in_line(db, job, 30):
+    with in_line(db, job, 30):
         jobs.set_stage(db, job, "reading with the local model", 35)
         return fn(*args, **kwargs)
 
@@ -142,7 +142,7 @@ def _from_image(db: Session, job: Job, src: Source) -> Gathered:
     path = media.media_root() / rel if rel else None
     if path is None or not path.exists():
         raise Unprocessable("the screenshot file is missing")
-    with _in_line(db, job, 20):
+    with in_line(db, job, 20):
         jobs.set_stage(db, job, "reading the screenshot", 25)
         text = ocr.read_screenshot(path)
         src.ocr_text = text or None
@@ -185,24 +185,16 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
     db.commit()
     context = "\n".join(x for x in (page.title, page.description) if x)
     if page.items:
-        _llm(db, job, llm.classify, page.items, context)
-        age.apply(page.items, context, page.text)
-        if len(page.items) > 1:
-            page_images.attach(page.items, html, final)
-        return page.items
-    text = "\n\n".join(x for x in (f"Page title: {page.title}" if page.title else None,
-                                   page.description, page.text[:6000]) if x)
+        return _structured(db, job, page, html, final, context)
+    text = _page_text(page)
     if len(text) < 40 and browser.available():
         # Pages built by JavaScript have no text until a browser runs them
         try:
             final, html = browser.render(final)
             page = parse_page(final, html)
             if page.items:
-                _llm(db, job, llm.classify, page.items, context)
-                age.apply(page.items, context, page.text)
-                return page.items
-            text = "\n\n".join(x for x in (f"Page title: {page.title}" if page.title else None,
-                                           page.description, page.text[:6000]) if x)
+                return _structured(db, job, page, html, final, context)
+            text = _page_text(page)
         except Exception as e:
             log.info("browser render of %s failed: %s", final, e)
     if len(text) < 40:
@@ -212,6 +204,21 @@ def _from_page(db: Session, job: Job, src: Source) -> list[ItemHint]:
     age.apply(hints, text)
     page_images.attach(hints, html, final)
     return hints
+
+
+def _page_text(page: PageData) -> str:
+    return "\n\n".join(x for x in (f"Page title: {page.title}" if page.title else None,
+                                   page.description, page.text[:6000]) if x)
+
+
+def _structured(db: Session, job: Job, page: PageData, html: str, url: str, context: str) -> list[ItemHint]:
+    """The page states its items itself (JSON-LD), so the model only picks a category and tags. Used for the
+    plain page and the browser-rendered one alike."""
+    _llm(db, job, llm.classify, page.items, context)
+    age.apply(page.items, context, page.text)
+    if len(page.items) > 1:
+        page_images.attach(page.items, html, url)
+    return page.items
 
 
 def _from_text(db: Session, job: Job, src: Source) -> list[ItemHint]:
@@ -376,7 +383,7 @@ def slow_text(db: Session, job: Job, src: Source, g: Gathered) -> str:
         db.commit()
         video = dl.video
     extra: list[str] = []
-    with _in_line(db, job, 58):
+    with in_line(db, job, 58):
         if not src.transcript:
             jobs.set_stage(db, job, "transcribing", 60)
             try:
@@ -413,7 +420,7 @@ def _extract_again(db: Session, job: Job, g: Gathered, extra: str) -> list[ItemH
     return prune(hints, is_list)
 
 
-def _earlier(db: Session, src: Source) -> dict[int, tuple[Place | None, Event | None]]:
+def earlier(db: Session, src: Source) -> dict[int, tuple[Place | None, Event | None]]:
     """What this link produced the last time it was read, by position in the link."""
     out: dict[int, tuple[Place | None, Event | None]] = {}
     for link in db.scalars(select(ItemSource).where(ItemSource.source_id == src.id)).all():
@@ -430,7 +437,7 @@ def _like(a: str | None, b: str | None) -> bool:
     return bool(a and b and name_similarity(a, b) >= 0.5)
 
 
-def _reuse(db: Session, hint: ItemHint, before: tuple[Place | None, Event | None] | None,
+def reuse(db: Session, hint: ItemHint, before: tuple[Place | None, Event | None] | None,
            only: bool) -> tuple[Place | None, Event | None]:
     """What a reread updates instead of creating again. With one item in and one out it is the same
     listing whatever the page now calls it; with several, the name has to still match. An event is
@@ -445,45 +452,59 @@ def _reuse(db: Session, hint: ItemHint, before: tuple[Place | None, Event | None
     return None, None
 
 
+def read_link(db: Session, job: Job, src: Source) -> Gathered:
+    """Read the link by its kind: what the post or page says, as hints plus the text they came from.
+    Raises Unprocessable (or BlockedURL) when the link can never work."""
+    jobs.set_stage(db, job, "reading the link", 10)
+    if src.kind == "tiktok":
+        return _from_tiktok(db, job, src)
+    if src.kind == "youtube":
+        return _from_youtube(db, job, src)
+    if src.kind in ("gmaps", "applemaps"):
+        hints = _from_maps(src)
+        _llm(db, job, llm.classify, hints, src.title or "")
+        return Gathered(hints=hints)
+    if src.kind == "event_page":
+        return Gathered(hints=_from_page(db, job, src))
+    if src.kind == "text":
+        return Gathered(hints=_from_text(db, job, src))
+    if src.kind == "image":
+        return _from_image(db, job, src)
+    raise Unprocessable(f"{src.kind} links are not supported yet")
+
+
+def prepare(db: Session, job: Job, src: Source, g: Gathered, now: datetime | None = None) -> list[ItemHint]:
+    """Tidy what was read: dateless events become places, venue offerings fold into the venue, the minimum
+    age is set, and events with no price get one looked up. No map lookup and nothing saved."""
+    now = now or datetime.now(timezone.utc)
+    page_url = src.url if src.kind == "event_page" else None
+    hints = [tidy(h, now) for h in g.hints if h.name or h.event_title]
+    hints = demote_offerings(hints, page_url)
+    age.apply(hints, g.text, src.caption)
+    if any(h.kind == "event" and not pricing.has_price(h) for h in hints):
+        jobs.set_stage(db, job, "checking ticket prices", 44)
+        try:
+            with in_line(db, job, 44):
+                pricing.enrich(hints, page_url)
+        except Exception as e:  # a price is a nicety; the item is saved without it
+            log.warning("price check failed for %s: %s", src.id, e)
+    return hints
+
+
 def run(db: Session, job: Job) -> dict:
     src = db.get(Source, uuid.UUID(job.payload["source_id"]))
     if src is None:
         return {"skipped": "source deleted"}
-    jobs.set_stage(db, job, "reading the link", 10)
     try:
-        if src.kind == "tiktok":
-            g = _from_tiktok(db, job, src)
-        elif src.kind == "youtube":
-            g = _from_youtube(db, job, src)
-        elif src.kind in ("gmaps", "applemaps"):
-            hints = _from_maps(src)
-            _llm(db, job, llm.classify, hints, src.title or "")
-            g = Gathered(hints=hints)
-        elif src.kind == "event_page":
-            g = Gathered(hints=_from_page(db, job, src))
-        elif src.kind == "text":
-            g = Gathered(hints=_from_text(db, job, src))
-        elif src.kind == "image":
-            g = _from_image(db, job, src)
-        else:
-            raise Unprocessable(f"{src.kind} links are not supported yet")
+        g = read_link(db, job, src)
     except (Unprocessable, BlockedURL) as e:
         src.status, src.error = "failed", str(e)
         db.commit()
         raise Unprocessable(str(e)) from e
 
     now = datetime.now(timezone.utc)
-    hints = [tidy(h, now) for h in g.hints if h.name or h.event_title]
-    hints = demote_offerings(hints, src.url if src.kind == "event_page" else None)
-    age.apply(hints, g.text, src.caption)
     src.fetched_at = now
-    if any(h.kind == "event" and not pricing.has_price(h) for h in hints):
-        jobs.set_stage(db, job, "checking ticket prices", 44)
-        try:
-            with _in_line(db, job, 44):
-                pricing.enrich(hints, src.url if src.kind == "event_page" else None)
-        except Exception as e:  # a price is a nicety; the item is saved without it
-            log.warning("price check failed for %s: %s", src.id, e)
+    hints = prepare(db, job, src, g, now)
     home = store.home_point(db)
     resolved = _resolve_all(db, job, hints, home, (45, 55))
     slow = False
@@ -505,7 +526,7 @@ def run(db: Session, job: Job) -> dict:
         db.commit()
         return {"items": [], "error": src.error, "slow_path": slow}
 
-    earlier = _earlier(db, src)
+    before_all = earlier(db, src)
     results = []
     for i, (hint, res) in enumerate(resolved):
         jobs.set_stage(db, job, "saving", 93 + int(6 * i / len(resolved)))
@@ -515,9 +536,9 @@ def run(db: Session, job: Job) -> dict:
         if too_vague(res):
             results.append({"name": hint.event_title or hint.name, "error": "too vague to pin (only a city)"})
             continue
-        only = len(earlier) == 1 and len(resolved) == 1
-        before = next(iter(earlier.values())) if only else earlier.get(i)
-        was_place, was_event = _reuse(db, hint, before, only)
+        only = len(before_all) == 1 and len(resolved) == 1
+        before = next(iter(before_all.values())) if only else before_all.get(i)
+        was_place, was_event = reuse(db, hint, before, only)
         place, place_new = store.upsert_place(db, hint, res, src.submitted_by, existing=was_place, source_id=src.id)
         store.save_candidates(db, src, place, i, res)
         row = {"type": "place", "id": str(place.id), "name": place.name, "new": place_new,

@@ -1,0 +1,16 @@
+[
+  {
+    "kind": "place",
+    "name": "Perch LA",
+    "address": "448 South Hill Street, Los Angeles, CA, 90013, United States",
+    "category": "bar",
+    "website": "https://www.perchla.com/",
+    "opening_hours": "Mo 16:00-01:00; Tu 16:00-01:00; We 16:00-01:00; Th 16:00-01:00; Fr 16:00-01:30; Sa 10:00-01:30; Su 10:00-01:00",
+    "tags": [
+      "rooftop",
+      "cocktails"
+    ],
+    "provider": "jsonld",
+    "status": "scheduled"
+  }
+]

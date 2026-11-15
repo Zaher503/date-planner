@@ -1,5 +1,4 @@
 """Filters shared by /api/map and /api/list: query parsing and SQL conditions."""
-import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
@@ -10,6 +9,7 @@ from sqlalchemy import and_, case, exists, func, literal_column, or_, select
 
 from app.config import get_settings
 from app.db.models import Event, Occurrence, Place, UserItemState
+from app.lifecycle import DEFAULT_EVENT_HOURS, event_ended  # noqa: F401  (event_ended is re-exported)
 
 WHENS = ("today", "tomorrow", "weekend", "week", "month", "range")
 TYPES = ("place", "event")
@@ -18,7 +18,6 @@ STATUSES = ("want", "going", "been", "suggested", "review")
 MY_STATUSES = ("want", "going", "been")
 # Event price buckets on price_min: 1 is under 20, 2 is 20 to 50, 3 is above 50
 LOW, HIGH = 20, 50
-DEFAULT_EVENT_HOURS = 3
 GEOG = Geography(srid=4326)
 GEOM = Geometry(srid=4326)
 
@@ -183,7 +182,6 @@ def recurring():
 
 
 MAX_INDEXED_SPAN = 90  # degrees
-UNTIL_RE = re.compile(r"UNTIL=(\d{8})")
 
 
 def series_over(now: datetime):
@@ -200,30 +198,6 @@ def archived(now: datetime):
                and_(~recurring(), or_(Event.starts_at.isnot(None), Event.ends_at.isnot(None)),
                     event_end(Event.starts_at, Event.ends_at) < now),
                series_over(now))
-
-
-def event_ended(*, status: str | None, starts_at: datetime | None, ends_at: datetime | None,
-                duration_min: int | None, all_day: bool | None, is_recurring: bool, now: datetime,
-                rrule: str | None = None) -> bool:
-    """Python twin of archived(), for rows already in memory. Keep the two in step."""
-    if status == "archived":
-        return True
-    m = UNTIL_RE.search(rrule or "")
-    if m and m.group(1) < now.strftime("%Y%m%d"):
-        return True
-    if is_recurring or (starts_at is None and ends_at is None):
-        return False
-    if starts_at is not None and starts_at.tzinfo is None:  # a time that was never given an offset reads in the caller's zone
-        starts_at = starts_at.replace(tzinfo=now.tzinfo)
-    if ends_at is not None and ends_at.tzinfo is None:
-        ends_at = ends_at.replace(tzinfo=now.tzinfo)
-    if ends_at is not None:
-        end = ends_at
-    elif duration_min is not None:
-        end = starts_at + timedelta(minutes=duration_min)
-    else:
-        end = starts_at + (timedelta(days=1) if all_day else timedelta(hours=DEFAULT_EVENT_HOURS))
-    return end < now
 
 
 def overlaps(start: datetime, end: datetime):

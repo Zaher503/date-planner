@@ -135,8 +135,8 @@ def save_item(db: Session, src: Source, item: VerifiedItem, index: int, home, ea
         return {"name": item.name, "error": "not found on the map"}
     if pipeline.too_vague(res):
         return {"name": item.name, "error": "too vague to pin (only a city)"}
-    name = store._place_name(hint, res.best)
-    was_place, was_event = pipeline._reuse(db, hint, earlier.get(index), len(earlier) == 1)
+    name = store.place_name(hint, res.best)
+    was_place, was_event = pipeline.reuse(db, hint, earlier.get(index), len(earlier) == 1)
     place = was_place or store.find_place(db, res.best, name)
     place_before = snapshot(place, PLACE_FIELDS) if place else None
     if place and not hint.category:
@@ -173,7 +173,7 @@ def save_verified(body: VerifiedIn, db: Session = Depends(get_db)):
     for item in body.items:
         check_item(item)
     src = source_for(db, body.url, datetime.now(timezone.utc))
-    earlier = pipeline._earlier(db, src)
+    earlier = pipeline.earlier(db, src)
     home = store.home_point(db)
     results = []
     try:

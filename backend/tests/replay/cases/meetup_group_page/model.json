@@ -1,0 +1,42 @@
+[
+  {
+    "module": "extract",
+    "system": "For each numbered place or event, choose its category",
+    "answer": {
+      "items": [
+        {
+          "index": 0,
+          "category": "hike",
+          "tags": [
+            "hiking",
+            "group"
+          ]
+        },
+        {
+          "index": 1,
+          "category": "hike",
+          "tags": [
+            "hiking",
+            "group"
+          ]
+        },
+        {
+          "index": 2,
+          "category": "hike",
+          "tags": [
+            "hiking",
+            "group"
+          ]
+        },
+        {
+          "index": 3,
+          "category": "hike",
+          "tags": [
+            "hiking",
+            "group"
+          ]
+        }
+      ]
+    }
+  }
+]
