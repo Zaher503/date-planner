@@ -21,6 +21,16 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
+- [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
+  - Design agreed 2026-10-31 (prototype, not in the repo): a "Plan a night" button in the search bar (key `P`) opens a planner in the left pane with the route on the map; day strip, templates (dinner then a show, drinks then a party), stops with arrival times and travel time, Drive / Rideshare / Walk / Transit, a shortest-route suggestion, share. Add "Add to plan" to the quick actions on the detail card with it. Travel times must come from the OSRM service, not the prototype's formulas.
+- [ ] `PL-03` Per-item `.ics` download (`GET /api/items/{id}.ics`) and an "Add to calendar" button on the detail card. Moved up from the Backlog 2026-11-09.
+- [ ] `DS-03.1` Discovery writer and dedup with fixtures, no network (first sub task of `DS-03`). Moved up 2026-11-09.
+- [ ] `QA-05` Migration test in CI: upgrade an empty database to head, downgrade one step, upgrade again. Moved up 2026-11-09.
+- [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid ($7-14, not $0-14). Moved up 2026-11-09; small, no server needed.
+
+## Needs Zaher
+
+- [!] [Z] `LC-11` The Zephyrus GPU driver is hung (found 2026-11-08, about 03:36 local): 554 `nvidia-smi` processes stuck in uninterruptible wait, load average about 563, about 200 MB RAM free, `docker ps` hangs. The AI hub answers 502, so every import that needs the model fails on the live app too (and Foodbox / the Transcriber share the GPU). Needs a reboot of the Zephyrus (or an NVIDIA driver reset); the auto task does not restart servers. Recommendation: reboot, then look at why `nvidia-smi` hangs (driver update, or whatever polls it every few minutes, e.g. a monitoring widget). After that, `LC-12`. Still down on 2026-11-09 (ping answers, SSH and the tester time out, the public tester gives 503), so the import check was skipped again and a roadmap item was done instead. Same on 2026-11-10 (ping answers on .103 and .172, SSH, the LAN tester and the app UI time out, the public tester gives 503); `DOC-01` done instead.
 - [ ] `DOC-01` Rewrite the `README.md` status table and "Next step", and the `docs/PLAN.md` header status, from `status.md`. Retire `docs/TODO-ZAHER.md` (point it at `status.md`).
 - [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
   - Design agreed 2026-10-31 (prototype, not in the repo): a "Plan a night" button in the search bar (key `P`) opens a planner in the left pane with the route on the map; day strip, templates (dinner then a show, drinks then a party), stops with arrival times and travel time, Drive / Rideshare / Walk / Transit, a shortest-route suggestion, share. Add "Add to plan" to the quick actions on the detail card with it. Travel times must come from the OSRM service, not the prototype's formulas.
@@ -158,6 +168,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-10 (item) `DOC-01` README status table, "Next step" and layout table, and the `docs/PLAN.md` header status rewritten from `status.md`; `docs/TODO-ZAHER.md` retired to a pointer; import check skipped again because the Zephyrus is still hung (`LC-11`), PR #34
 - 2026-11-09 (item) `QA-01` CI lint widened to ruff's default rules plus import sorting; 25 findings fixed (import order, 7 unused imports, one unused variable, two test-style nits), tests 391 passed before and after; import check skipped because the Zephyrus is still hung (`LC-11`), PR #33
 - 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
 - 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
@@ -181,7 +192,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
 - 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
 - 2026-10-31 (item) `UI-08` Redesign: new blue / Inter look with glass panels, a Filters drawer (phone: tall sheet) with Saved status, When, five category groups, Distance and Archive, filters shown as removable tokens in the search bar, details floating over the map on desktop, details card that expands on phones with Directions / Website / Call / Tickets / Share, PR #24
-- 2026-10-30 (item) `IM-00` Exhibitions keep their start and end dates at import and age into the Archive by themselves; an event with only a closing date also archives; Archive / Restore button on the event card; prod data cleanup (56 places / 30 events to 43 / 22, nothing left to review) with its two SQL scripts, PR #22 (open)
+- 2026-10-30 (item) `IM-00` Exhibitions keep their start and end dates at import and age into the Archive by themselves; an event with only a closing date also archives; Archive / Restore button on the event card; prod data cleanup (56 places / 30 events to 43 / 22, nothing left to review) with its two SQL scripts, PR #22 (merged)
 - 2026-10-26 (item) `IM-00` Standing venues: weekly page scan, repeating events with RRULE expansion (`LC-05`), events list on the place page, PR #19
 - 2026-10-26 (item) `IM-00` Importer provenance (`import_info`) and flexible missing-field flags, PR #18
 - 2026-10-26 (item) `IM-01.1` Footer address, phone and venue name now reach the event extractor and apply to every event on the page, PR #17
