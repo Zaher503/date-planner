@@ -20,3 +20,6 @@ playwright==1.49.1
 python-multipart>=0.0.20,<1
 # Slow path: video download (Whisper and the models run in the shared AI hub)
 yt-dlp>=2025.1.1
+# Discovery: iCal feeds added in Settings (parse, and expand recurring events)
+icalendar>=6.1,<7
+recurring-ical-events>=3.4,<4

@@ -24,6 +24,12 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 - [x] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
   - [x] `LC-01.1` Backup job and its test (command built correctly, retention). Runs 02:30 daily; needs `pg_dump` 17 in the app image (Dockerfile.app changed), so check the first real backup after deploy.
   - [x] `LC-01.2` Weekly yt-dlp update job (done 2026-11-07): Sundays 03:10, installs the newest yt-dlp into `DATA_DIR/ytdlp`, swapped in only if it starts; downloads prefer that copy. Check the first run in the worker log after deploy (`LC-10`).
+- [~] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
+  - [x] `LC-01.1` Backup job and its test (command built correctly, retention). Runs 02:30 daily; needs `pg_dump` 17 in the app image (Dockerfile.app changed), so check the first real backup after deploy.
+- [ ] `DS-01` Wire the iCal adapter: add `ical_feeds` to `ADAPTERS`, feed list kept in settings (API only), tests from a saved feed.
+- [ ] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
+  - [ ] `LC-01.1` Backup job and its test (command built correctly, retention).
+  - [ ] `LC-01.2` Weekly yt-dlp update job.
 - [ ] `QA-01` Widen the CI lint from `E9,F63,F7,F82` to the default ruff rules plus `I` (imports); fix what it finds without changing behaviour.
 - [ ] `DOC-01` Rewrite the `README.md` status table and "Next step", and the `docs/PLAN.md` header status, from `status.md`. Retire `docs/TODO-ZAHER.md` (point it at `status.md`).
 - [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
@@ -148,6 +154,13 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - 2026-11-02 (check) `IM-00` Skull Canyon Ziplines: more site pages read (tours, packages, six instead of four, hours and price pages first), dropped price-card lines recovered, current-season hours preferred; card prices still missing (`IM-27`, `IM-28`)
 - 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
 - 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-11-02 (check) `IM-00` Skull Canyon Ziplines: more site pages read (tours, packages, six instead of four, hours and price pages first), dropped price-card lines recovered, current-season hours preferred; card prices still missing (`IM-27`, `IM-28`)
+- 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
+- 2026-10-31 (item) `UI-08` Redesign: new blue / Inter look with glass panels, a Filters drawer (phone: tall sheet) with Saved status, When, five category groups, Distance and Archive, filters shown as removable tokens in the search bar, details floating over the map on desktop, details card that expands on phones with Directions / Website / Call / Tickets / Share, PR #24
 - 2026-10-30 (item) `IM-00` Exhibitions keep their start and end dates at import and age into the Archive by themselves; an event with only a closing date also archives; Archive / Restore button on the event card; prod data cleanup (56 places / 30 events to 43 / 22, nothing left to review) with its two SQL scripts, PR #22 (open)
 - 2026-10-26 (item) `IM-00` Standing venues: weekly page scan, repeating events with RRULE expansion (`LC-05`), events list on the place page, PR #19
 - 2026-10-26 (item) `IM-00` Importer provenance (`import_info`) and flexible missing-field flags, PR #18

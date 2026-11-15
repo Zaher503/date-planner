@@ -117,3 +117,23 @@ def test_offerings_join_an_existing_place_of_the_same_name():
     out = demote_offerings([place, ItemHint("event", "Aquarium of the Pacific", event_title="Jelly Dreamscapes")],
                            "https://www.aquariumofpacific.org/")
     assert out == [place] and place.description == "Big aquarium. Offers: Jelly Dreamscapes"
+
+
+def test_a_sale_banner_is_an_offer_not_an_event():
+    from app.ingest.pipeline import demote_offerings
+    hints = [ItemHint("event", "The Sunburst", event_title="Toy Drive Train",
+                      starts_at=datetime(2026, 12, 5, tzinfo=timezone.utc)),
+             ItemHint("event", "The Sunburst", event_title="Fall into Savings! Save 15% on all weekday rides",
+                      starts_at=datetime(2026, 11, 18, tzinfo=timezone.utc), ends_at=datetime(2026, 11, 30, tzinfo=timezone.utc)),
+             ItemHint("event", "The Sunburst", event_title="Save 35% with a toy donation")]
+    out = demote_offerings(hints, "https://example.com/events/")
+    assert [(h.kind, h.event_title) for h in out] == [("event", "Toy Drive Train"), ("place", None)]
+    assert "Save 15%" in out[1].description and "Save 35%" in out[1].description
+
+
+def test_a_promo_window_described_as_a_sale_is_an_offer_but_a_passing_mention_is_not():
+    from app.ingest.pipeline import is_promo
+    window = ItemHint("event", "The Sunburst", event_title="Railbike ride between November 18 and December 3",
+                      description="Save 35% on your ride when you donate by booking a ride.")
+    show = ItemHint("event", "El Cid", event_title="Disco Party", description="Doors at 9. Save 20% if you book early.")
+    assert is_promo(window) and not is_promo(show)
