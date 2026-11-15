@@ -9,10 +9,10 @@ import logging
 import re
 from urllib.parse import urljoin, urlsplit
 
-from app.ingest.event_page import jsonld_nodes, parse_page
+from app import browser
+from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
 from app.llm import verify
-from app import browser
 from app.llm.ollama import LLMError, chat_json
 from app.net import BlockedURL, fetch_text
 

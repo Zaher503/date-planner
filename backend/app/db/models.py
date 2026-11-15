@@ -8,8 +8,25 @@ from datetime import date, datetime, time
 from geoalchemy2 import Geography
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
-    BigInteger, Boolean, CheckConstraint, Computed, Date, DateTime, Float, ForeignKey, Identity,
-    Index, Integer, LargeBinary, Numeric, SmallInteger, String, Text, Time, UniqueConstraint, func,
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    Computed,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Identity,
+    Index,
+    Integer,
+    LargeBinary,
+    Numeric,
+    SmallInteger,
+    String,
+    Text,
+    Time,
+    UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR, UUID

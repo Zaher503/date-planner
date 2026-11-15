@@ -47,9 +47,11 @@ def media_dir(source_id: uuid.UUID | str) -> Path:
 
 
 def _yt_dlp(args: list[str], timeout: int) -> subprocess.CompletedProcess:
+    from app import ytdlp_update
     try:
         return subprocess.run(["yt-dlp", "--no-warnings", "--no-playlist", "--ignore-config", *args],
-                              check=True, capture_output=True, text=True, timeout=timeout)
+                              check=True, capture_output=True, text=True, timeout=timeout,
+                              env=ytdlp_update.run_env())
     except subprocess.CalledProcessError as e:
         tail = (e.stderr or "").strip().splitlines()[-1:] or ["no output"]
         raise MediaError(f"yt-dlp failed: {tail[0][:300]}") from e

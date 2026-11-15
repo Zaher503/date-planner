@@ -1,0 +1,7 @@
+# Lint config for CI (QA-01): ruff's default rules plus import sorting.
+# Line length only shapes how sorted imports are wrapped; E501 is not checked.
+target-version = "py312"
+line-length = 120
+
+[lint]
+select = ["E4", "E7", "E9", "F", "I"]
