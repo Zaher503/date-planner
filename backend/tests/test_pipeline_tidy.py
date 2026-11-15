@@ -60,6 +60,7 @@ def test_dateless_event_at_a_venue_stays_an_event():
 
 def test_reread_never_ties_an_event_to_a_place_named_after_it():
     from types import SimpleNamespace as NS
+
     from app.ingest.pipeline import _reuse
 
     place = NS(name="Cup Candle Making", id=1)

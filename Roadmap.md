@@ -21,6 +21,17 @@ Rules that never bend: no paid services, no invented numbers in imports, user ed
 
 ## Now
 
+- [ ] `DOC-01` Rewrite the `README.md` status table and "Next step", and the `docs/PLAN.md` header status, from `status.md`. Retire `docs/TODO-ZAHER.md` (point it at `status.md`).
+- [ ] `PL-02` Plan page: pick date, time window, budget, vibe tags and start point; show 2-3 itineraries with drive / walk times; save a plan. Deps: `PL-01` done.
+  - Design agreed 2026-10-31 (prototype, not in the repo): a "Plan a night" button in the search bar (key `P`) opens a planner in the left pane with the route on the map; day strip, templates (dinner then a show, drinks then a party), stops with arrival times and travel time, Drive / Rideshare / Walk / Transit, a shortest-route suggestion, share. Add "Add to plan" to the quick actions on the detail card with it. Travel times must come from the OSRM service, not the prototype's formulas.
+- [ ] `PL-03` Per-item `.ics` download (`GET /api/items/{id}.ics`) and an "Add to calendar" button on the detail card. Moved up from the Backlog 2026-11-09.
+- [ ] `DS-03.1` Discovery writer and dedup with fixtures, no network (first sub task of `DS-03`). Moved up 2026-11-09.
+- [ ] `QA-05` Migration test in CI: upgrade an empty database to head, downgrade one step, upgrade again. Moved up 2026-11-09.
+- [ ] `IM-20` Price range: ignore a $0 tier when other tiers are paid ($7-14, not $0-14). Moved up 2026-11-09; small, no server needed.
+
+## Needs Zaher
+
+- [!] [Z] `LC-11` The Zephyrus GPU driver is hung (found 2026-11-08, about 03:36 local): 554 `nvidia-smi` processes stuck in uninterruptible wait, load average about 563, about 200 MB RAM free, `docker ps` hangs. The AI hub answers 502, so every import that needs the model fails on the live app too (and Foodbox / the Transcriber share the GPU). Needs a reboot of the Zephyrus (or an NVIDIA driver reset); the auto task does not restart servers. Recommendation: reboot, then look at why `nvidia-smi` hangs (driver update, or whatever polls it every few minutes, e.g. a monitoring widget). After that, `LC-12`. Still down on 2026-11-09 (ping answers, SSH and the tester time out, the public tester gives 503), so the import check was skipped again and a roadmap item was done instead.
 - [x] `LC-01` Scheduler basics: nightly `pg_dump -Fc` into `/srv/dateplanner/backups` (keep 7) as a worker job, plus a weekly `yt-dlp` self-update.
   - [x] `LC-01.1` Backup job and its test (command built correctly, retention). Runs 02:30 daily; needs `pg_dump` 17 in the app image (Dockerfile.app changed), so check the first real backup after deploy.
   - [x] `LC-01.2` Weekly yt-dlp update job (done 2026-11-07): Sundays 03:10, installs the newest yt-dlp into `DATA_DIR/ytdlp`, swapped in only if it starts; downloads prefer that copy. Check the first run in the worker log after deploy (`LC-10`).
@@ -83,7 +94,7 @@ Source of most items: the daily reports in `improvements/` ("Still not fixed"). 
 ### Discovery (DS)
 Goal: every 3 days find nearby events that match interests and land them in the Suggested inbox.
 - [ ] `DS-03` Discovery runner that writes: normalise, geocode venues with local Photon, dedup against the DB (same place, start within 60 min, title similarity > 0.7), save as `origin=discovered`, `review_status=suggested`, record a `discovery_runs` row and `adapter_state`. Keep `--dry-run`.
-  - [ ] `DS-03.1` Writer and dedup with fixtures, no network.
+  - [ ] `DS-03.1` Writer and dedup with fixtures, no network (listed in Now).
   - [ ] `DS-03.2` `adapter_state` backoff and health so a dead adapter never fails the run.
   - [ ] `DS-03.3` `discover` job type and a manual `POST /api/discover/run`.
 - [ ] `DS-04` Schedule discovery every 3 days at 03:00 (jitter), low GPU priority. Deps: `DS-03`.
@@ -104,7 +115,6 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `IB-08` Home Assistant push after a discovery run (`notify/ha.py`), deep link to the inbox. Deps: `IB-01` decided, `DS-04`, `IB-05`.
 
 ### Planner and calendar (PL)
-- [ ] `PL-03` Per-item `.ics` download (`GET /api/items/{id}.ics`) and an "Add to calendar" button on the detail card.
 - [ ] `PL-04` Subscribable feed `GET /cal/{token}.ics` of "Going" items (secret token, bypasses Authentik at Caddy, token rotation in Settings). Deps: `PL-03`.
 - [ ] `PL-05` Plan export to calendar (one event per stop). Deps: `PL-02`, `PL-03`.
 - [ ] `PL-08` The saved-plan JSON carries an `ics` link (`/api/plans/{id}.ics`) that no route serves yet. Serve it with `PL-05` or drop the field until then. Found while doing `PL-01`.
@@ -134,8 +144,9 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `QA-02` Frontend component tests for the filter bar, detail card and Add dialog (vitest + testing-library).
 - [ ] `QA-03` Browser smoke test against the mock server (Playwright): map loads, pins show, add flow, filters in the URL.
 - [ ] `QA-04` Golden set in CI against saved responses only (no network), failing on any wrong auto-accept.
-- [ ] `QA-05` Migration test in CI: upgrade an empty database to head, downgrade one step, upgrade again.
 - [ ] `QA-07` CI/CD tidy (reviewed 2026-10-30): skip CI and CD for changes that only touch `*.md`, `improvements/**` or `scripts/**` (today each daily report merge rebuilds, bumps the version and restarts the stack); drop the unused `workflow_call` trigger in `ci.yml`; build the frontend once instead of in the `frontend` job, the `docker` job and CD; remove the one-off `dates-*-dev-1` cleanup from the deploy step (`LC-08`). No ARM image is built and none is needed (the Zephyrus is x86_64).
+- [ ] `QA-08` After the `QA-01` PR merges, the open daily PRs (#23-#32) that add imports may fail the wider lint (unsorted or unused imports). Run `ruff check --fix backend` on each branch before merging it. Found 2026-11-09.
+- [x] `QA-01` CI lint widened to ruff's default rules plus import sorting (`backend/ruff.toml`, ruff pinned to 0.17.4); 25 findings fixed, no behaviour change (done 2026-11-09).
 - [ ] `QA-06` Fixture refresh: replace fixtures whose live pages changed; list which adapters have no fixture.
 
 ### Docs and housekeeping (DOC)
@@ -147,6 +158,10 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-09 (item) `QA-01` CI lint widened to ruff's default rules plus import sorting; 25 findings fixed (import order, 7 unused imports, one unused variable, two test-style nits), tests 391 passed before and after; import check skipped because the Zephyrus is still hung (`LC-11`), PR #33
+- 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
+- 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
+- 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests
 - 2026-11-07 (item) `LC-01.2` Weekly yt-dlp self-update job (Sunday 03:10, safe swap, downloads use the updated copy); `LC-01` complete
 - 2026-11-06 (check) `IM-00` Sunburst Railbikes (home page): sale banners ("Save 15% on weekday rides", a 35% toy-drive discount window) are kept as offers on the venue instead of becoming events; the import tester now applies the same offer step as the real pipeline; price and trip calendar still missed (`IM-31`, `IM-32`), PR #30
 - 2026-11-05 (item) `LC-01.1` Nightly database backup job (02:30, `pg_dump -Fc` into `/srv/dateplanner/backups`, newest 7 kept, hand-made dumps untouched); `pg_dump` 17 added to the app image; 6 tests

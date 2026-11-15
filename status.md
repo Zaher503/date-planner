@@ -1,5 +1,6 @@
 # Status
 
+Facts about the project as of **2026-11-09** (v3.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-08** (v3.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-07** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-06** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
@@ -23,6 +24,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - **Date-night planner API (PR #15, merged 2026-10-26):** `/api/plans/suggest` and plan CRUD are registered and tested (25 API tests, documented in `docs/API.md`). Not yet checked against the live database; there is no Plan page in the UI, and the `ics` link in a plan is a placeholder.
 - **Map UI:** SvelteKit + MapLibre, self-hosted PMTiles with a fallback to the live basemap, teardrop pins with category icons, rainbow cluster pins, per-category pin colours, filter chips, list, detail/edit, Add box with live job toasts, review picker, per-user status/rating/notes, occurrence calendar, settings, PWA shell, version label.
 - **Platform:** Compose stack on the Zephyrus (db, api, worker, photon, osrm-car, osrm-foot, searxng, browser, tester), CI + CD on push to `main` with a self-hosted runner, Caddy + Cloudflare + Authentik (group `dates`: Zaher and Kathy), Homarr tile, weekly map-tile refresh (cron on the Zephyrus), keyed import-tester service for the daily check.
+- **Tests:** backend 391 passed (2026-11-09), frontend 33 passed and svelte-check clean (as of PR #24). CI runs ruff with its default rules plus import sorting (`backend/ruff.toml`, ruff 0.17.4) once the `QA-01` PR merges; until then only the minimal error rules (`E9,F63,F7,F82`).
 - **Tests:** backend 382 passed, frontend 27 passed, svelte-check clean (on the #22 branch). CI runs ruff with only the minimal error rules (`E9,F63,F7,F82`).
 
 ## Half-built (code exists, not wired up)
@@ -67,6 +69,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 
 ## Waiting on Zaher
 
+- **Urgent (2026-11-08):** the Zephyrus GPU driver is hung (hundreds of stuck `nvidia-smi` processes, load about 563); the AI hub answers 502, so imports that need the model fail. Reboot the Zephyrus (`LC-11`). Still down on 2026-11-09: it answers ping but SSH, the tester and the AI hub time out, and the public tester gives 503.
 - **Urgent (2026-11-08):** the Zephyrus GPU driver is hung (hundreds of stuck `nvidia-smi` processes, load about 563); the AI hub answers 502, so imports that need the model fail. Reboot the Zephyrus (`LC-11`).
 - Check the live site after the 2026-10-23 deploys: Archive chip, 21+ line, teardrop pins, rainbow pin, Settings > Pin colors.
 - Set up the "Save to Dates" Shortcut on both phones (`docs/SHORTCUT.md`).

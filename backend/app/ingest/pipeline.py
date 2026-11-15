@@ -20,15 +20,13 @@ from sqlalchemy.orm import Session
 from app import browser, jobs
 from app.api.filters import event_ended
 from app.db.models import Event, ItemSource, Job, Place, Source
-from app.ingest import maps_links, media, ocr, store
-from app.ingest import age
+from app.ingest import age, images, maps_links, media, ocr, page_images, pricing, store, venue
 from app.ingest.event_page import parse_page
 from app.ingest.items import ItemHint
-from app.llm.ollama import describe, waiting
-from app.ingest import images, page_images, pricing, venue
-from app.ingest.timing import vtt_cues
 from app.ingest.tiktok import TikTokPost, fetch_post, vtt_to_text
+from app.ingest.timing import vtt_cues
 from app.llm import extract as llm
+from app.llm.ollama import describe, waiting
 from app.net import BlockedURL, fetch_text
 from app.resolve.candidates import km
 from app.resolve.resolver import resolve
