@@ -14,12 +14,12 @@ MIN_SCORE = 85
 PER_LISTING = 5
 
 
-def _side(img, attr: str) -> int:
+def side(img, attr: str) -> int:
     m = re.match(r"\d+", img.get(attr) or "")
     return int(m.group()) if m else MIN_SIDE
 
 
-def _src(img) -> str | None:
+def src(img) -> str | None:
     for attr in ("data-src", "data-lazy-src", "data-original"):
         if img.get(attr):
             return img.get(attr).strip()
@@ -47,8 +47,8 @@ def photos_by_heading(html: str, base_url: str) -> list[tuple[str, list[str]]]:
         if el.tag in HEADINGS:
             sections.append((" ".join(el.text_content().split()), []))
         elif el.tag == "img" and sections:
-            raw = _src(el)
-            if not raw or SKIP_URL.search(raw) or _side(el, "width") < MIN_SIDE or _side(el, "height") < MIN_SIDE:
+            raw = src(el)
+            if not raw or SKIP_URL.search(raw) or side(el, "width") < MIN_SIDE or side(el, "height") < MIN_SIDE:
                 continue
             url = urljoin(base_url, raw)
             if url.startswith(("http://", "https://")) and url not in sections[-1][1]:

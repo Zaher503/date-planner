@@ -80,3 +80,37 @@ def test_old_or_unrecorded_items_are_outdated():
     assert provenance.is_older({}) and provenance.is_older(None)
     assert provenance.is_older({"importer_version": "2026.01.01-1"})
     assert not provenance.is_older({"importer_version": provenance.IMPORTER_VERSION})
+
+
+def make_tree(root, text="x = 1\n"):
+    for d in ("ingest", "llm", "resolve"):
+        (root / d).mkdir()
+        (root / d / "a.py").write_bytes(text.encode())
+    (root / "ingest" / "notes.txt").write_text("ignored")
+
+
+def test_code_version_is_stable_and_recognisable(tmp_path):
+    make_tree(tmp_path)
+    v = provenance.code_version(tmp_path)
+    assert v == provenance.code_version(tmp_path) and v.startswith("src-") and len(v) == 14
+    assert provenance.IMPORTER_VERSION == provenance.code_version()
+    assert provenance.is_older({"importer_version": "2026.10.26-1"})
+
+
+def test_code_version_changes_with_content(tmp_path):
+    make_tree(tmp_path)
+    before = provenance.code_version(tmp_path)
+    (tmp_path / "resolve" / "a.py").write_text("x = 2\n")
+    assert provenance.code_version(tmp_path) != before
+    (tmp_path / "resolve" / "a.py").write_text("x = 1\n")
+    (tmp_path / "ingest" / "notes.txt").write_text("still ignored")
+    assert provenance.code_version(tmp_path) == before
+
+
+def test_code_version_ignores_line_endings(tmp_path):
+    a, b = tmp_path / "a", tmp_path / "b"
+    a.mkdir()
+    b.mkdir()
+    make_tree(a, "x = 1\ny = 2\n")
+    make_tree(b, "x = 1\r\ny = 2\r\n")
+    assert provenance.code_version(a) == provenance.code_version(b)

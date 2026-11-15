@@ -26,15 +26,10 @@ def hints_for(db, case: dict):
     job = SimpleNamespace(id=-1)  # stage updates touch no row
     if "text" in case:
         src = SimpleNamespace(kind="text", url=None, caption=case["text"], raw={}, title=None)
-        return pipeline._from_text(db, job, src)
-    src = SimpleNamespace(kind=classify(case["url"]), url=case["url"], caption=None, raw={}, title=None,
-                          transcript=None)
-    if src.kind == "tiktok":
-        return pipeline._from_tiktok(db, job, src)
-    if src.kind in ("gmaps", "applemaps"):
-        hints = pipeline._from_maps(src)
-        return hints
-    return pipeline._from_page(db, job, src)
+    else:
+        src = SimpleNamespace(kind=classify(case["url"]), url=case["url"], caption=None, raw={}, title=None,
+                              transcript=None)
+    return pipeline.read_link(db, job, src).hints
 
 
 def main(path: Path) -> None:

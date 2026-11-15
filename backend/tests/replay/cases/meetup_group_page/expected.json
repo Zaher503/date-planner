@@ -1,0 +1,70 @@
+[
+  {
+    "kind": "event",
+    "name": "ANGELES CREST HIGHWAY",
+    "event_title": "Mt. Waterman Trail Maintenance",
+    "address": "4816 ANGELES CREST HIGHWAY, ALTADENA, CA",
+    "category": "hike",
+    "description": "This is a great opportunity to combine your love of the outdoors with the gratification of making a significant contribution to the environment.\n\nWe will be giving this trail some much needed TLC. There are trees that need to be cleared and storm damaged tread repairs. Hike will be up to 7 miles round with 2000' gain from starting from the Buckhorn Trailhead. Shorter hike options also possible.\n\nPants & long-sleeved shirt, good boots/hiking shoes are required. Hard hat, gloves and safety glasses can be provided. Please be sure to bring plenty of water and your lunch.\n\nEvent will be cancelled...",
+    "starts_at": "2026-10-10T14:30:00+00:00",
+    "ends_at": "2026-10-10T23:30:00+00:00",
+    "ticket_url": "https://www.meetup.com/los-angeles-hiking-group/events/316760628/",
+    "tags": [
+      "hiking",
+      "group"
+    ],
+    "provider": "jsonld",
+    "status": "scheduled"
+  },
+  {
+    "kind": "event",
+    "name": "End of Griffith Park Blvd at Shannon Rd and Cadman Dr",
+    "event_title": "Perfect Weather Hike in Griffith Park! ☀️🙋🏻‍♀️ 🙋 🙋🏽‍♂️",
+    "address": "3610 Griffith Park Blvd,, Los Angeles, CA",
+    "category": "hike",
+    "description": "Come join the Perfect Weather Hike in Griffith Park every Saturday (location or route varies). Join us on this friendly social hike, with optional plank challenge at the helipad. Followed by optional breakfast/lunch at the Village Bakery and Cafe.\n\nTrail Is a roughly a 4.5 mile 10,000 step loop on mostly fire roads. Distance varies depending on trail variations. We’ll have views across the city to the Pacific Ocean, Griffith Observatory, downtown LA... Moderate hike on the main fire roads with Tiffany or option for advanced inclines with Gary.\n\nRoute varies: Cadman trail to 5-Points, Beacon...",
+    "starts_at": "2026-10-10T16:00:00+00:00",
+    "ends_at": "2026-10-10T18:30:00+00:00",
+    "ticket_url": "https://www.meetup.com/los-angeles-hiking-group/events/316650549/",
+    "tags": [
+      "hiking",
+      "group"
+    ],
+    "provider": "jsonld",
+    "status": "scheduled"
+  },
+  {
+    "kind": "event",
+    "name": "North Hollywood Metro Station",
+    "event_title": "8th Annual Culver City Arts Festival 2026 (free)",
+    "address": "5391 Lankershim Blvd, North Hollywood, CA 91601, North Hollywood, CA",
+    "category": "hike",
+    "description": "8th Annual Culver City Arts Festival\nSaturday, October 10, 2026\n\nNow in its eighth year, this FREE Festival brings the streets to life with live art-making, artisan vendors, nonstop music, food trucks, beer gardens, and fun for all ages!\n\nStroll Washington Boulevard for art booths, live performances, food, family activities, and a full day of Culver City Arts District energy.\n\nThis FREE Festival will feature:\nDistinguished artists\nLive music\nEclectic food trucks\nBeer gardens\nKid's activities\n\nEvents will take place throughout Culver City Arts District, including a designated street closure...",
+    "starts_at": "2026-10-10T18:30:00+00:00",
+    "ends_at": "2026-10-11T01:00:00+00:00",
+    "ticket_url": "https://www.meetup.com/los-angeles-hiking-group/events/316217144/",
+    "tags": [
+      "hiking",
+      "group"
+    ],
+    "provider": "jsonld",
+    "status": "scheduled"
+  },
+  {
+    "kind": "event",
+    "name": "Placerita Canyon County Park",
+    "event_title": "Placerita canyon: level 5 miles & Thai for dinner",
+    "address": "19152 Placerita Canyon Rd, Newhall, CA",
+    "category": "hike",
+    "description": "We will first explore the trail behind the nature center (15 minutes) then the hike follows a shady creekbed for a total of 5 miles. Expected weather is 79 degrees, light rain is possible\n\nbring a guitar and/or earplugs, water, and shoes that can get wet as there are several creek crossings.\n\npost hike dinner is at Thai Yaki. Located on Lyons ave. just east of the 5 freeway, the driveway is between a Shell and a Chevron gas station.\n[https://maps.app.goo.gl/3KquWHAnUDAu3yQL7](https://maps.app.goo.gl/3KquWHAnUDAu3yQL7)",
+    "starts_at": "2026-10-10T22:00:00+00:00",
+    "ends_at": "2026-10-11T01:00:00+00:00",
+    "ticket_url": "https://www.meetup.com/los-angeles-hiking-group/events/316864383/",
+    "tags": [
+      "hiking",
+      "group"
+    ],
+    "provider": "jsonld",
+    "status": "scheduled"
+  }
+]

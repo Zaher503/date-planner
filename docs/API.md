@@ -9,6 +9,9 @@ Every route needs an Authentik identity (`current_user`) unless marked **open**.
 | `GET /healthz` (open) | `{"ok": true}` |
 | `POST /api/add` (key) | Shortcut add |
 | `POST /api/ui/add` | `{url?, text?}` -> `{status: queued|exists|stub, source_id, job_id, kind}` |
+| `POST /api/ui/add-bulk` | `{urls: [str]}` (at most 100) -> `{accepted: n}`. Blank and repeated links are dropped; 400 when none are left. The links are saved and queued after the response, each on its own, so one bad link does not stop the rest (a failure is only logged) |
+| `POST /api/add-image` (key) | Shortcut add of a screenshot: multipart `file` (+ optional `user` name), same answer as `/api/ui/add` |
+| `POST /api/ui/add-image` | Same upload from the app (multipart `file`). JPEG, PNG or WebP only, found from the file's first bytes (415 otherwise), at most 10 MB (413). The same file sent twice gives `exists`; a new one is queued as an ingest job with `kind: "image"` |
 | `GET /api/jobs` | Queued/running jobs plus those finished in the last 5 min: `[{id, type, status, stage, pct, error, result, source_id, created_at, finished_at, url, title, kind}]` |
 | `GET /api/review` | Places needing review with `candidates` |
 | `POST /api/places/{id}/resolve` | `{candidate_id: int|null}` (null confirms the current pin) |
@@ -192,6 +195,22 @@ A plan is returned as
 ```
 
 `past` is only present in the list. The `ics` link is reserved: that download does not exist yet (roadmap `PL-05`).
+
+## Pictures
+
+All of these need identity. `kind` is `place` or `event` (404 otherwise), `item_id` a UUID.
+
+`PUT /api/items/{type}/{id}/image` with `{"image_id": 12}` makes that picture the item's hero (`chosen`); `{"image_id": null}` goes back to the source thumbnail. Unknown keys give 422; a picture that does not belong to the item gives 404. Returns the item as in `GET /api/items/{type}/{id}`, whose `images` list is `[{id, kind, at, chosen, url, attribution, video}]` (`url` is `/api/item-image/{id}`, `video` is set for a video frame).
+
+`GET /api/item-image/{image_id}` -> image. A saved file is served as is; a picture only known by its page address is fetched once through the SSRF-guarded client and kept under `item-images/`. `Cache-Control: private, max-age=604800`. 404 when the picture, its file or its address is gone, or the fetch fails.
+
+`GET /api/media/{source_id}/video` -> the archived video of a source (`video/mp4`, `video/webm` or `video/quicktime`) with Range support, same cache header. 404 when no video was archived.
+
+`GET /api/google-photos/{kind}/{item_id}` -> `{"photos": [{"url": "/api/google-photo/{kind}/{item_id}/0", "author": "..."}]}`, Google Places photos found for the item's place name and address (for an event, its place). 404 when there is no place.
+
+`GET /api/google-photo/{kind}/{item_id}/{index}` -> the photo (`Cache-Control: private, max-age=3600`). 404 for an index outside the list; 429 when the daily Google download cap (`google_photo_daily_cap`) is reached and 502 when Google gives nothing. Index 0 is also kept as the item's hero when it has no picture yet (if saving Google photos is switched on).
+
+`POST /api/google-photo/{kind}/{item_id}/{index}/use` -> `{"ok": true}`. Downloads that photo and makes it the item's hero, replacing an earlier Google photo and unchoosing the other pictures. Same 404, 429 and 502 as above; 409 when saving Google photos is switched off.
 
 ## Media and map files
 

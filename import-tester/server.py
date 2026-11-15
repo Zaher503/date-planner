@@ -32,7 +32,7 @@ from pydantic import BaseModel  # noqa: E402
 from app import browser, jobs  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.db.models import Source  # noqa: E402
-from app.ingest import pipeline, pricing, tiktok  # noqa: E402
+from app.ingest import pipeline, tiktok  # noqa: E402
 from app.ingest.urls import classify, first_url, normalize  # noqa: E402
 from app.net import BlockedURL  # noqa: E402
 from app.ingest import venue  # noqa: E402
@@ -118,37 +118,18 @@ def _stage_hook(state: dict):
     return set_stage
 
 
+FAST_KINDS = ("tiktok", "youtube", "gmaps", "applemaps", "event_page")
+
+
 def run_import(url: str, state: dict) -> dict:
-    """The fast-path half of pipeline.run(), step for step, minus the database."""
+    """The fast-path half of pipeline.run() (read the link, prepare the hints), minus the database."""
     kind = classify(url)
     src = Source(id=uuid.uuid4(), url=url, url_norm=normalize(url), kind=kind, raw={}, status="pending")
     db, job = StubDB(), SimpleNamespace(id=0, payload={"fast_only": True})
-    jobs.set_stage(db, job, "reading the link", 10)
-
-    if kind == "tiktok":
-        g = pipeline._from_tiktok(db, job, src)
-    elif kind == "youtube":
-        g = pipeline._from_youtube(db, job, src)
-    elif kind in ("gmaps", "applemaps"):
-        hints = pipeline._from_maps(src)
-        pipeline._llm(db, job, pipeline.llm.classify, hints, src.title or "")
-        g = pipeline.Gathered(hints=hints)
-    elif kind == "event_page":
-        g = pipeline.Gathered(hints=pipeline._from_page(db, job, src))
-    else:
+    if kind not in FAST_KINDS:
         raise pipeline.Unprocessable(f"{kind} links are not supported yet")
-
-    from datetime import datetime, timezone
-    now = datetime.now(timezone.utc)
-    hints = [pipeline.tidy(h, now) for h in g.hints if h.name or h.event_title]
-    hints = pipeline.demote_offerings(hints, src.url if src.kind == "event_page" else None)
-    if any(h.kind == "event" and not pricing.has_price(h) for h in hints):
-        jobs.set_stage(db, job, "checking ticket prices", 44)
-        try:
-            with pipeline._in_line(db, job, 44):
-                pricing.enrich(hints, src.url if src.kind == "event_page" else None)
-        except Exception as e:  # a price is a nicety, same as prod
-            log.warning("price check failed: %s", e)
+    g = pipeline.read_link(db, job, src)
+    hints = pipeline.prepare(db, job, src, g)
     # Look every place up on the web (one lookup per venue, shared by its events)
     looked: dict[tuple, dict] = {}
     per_item: list[dict | None] = []

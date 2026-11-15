@@ -1,0 +1,18 @@
+[
+  {
+    "module": "extract",
+    "system": "For each numbered place or event, choose its category",
+    "answer": {
+      "items": [
+        {
+          "index": 0,
+          "category": "live_music",
+          "tags": [
+            "jazz",
+            "live music"
+          ]
+        }
+      ]
+    }
+  }
+]

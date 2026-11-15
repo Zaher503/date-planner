@@ -97,7 +97,7 @@ def _anchor(db: Session | None, area: str | None, home: tuple[float, float]) -> 
     return home
 
 
-def _geocode_address(db: Session | None, address: str, home: tuple[float, float],
+def geocode_address(db: Session | None, address: str, home: tuple[float, float],
                      area: str | None = None) -> Candidate | None:
     """Street address -> point. Exact house number from the local geocoder, else public
     Nominatim (which interpolates US house numbers), else the street alone (flagged).
@@ -148,7 +148,7 @@ def _from_website(db: Session | None, hint: ItemHint, home: tuple[float, float])
                 c = Candidate(provider="website", name=item.name, lat=item.lat, lon=item.lon,
                               address_text=item.address, kind="poi")
             else:
-                c = _geocode_address(db, item.address, home, hint.area)
+                c = geocode_address(db, item.address, home, hint.area)
                 if not c or c.extra.get("street_only"):
                     continue
                 c.provider, c.name, c.kind = "website", item.name, "poi"
@@ -157,7 +157,7 @@ def _from_website(db: Session | None, hint: ItemHint, home: tuple[float, float])
             found.append(c)
             break
     for addr in cands.snippet_addresses(results, hint.name):
-        c = _geocode_address(db, addr, home, hint.area)
+        c = geocode_address(db, addr, home, hint.area)
         if c and not c.extra.get("street_only"):
             c.provider, c.name = "snippet", hint.name
             found.append(c)
@@ -198,7 +198,7 @@ def resolve(db: Session | None, hint: ItemHint, home: tuple[float, float]) -> Re
                                       address_text=hint.address, kind="poi"))
     elif hint.address:
         method = "address"
-        addr = _geocode_address(db, hint.address, home, hint.area)
+        addr = geocode_address(db, hint.address, home, hint.area)
         if addr and addr.extra.get("house_match"):
             addr_point = (addr.lat, addr.lon)
         if addr:

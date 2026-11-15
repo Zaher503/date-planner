@@ -17,8 +17,11 @@ from sqlalchemy.orm import Session
 from app import browser, hours
 from app.ingest import maps_links, pricing
 from app.ingest.event_page import parse_page
+from app.ingest.free import site_is_free
 from app.ingest.items import ItemHint
-from app.ingest.page_images import SKIP_URL, _side, _src
+from app.ingest.links import anchors, same_site
+from app.ingest.names import domain_matches, mentions
+from app.ingest.page_images import SKIP_URL, side, src
 from app.llm import verify
 from app.llm.ollama import LLMError, chat_json
 from app.net import fetch_text
@@ -72,29 +75,6 @@ PAGE_WORDS = ((r"contact|hours|opening|directions|tickets?|pricing|prices|admiss
               (r"about|experience|what-to|how-it", 1))
 
 
-def _tokens(name: str) -> list[str]:
-    return [w for w in re.findall(r"[a-z0-9]+", name.lower()) if len(w) > 2 and w not in ("the", "and")]
-
-
-def _mentions(text: str, name: str) -> bool:
-    flat = re.sub(r"[^a-z0-9]+", "", text.lower())
-    words = _tokens(name)
-    return bool(words) and all(w in flat for w in words)
-
-
-def _domain_matches(url: str, name: str) -> bool:
-    """The site's own domain is the venue's name (academymuseum.org for Academy Museum of Motion Pictures):
-    the page text may not repeat the full name, but the domain says whose site it is."""
-    label = re.sub(r"[^a-z0-9]", "", ((urlsplit(url).hostname or "").removeprefix("www.").split(".") or [""])[0].lower())
-    words = _tokens(name)
-    return len(label) >= 5 and label in {"".join(words[:k]) for k in range(1, len(words) + 1)}
-
-
-def _same_site(a: str, b: str) -> bool:
-    ha, hb = (urlsplit(a).hostname or "").removeprefix("www."), (urlsplit(b).hostname or "").removeprefix("www.")
-    return ha == hb or ha.endswith("." + hb) or hb.endswith("." + ha)
-
-
 def known_site(hint: ItemHint, out: dict) -> tuple[str, str] | None:
     """A website the page itself gave (JSON-LD), when it is not an aggregator."""
     if not hint.website or cands.AGGREGATORS.search(hint.website):
@@ -146,7 +126,7 @@ def find_site(db: Session | None, hint: ItemHint, out: dict) -> tuple[str, str] 
                 text = parse_page(final, html).text
             except Exception as e:
                 log.info("browser render of %s failed: %s", final, e)
-        if _mentions(text + " " + final, hint.name) or _domain_matches(final, hint.name):
+        if mentions(text + " " + final, hint.name) or domain_matches(final, hint.name):
             return final, html
         out.setdefault("site_rejected", []).append({"url": final, "why": "page does not mention the venue name"})
     out["site_note"] = out.get("site_note") or "no result passed the name check"
@@ -155,13 +135,10 @@ def find_site(db: Session | None, hint: ItemHint, out: dict) -> tuple[str, str] 
 
 def page_links(html: str, base: str) -> list[str]:
     scored: dict[str, int] = {}
-    for href, inner in re.findall(r'<a\b[^>]*?href=["\']([^"\'#][^"\']*)["\'][^>]*>(.*?)</a>', html, re.S | re.I):
-        if re.search(r"\.(png|jpe?g|gif|svg|webp|pdf|css|js)(\?|$)|^(mailto|tel|javascript):", href, re.I):
+    for url, text_label in anchors(html, base, unescape=False):
+        if not same_site(url, base) or url.rstrip("/") == base.rstrip("/"):
             continue
-        url = urljoin(base, href).split("#")[0]
-        if urlsplit(url).scheme not in ("http", "https") or not _same_site(url, base) or url.rstrip("/") == base.rstrip("/"):
-            continue
-        label = re.sub(r"<[^>]+>", " ", inner).strip().lower()[:60]
+        label = text_label.lower()[:60]
         s = max((w for pat, w in PAGE_WORDS if re.search(pat, label) or re.search(pat, urlsplit(url).path.lower())), default=0)
         if s:
             scored[url] = max(scored.get(url, 0), s)
@@ -180,8 +157,8 @@ def page_photos(html: str, base: str) -> list[str]:
     for bad in root.xpath("//script|//style|//noscript|//footer"):
         bad.drop_tree()
     for img in root.iter("img"):
-        raw = _src(img)
-        if not raw or SKIP_URL.search(raw) or _side(img, "width") < 200 or _side(img, "height") < 150:
+        raw = src(img)
+        if not raw or SKIP_URL.search(raw) or side(img, "width") < 200 or side(img, "height") < 150:
             continue
         u = urljoin(base, raw)
         if u.startswith(("http://", "https://")) and u not in urls:
@@ -380,8 +357,7 @@ def read_facts(pages: list[dict], out: dict) -> dict:
             continue
         tiers.append({"label": t.get("label"), "price": t.get("price"), "note": t.get("note")})
     facts["price_tiers"] = tiers
-    if facts["is_free"] is not True or not re.search(r"free|no cover", full, re.I):
-        facts["is_free"] = None
+    facts["is_free"] = site_is_free(facts["is_free"], full)
     return facts
 
 
@@ -394,7 +370,7 @@ def other_pages(hint: ItemHint, site_url: str, out: dict) -> list[dict]:
     pages = []
     for r in out.get("search_results") or []:
         u = r["url"]
-        if r.get("aggregator") or _same_site(u, site_url) or NOT_VENUE.search(u) or any(p["url"] == u for p in pages):
+        if r.get("aggregator") or same_site(u, site_url) or NOT_VENUE.search(u) or any(p["url"] == u for p in pages):
             continue
         try:
             final, body = fetch_text(u)
@@ -402,7 +378,7 @@ def other_pages(hint: ItemHint, site_url: str, out: dict) -> list[dict]:
             continue
         text = parse_page(final, body).text
         found = list(PHONE_RE.finditer(text))
-        if found and _mentions(text, hint.name):
+        if found and mentions(text, hint.name):
             # Only the lines around each number: the phone is often past the part of a long page the model gets
             snippets = [text[max(0, m.start() - 250):m.end() + 100] for m in found[:3]]
             pages.append({"url": final, "text": " ... ".join(snippets)})
@@ -430,7 +406,7 @@ def locate(db: Session | None, home: tuple[float, float], hint: ItemHint, addres
         evidence.append({"method": f"site {m[2]}", "lat": m[0], "lon": m[1]})
     if address:
         try:
-            c = resolver._geocode_address(db, address, home, hint.area)
+            c = resolver.geocode_address(db, address, home, hint.area)
         except Exception as e:
             c = None
             out["flags"].append(f"geocoder failed: {type(e).__name__}")
@@ -459,7 +435,7 @@ def lookup(db: Session | None, hint: ItemHint, home: tuple[float, float], stage=
     out["website"] = url
     stage(f"reading {urlsplit(url).hostname}")
     pages, htmls = [], {url: home_html}
-    ticket_pages = [u for u in pricing.ticket_links(home_html, url, {url}) if not _same_site(u, url) and not NOT_VENUE.search(u)][:2]
+    ticket_pages = [u for u in pricing.ticket_links(home_html, url, {url}) if not same_site(u, url) and not NOT_VENUE.search(u)][:2]
     out["ticket_links"] = ticket_pages
     for u in page_links(home_html, url) + ticket_pages:
         try:

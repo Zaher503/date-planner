@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 from app import jobs, occurrences, recurrence, watch
 from app.api.auth import current_user
 from app.api.common import event_price_label, image_url, place_price_label
-from app.api.filters import event_ended
 from app.config import get_settings
 from app.db.models import (
     Candidate,
@@ -35,6 +34,7 @@ from app.db.models import (
 from app.db.session import get_db
 from app.hours import is_open
 from app.ingest import completeness, media, provenance
+from app.lifecycle import event_ended
 from app.textclean import strip_emoji
 
 router = APIRouter()

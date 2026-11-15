@@ -59,7 +59,7 @@ def fake_pipeline(monkeypatch, existing, created):
     seen = {}
     monkeypatch.setattr(verified.resolver, "resolve", lambda db, hint, home: res)
     monkeypatch.setattr(verified.pipeline, "too_vague", lambda r: False)
-    monkeypatch.setattr(verified.store, "_place_name", lambda hint, cand: hint.name)
+    monkeypatch.setattr(verified.store, "place_name", lambda hint, cand: hint.name)
     monkeypatch.setattr(verified.store, "find_place", lambda db, cand, name: existing)
     monkeypatch.setattr(verified.store, "link", lambda *a, **k: seen.setdefault("links", []).append(k))
 
