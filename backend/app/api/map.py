@@ -8,7 +8,15 @@ from sqlalchemy.orm import Session
 from app.api.auth import current_user
 from app.api.common import event_price_label, has_image, place_price_label
 from app.api.filters import (
-    GEOM, Filters, common_conditions, event_conditions, event_end, event_ended, filters_dep, my_state, place_conditions,
+    GEOM,
+    Filters,
+    common_conditions,
+    event_conditions,
+    event_end,
+    event_ended,
+    filters_dep,
+    my_state,
+    place_conditions,
     point_sql,
 )
 from app.db.models import Event, ItemImage, ItemSource, Occurrence, Place, Source, User, UserItemState

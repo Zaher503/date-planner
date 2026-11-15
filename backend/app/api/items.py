@@ -20,7 +20,17 @@ from app.api.common import event_price_label, image_url, place_price_label
 from app.api.filters import event_ended
 from app.config import get_settings
 from app.db.models import (
-    Candidate, Event, ItemImage, ItemSource, Job, Media, Occurrence, Place, Source, User, UserItemState,
+    Candidate,
+    Event,
+    ItemImage,
+    ItemSource,
+    Job,
+    Media,
+    Occurrence,
+    Place,
+    Source,
+    User,
+    UserItemState,
 )
 from app.db.session import get_db
 from app.hours import is_open

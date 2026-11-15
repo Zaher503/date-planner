@@ -145,3 +145,18 @@ def test_graph_id_references_resolve_to_the_venue_and_the_dated_instance():
     assert it.event_title == "Steve Lacy"
     assert it.address.startswith("2301 Highland Ave")
     assert it.starts_at is not None and it.starts_at.isoformat().startswith("2026-11-22T04:00")
+
+
+def test_branch_name_takes_the_full_name_from_the_page_title():
+    html = ('<html><head><title>Activate Culver City | Active Games in California</title>'
+            '<script type="application/ld+json">{"@type":"EntertainmentBusiness","name":"Culver City",'
+            '"address":"6000 Sepulveda Blvd., Culver City, CA 90230","telephone":"310-810-3373"}</script>'
+            '</head></html>')
+    assert parse_page("https://playactivate.com/culver-city", html).items[0].name == "Activate Culver City"
+
+
+def test_branch_name_kept_when_title_does_not_end_with_it():
+    html = ('<html><head><title>Visit Culver City Today | Home</title>'
+            '<script type="application/ld+json">{"@type":"EntertainmentBusiness","name":"Culver City",'
+            '"address":"6000 Sepulveda Blvd., Culver City, CA 90230"}</script></head></html>')
+    assert parse_page("https://x.com/a", html).items[0].name == "Culver City"
