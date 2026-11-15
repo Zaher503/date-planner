@@ -4,14 +4,16 @@ Event listings often say "Tickets" or "Book now" and keep the price one or two p
 event with no price yet, follow the most ticket-like links (at most two pages deep), read each page's
 structured data first and the local model second, and stop at the first price found.
 """
-import html as htmllib
 import logging
 import re
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 
 from app import browser
 from app.ingest.event_page import parse_page
+from app.ingest.free import FREE_ENTRY, page_price_free  # noqa: F401  (FREE_ENTRY is re-exported)
 from app.ingest.items import ItemHint
+from app.ingest.links import anchors
+from app.ingest.names import words
 from app.llm import verify
 from app.llm.ollama import LLMError, chat_json
 from app.net import BlockedURL, fetch_text
@@ -30,13 +32,6 @@ SIGNALS = (
 )
 VENDORS = ("eventbrite", "ticketmaster", "axs.com", "seetickets", "dice.fm", "tixr", "etix", "universe.com",
            "luma", "lu.ma", "posh.vip", "ra.co", "opentable", "resy", "tock", "fever", "showclix", "eventim")
-# Wording that says getting in costs nothing ("free donuts" or "free parking" does not)
-FREE_ENTRY = re.compile(
-    r"\bno\s+cover\b|\$\s?0(\.00?)?\b|\bfree\s+(entry|admission|event|to\s+(attend|enter|join|rsvp)|rsvp|tickets?|"
-    r"general\s+admission|before|until|for\s+all|and\s+open|of\s+charge)\b|\bfree\s*[.!]|"
-    r"\b(admission|entry|cover|price|cost|tickets?|rsvp)\s*(is|:|-)?\s*free\b|\bcomplimentary\s+(entry|admission)\b|"
-    r"\bfree$", re.I | re.M)
-SKIP = re.compile(r"\.(png|jpe?g|gif|svg|webp|pdf|css|js)(\?|$)|^(mailto|tel|javascript):", re.I)
 
 SYSTEM = """You read a web page about an event and report what attending costs.
 Rules:
@@ -64,13 +59,10 @@ def has_price(h: ItemHint) -> bool:
 def ticket_links(html: str, base: str, seen: set[str]) -> list[str]:
     """Links that look like they lead to tickets or prices, best first."""
     scored: dict[str, int] = {}
-    for href, inner in LINK.findall(html):
-        if SKIP.search(href):
+    for url, text_label in anchors(html, base):
+        if url in seen:
             continue
-        url = urljoin(base, htmllib.unescape(href)).split("#")[0]
-        if urlsplit(url).scheme not in ("http", "https") or url in seen:
-            continue
-        label = htmllib.unescape(TAGS.sub(" ", inner)).strip().lower()[:80]
+        label = text_label.lower()[:80]
         text = f"{label} {url.lower()}"
         score = max((w for pat, w in SIGNALS if re.search(pat, label)), default=0)
         score += max((w for pat, w in SIGNALS if re.search(pat, url.lower())), default=0) // 2
@@ -104,12 +96,7 @@ def read_price(html: str, url: str) -> dict | None:
     for k in ("price_min", "price_max"):
         if out[k] is not None and not verify.price_supported(out[k], nums):
             out[k] = None
-    if not FREE_ENTRY.search(text) or (out["price_max"] or 0) > 0:
-        # A paid price next to a free line ("Toddlers free") does not make the whole thing free
-        out["is_free"] = None
-        if not out["price_min"] and not out["price_max"]:
-            # $0 with no free-entry wording is the model reading "free donuts" as the price
-            out["price_min"] = out["price_max"] = out["price_text"] = None
+    page_price_free(out, text)
     if out["price_min"] is None and out["price_max"] is None and out["is_free"] is None:
         return None
     return out
@@ -183,22 +170,13 @@ def browse_for_price(start: str) -> tuple[dict | None, str | None]:
     return None, None
 
 
-def _words(text: str) -> list[str]:
-    return re.findall(r"[a-z0-9]+", text.lower())
-
-
 def own_ticket_link(h: ItemHint, html: str, base: str) -> str | None:
     """The link on a listing page whose address carries this event's whole title, if any."""
-    want = _words(h.event_title or "")
+    want = words(h.event_title or "")
     if not want:
         return None
-    for href, _ in LINK.findall(html):
-        if SKIP.search(href):
-            continue
-        url = urljoin(base, htmllib.unescape(href)).split("#")[0]
-        if urlsplit(url).scheme not in ("http", "https"):
-            continue
-        slug = _words(urlsplit(url).path)
+    for url, _ in anchors(html, base):
+        slug = words(urlsplit(url).path)
         if any(slug[i:i + len(want)] == want for i in range(len(slug))):
             return url
     return None

@@ -4,10 +4,11 @@ import json
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
-from urllib.parse import urlsplit
 
 from app.ingest.age import min_age
+from app.ingest.free import jsonld_is_free
 from app.ingest.items import ItemHint
+from app.ingest.names import is_host_name
 
 LD_BLOCK = re.compile(r"<script[^>]+application/ld\+json[^>]*>(.*?)</script>", re.S | re.I)
 PLACE_TYPES = {
@@ -203,7 +204,7 @@ def _price_level(pr) -> int | None:
 def _offers(node: dict) -> dict:
     offers = node.get("offers")
     offers = offers if isinstance(offers, list) else [offers] if offers else []
-    prices, currency, url, free = [], None, None, None
+    prices, currency, url = [], None, None
     for o in offers:
         if not isinstance(o, dict):
             continue
@@ -222,12 +223,7 @@ def _offers(node: dict) -> dict:
                 pass
         currency = currency or o.get("priceCurrency")
         url = url or o.get("url")
-    if node.get("isAccessibleForFree") in (True, "true", "True"):
-        free = True
-    elif prices and max(prices) == 0:
-        free = True
-    elif prices:
-        free = False
+    free = jsonld_is_free(node.get("isAccessibleForFree"), prices)
     return {"price_min": min(prices) if prices else None, "price_max": max(prices) if prices else None,
             "currency": currency, "ticket_url": url, "is_free": free}
 
@@ -351,13 +347,6 @@ def embedded_description(html: str) -> str:
     return "\n".join(p for p in parts if p)
 
 
-def _is_host_name(name: str | None, url: str) -> bool:
-    """'Losangelesmuseumoflove' on losangelesmuseumoflove.com: the name is just the domain."""
-    label = ((urlsplit(url).hostname or "").removeprefix("www.").split(".") or [""])[0]
-    flat = re.sub(r"[^a-z0-9]", "", (name or "").lower())
-    return bool(flat) and " " not in (name or "").strip() and flat == re.sub(r"[^a-z0-9]", "", label.lower())
-
-
 def _fuller_name(name: str, title: str | None) -> str | None:
     """'Culver City' on a page titled 'Activate Culver City | Active Games': a branch name that the
     page title spells out in full (the title's first part ends with the name and adds a brand in front)."""
@@ -379,7 +368,7 @@ def parse_page(url: str, html: str) -> PageData:
     site_name = _meta(html, "og:site_name")
     if site_name:
         for it in page.items:
-            if _is_host_name(it.name, url) and it.name != site_name:
+            if is_host_name(it.name, url) and it.name != site_name:
                 it.name = site_name  # Wix and others fill the JSON-LD name with the domain, run together
     for it in page.items:
         if it.kind == "place" and it.name and (full := _fuller_name(it.name, page.title)):

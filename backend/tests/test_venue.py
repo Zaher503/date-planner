@@ -81,7 +81,7 @@ def _fake_web(monkeypatch, pages):
     monkeypatch.setattr(venue.pricing, "ticket_links", lambda html, base, seen: ["https://tickets.example.com/m/1"])
     monkeypatch.setattr(venue.browser, "available", lambda: False)
     monkeypatch.setattr(venue, "maps_point", lambda html, out: (34.0751706, -118.3773546, "Google Maps link"))
-    monkeypatch.setattr(venue.resolver, "_geocode_address", lambda db, a, home, area: Candidate(
+    monkeypatch.setattr(venue.resolver, "geocode_address", lambda db, a, home, area: Candidate(
         provider="address", name="", lat=34.0736, lon=-118.3775, address_text="8500 Beverly Boulevard", kind="address",
         extra={"house_match": True}))
 
@@ -206,7 +206,7 @@ def test_extractor_is_told_the_footer_applies_to_each_event():
 
 
 def test_domain_that_is_the_venue_name_is_accepted():
-    from app.ingest.venue import _domain_matches
+    from app.ingest.names import domain_matches as _domain_matches
     assert _domain_matches("https://www.academymuseum.org/visit", "Academy Museum of Motion Pictures")
     assert not _domain_matches("https://www.tripadvisor.com/x", "Academy Museum of Motion Pictures")
     assert not _domain_matches("https://example.com/", "Pizza")

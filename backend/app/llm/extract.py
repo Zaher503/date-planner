@@ -2,6 +2,7 @@
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from app.ingest.free import hint_is_free
 from app.ingest.items import CATEGORIES, ItemHint
 from app.llm import verify
 from app.llm.ollama import chat_json
@@ -136,13 +137,7 @@ def to_hint(raw: dict, text: str, tz: str) -> ItemHint | None:
             v = None
         setattr(hint, key, float(v) if v is not None else None)
     # Free only when the text says so; "not free" only when it states a price
-    if hint.is_free and "free" not in text.lower():
-        hint.is_free = None
-    if hint.is_free and (hint.price_max or 0) > 0:
-        # A paid price next to a free line ("toddlers free") does not make the whole thing free
-        hint.is_free = None
-    if hint.is_free is False and hint.price_min is None and hint.price_max is None and "$" not in text:
-        hint.is_free = None
+    hint.is_free = hint_is_free(hint.is_free, hint.price_min, hint.price_max, text)
 
     start_d, end_d = _date(raw.get("start_date")), _date(raw.get("end_date"))
     start_t, end_t = raw.get("start_time"), raw.get("end_time")
