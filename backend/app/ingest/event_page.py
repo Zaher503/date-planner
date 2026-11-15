@@ -317,6 +317,15 @@ def _is_host_name(name: str | None, url: str) -> bool:
     return bool(flat) and " " not in (name or "").strip() and flat == re.sub(r"[^a-z0-9]", "", label.lower())
 
 
+def _fuller_name(name: str, title: str | None) -> str | None:
+    """'Culver City' on a page titled 'Activate Culver City | Active Games': a branch name that the
+    page title spells out in full (the title's first part ends with the name and adds a brand in front)."""
+    first = re.split(r"\s+[|–—-]\s+", title or "", maxsplit=1)[0].strip()
+    if len(first) <= len(name) or not first.lower().endswith(" " + name.strip().lower()):
+        return None
+    return first if len(first.split()) <= 6 else None
+
+
 def parse_page(url: str, html: str) -> PageData:
     import trafilatura
 
@@ -331,6 +340,9 @@ def parse_page(url: str, html: str) -> PageData:
         for it in page.items:
             if _is_host_name(it.name, url) and it.name != site_name:
                 it.name = site_name  # Wix and others fill the JSON-LD name with the domain, run together
+    for it in page.items:
+        if it.kind == "place" and it.name and (full := _fuller_name(it.name, page.title)):
+            it.name = full
     body = trafilatura.extract(html, include_comments=False, include_tables=True) or ""
     page.text = "\n".join(t for t in (embedded_description(html), body) if t)[:8000]
     return page

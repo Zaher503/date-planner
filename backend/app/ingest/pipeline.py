@@ -263,6 +263,14 @@ def tidy(h: ItemHint, now: datetime) -> ItemHint:
 
 OFFERS_MAX_CHARS = 300
 
+# A sale banner ("Save 15% on weekday rides") is a venue offer, not something to attend on a date
+PROMO_TITLE = re.compile(r"\bsave\s+(?:up\s+to\s+)?\d+\s*%|\d+\s*%\s*off\b|\bpercent\s+off\b|\bdiscount|\bbogo\b|\bbuy\s+one,?\s+get\s+one\b", re.I)
+
+
+def is_promo(h: ItemHint) -> bool:
+    return bool((h.event_title and PROMO_TITLE.search(h.event_title))
+                or (h.description and PROMO_TITLE.match(h.description.strip())))
+
 
 def demote_offerings(hints: list[ItemHint], source_url: str | None) -> list[ItemHint]:
     """A venue's home page or menu lists what it offers (workshops, exhibits, tours) without dates. Those are not
@@ -272,9 +280,10 @@ def demote_offerings(hints: list[ItemHint], source_url: str | None) -> list[Item
     home_page = bool(source_url) and urlsplit(source_url).path.strip("/") == ""
     dateless: dict[str, list[ItemHint]] = {}
     for h in hints:
-        if h.kind == "event" and not h.starts_at and not h.recurrence and h.name:
+        if h.kind == "event" and h.name and ((not h.starts_at and not h.recurrence) or is_promo(h)):
             dateless.setdefault(h.name.strip().lower(), []).append(h)
-    drop = {id(h) for group in dateless.values() if home_page or len(group) >= 3 for h in group}
+    drop = {id(h) for group in dateless.values() for h in group
+            if is_promo(h) or home_page or len(group) >= 3}
     if not drop:
         return hints
     kept = [h for h in hints if id(h) not in drop]
