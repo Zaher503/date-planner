@@ -53,6 +53,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - The price shown is the original ticket price while the page says the event is off sale (2026-10-23).
 - A free line in a price list ("toddlers free") no longer marks a paid place Free; the range still starts at $0 (2026-10-25, `IM-20`).
 - Drive-in showtimes and "box office opens an hour before" are not read (2026-10-25, `IM-21`).
+- Single-business pages read only from structured data get no description, minimum age or booking link; the branch-name-only title is fixed (2026-10-31, `IM-24`).
 - Instagram is a review stub only (by choice).
 
 ## Waiting on Zaher
