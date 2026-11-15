@@ -1,6 +1,8 @@
 # Status
 
 Facts about the project as of **2026-11-03** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
+Facts about the project as of **2026-11-02** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
+Facts about the project as of **2026-11-01** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 
 Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (they are stale, see Docs).
 

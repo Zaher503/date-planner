@@ -46,6 +46,8 @@
   let reviewCount = $state(0);
   let filtersOpen = $state(false);
   let drawerEl: HTMLElement | undefined = $state();
+  // List order, remembered on this device
+  let listSort = $state<'name' | 'recent'>('name');
 
   // Width of the floating details panel on desktop
   const DETAIL_W = 340;
@@ -118,6 +120,7 @@
     try {
       const saved = Number(localStorage.getItem('dates.paneW'));
       if (saved) setPane(saved);
+      if (localStorage.getItem('dates.sort') === 'recent') listSort = 'recent';
     } catch {
       /* storage can be blocked */
     }
@@ -225,14 +228,15 @@
       return;
     }
     if (filters.near === 'me' && !me) return;
-    const key = apiQuery(filters, { me });
+    const query = apiQuery(filters, { me });
+    const key = `${query}|${listSort}`;
     const version = app.version;
-    const fresh = key !== lastListKey;
+    const fresh = query !== lastListKey.split('|')[0];
     lastListKey = key;
     api
-      .list(`${key}&limit=200&sort=${filters.archive ? 'date' : 'name'}`)
+      .list(`${query}&limit=200&sort=${filters.archive ? 'date' : listSort}`)
       .then((r) => {
-        if (apiQuery(filters, { me }) !== key || app.version !== version) return;
+        if (`${apiQuery(filters, { me })}|${listSort}` !== key || app.version !== version) return;
         globalList = r.items;
         globalTotal = r.total;
         // A new search moves the map to its results
@@ -296,8 +300,10 @@
     );
   });
 
-  // Rows for the list: every matching feature, alphabetical
+  // Rows for the list: every matching feature, alphabetical or newest added first
   const byName = (a: ListItem, b: ListItem) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base', numeric: true }) || a.t.localeCompare(b.t);
+  const byAdded = (a: ListItem, b: ListItem) => (b.added ?? '').localeCompare(a.added ?? '') || byName(a, b);
+  const order = $derived(listSort === 'recent' ? byAdded : byName);
   const liveRows = $derived.by((): ListItem[] => {
     if (listMode && globalList) return globalList;
     if (!mapData) return [];
@@ -306,8 +312,20 @@
       const [lon, lat] = f.geometry.coordinates;
       out.push({ ...f.properties, lat, lon });
     }
-    return group(out.sort(byName));
+    return group(out.sort(order));
   });
+
+  function setSort(s: 'name' | 'recent') {
+    if (s === listSort) return;
+    listSort = s;
+    restore = null;
+    frozen = [];
+    try {
+      localStorage.setItem('dates.sort', s);
+    } catch {
+      /* storage can be blocked */
+    }
+  }
 
   // A place with several events is one row named after the place: "N events here", the soonest date up front
   function group(list: ListItem[]): ListItem[] {
@@ -320,12 +338,14 @@
       const next = evs.filter((e) => e.start && Date.parse(e.start) >= floor).sort((a, b) => Date.parse(a.start!) - Date.parse(b.start!))[0];
       return { count: evs.length, next: next?.start ?? null, allDay: next?.all_day ?? false };
     };
+    // A grouped row counts as added when its newest part was
+    const newest = (evs: ListItem[], own?: string | null) => [own, ...evs.map((e) => e.added)].reduce<string | null>((m, a) => (a && (!m || a > m) ? a : m), null);
     const out: ListItem[] = [];
     const placed = new Set<string>();
     for (const r of list) {
       if (r.t === 'event' && r.place_id && many.has(r.place_id)) continue;
       if (r.t === 'place' && many.has(r.id)) {
-        out.push({ ...r, group: soonest(many.get(r.id)!) });
+        out.push({ ...r, added: newest(many.get(r.id)!, r.added), group: soonest(many.get(r.id)!) });
         placed.add(r.id);
       } else out.push(r);
     }
@@ -333,9 +353,9 @@
     for (const [pid, evs] of many) {
       if (placed.has(pid)) continue;
       const first = evs.find((e) => e.hero || e.thumb_src) ?? evs[0];
-      out.push({ ...first, t: 'place', id: pid, title: first.venue ?? first.title, start: null, end: null, rec: null, dates: 0, price: null, group: soonest(evs) });
+      out.push({ ...first, t: 'place', id: pid, title: first.venue ?? first.title, start: null, end: null, rec: null, dates: 0, price: null, added: newest(evs), group: soonest(evs) });
     }
-    return out.sort(byName);
+    return out.sort(order);
   }
 
   // Opening an item zooms the map onto it. Coming back shows the list as it was, the item scrolled to the
@@ -607,6 +627,12 @@
                 <strong>Nothing here yet</strong>
               {/if}
             </span>
+            {#if !filters.archive && rows.length > 1}
+              <div class="sort" role="group" aria-label="Sort the list" onpointerdown={(e) => e.stopPropagation()}>
+                <button class:on={listSort === 'name'} aria-pressed={listSort === 'name'} title="Sort by name" onclick={() => setSort('name')}>A–Z</button>
+                <button class:on={listSort === 'recent'} aria-pressed={listSort === 'recent'} title="Newest added first" onclick={() => setSort('recent')}>Recent</button>
+              </div>
+            {/if}
             {#if !app.desktop}
               <button class="icon-btn sum-gear" aria-label="Settings" title="Settings" onpointerdown={(e) => e.stopPropagation()} onclick={openSettings}><Settings size={18} /></button>
             {/if}
@@ -619,7 +645,9 @@
       {:else if panel === 'settings'}
         <SettingsPanel onclose={() => nav((sp) => sp.delete('panel'))} />
       {:else if shownRows.length}
-        <ItemList items={shownRows} {units} {tz} selected={app.desktop ? (sel?.id ?? null) : null} topId={restore?.top ?? null} onselect={select} />
+        {#key listSort}
+          <ItemList items={shownRows} {units} {tz} selected={app.desktop ? (sel?.id ?? null) : null} topId={restore?.top ?? null} onselect={select} />
+        {/key}
       {:else}
         <div class="empty">
           {#if mapData && mapData.features.length === 0 && JSON.stringify(filters) === JSON.stringify({ ...EMPTY, near: filters.near })}
@@ -742,6 +770,29 @@
   }
   .sum-gear {
     margin-right: -8px;
+  }
+  /* Two-way sort switch in the list header */
+  .sort {
+    flex: none;
+    display: inline-flex;
+    padding: 2px;
+    border-radius: 9px;
+    background: var(--surface-2);
+  }
+  .sort button {
+    height: 26px;
+    padding: 0 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--text-2);
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .sort button.on {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
   }
   .empty {
     padding: 18px 16px;

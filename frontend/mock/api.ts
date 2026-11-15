@@ -22,7 +22,8 @@ const seed: [Props, number, number][] = [
 ];
 
 const items = new Map<string, { p: Props; lat: number; lon: number; me: Record<string, unknown> | null; extra: Record<string, unknown> }>();
-for (const [p, lat, lon] of seed) items.set(p.id, { p: { all_day: false, rec: null, start: null, end: null, free: null, my: null, rating: null, venue: null, addr: null, ...p }, lat, lon, me: null, extra: {} });
+// Seed order is the order the items were added, a day apart
+seed.forEach(([p, lat, lon], i) => items.set(p.id, { p: { all_day: false, rec: null, start: null, end: null, free: null, my: null, rating: null, venue: null, addr: null, added: iso((i - seed.length) * 24), ...p }, lat, lon, me: null, extra: {} }));
 
 const jobs: Record<string, unknown>[] = [];
 let jobId = 100;
@@ -126,6 +127,7 @@ export function mockApi(): Plugin {
         if (path === '/api/map') return send(200, { type: 'FeatureCollection', features: filtered(url.searchParams).map(feature) });
         if (path === '/api/list') {
           const all = filtered(url.searchParams);
+          if (url.searchParams.get('sort') === 'recent') all.sort((a, b) => String(b.p.added).localeCompare(String(a.p.added)));
           return send(200, { items: all.map((it) => ({ ...it.p, lat: it.lat, lon: it.lon, dist_m: dist(it.lat, it.lon) })), total: all.length });
         }
         if (m && items.has(m[2])) {
