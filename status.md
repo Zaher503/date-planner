@@ -1,6 +1,6 @@
 # Status
 
-Facts about the project as of **2026-11-14** (v3.96 on `main` after the merge of the daily PRs #23-#37; the CD run for it finished, the version label on the live site is still to be checked, `LC-13`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
+Facts about the project as of **2026-11-14** (v4.06 on `main` and live: the daily PRs #23-#37 and the code consolidation PR #38 are merged and deployed; the server serves the v4.06 build), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 
 Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (their status sections are summaries of this file).
 
@@ -17,8 +17,8 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 - **Map UI:** SvelteKit + MapLibre, self-hosted PMTiles with a fallback to the live basemap, teardrop pins with category icons, rainbow cluster pins, per-category pin colours, list, detail/edit, Add box with live job toasts, review picker, per-user status/rating/notes, occurrence calendar, settings, PWA shell, version label.
 - **Redesign (`UI-08`, PR #24, 2026-10-31):** list and map with the search bar floating over the map. A Filters drawer over the list (phone: a tall sheet) holds Saved status (Want to go, Going, Been, Needs review), When (Today, This weekend, Next 7 days), five category groups, Distance (home or my location) and Archive; active filters show as removable tokens. Details float over the map on desktop; on phones the card expands upward. Type, Price, Tags and the other When options are no longer in the interface (URL and API still accept them, `UI-10`). **Not yet checked on the live site or a real phone** (`UI-09`).
 - **Platform:** Compose stack on the Zephyrus (db, api, worker, photon, osrm-car, osrm-foot, searxng, browser, tester), CI + CD on push to `main` with a self-hosted runner, Caddy + Cloudflare + Authentik (group `dates`: Zaher and Kathy), Homarr tile, weekly map-tile refresh (cron on the Zephyrus), keyed import-tester service for the daily check.
-- **Tests:** backend 455 passed (2026-11-14, on the `cleanup/consolidate` branch; 419 on `main`), frontend 39 passed and svelte-check clean (2026-11-14). CI runs ruff with its default rules plus import sorting (`backend/ruff.toml`, ruff 0.17.4) and skips docs-only changes.
-- **Code consolidation (2026-11-14, branch `cleanup/consolidate`, not merged yet):** an import is `pipeline.read_link` then `pipeline.prepare` then resolve and save; the import tester and `eval.py` call the same two functions. Shared helpers live in `ingest/links.py`, `ingest/names.py` and `ingest/free.py`. Saved import cases replay offline from `backend/tests/replay/`. The importer version is a hash of the import code. What is left is in the `RF` track of the Roadmap.
+- **Tests:** backend 455 passed, frontend 39 passed and svelte-check clean (2026-11-14). CI runs ruff with its default rules plus import sorting (`backend/ruff.toml`, ruff 0.17.4) and skips docs-only changes.
+- **Code consolidation (PR #38, merged and deployed 2026-11-14):** an import is `pipeline.read_link` then `pipeline.prepare` then resolve and save; the import tester and `eval.py` call the same two functions. Shared helpers live in `ingest/links.py`, `ingest/names.py` and `ingest/free.py`. Saved import cases replay offline from `backend/tests/replay/`. The importer version is a hash of the import code. Checked live after the deploy: the prod tester read the Hollywood Bowl concert link through the shared functions and gave the same event as before. What is left is in the `RF` track of the Roadmap.
 
 ## Half-built (code exists, not wired up)
 
@@ -63,7 +63,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 
 ## Waiting on Zaher
 
-- Check that the live site shows v3.96 (`LC-13`). The 2026-11-07 deploy was cancelled while the Zephyrus was hung; the CD run after the merges of 2026-11-14 finished, so the list sort switch and the daily fixes of PRs #23-#37 should be live.
+- Look at the live site once in the browser: the server serves v4.06 (checked 2026-11-14, `LC-13` closed), so the list sort switch and the daily fixes of PRs #23-#37 are live, but nobody has looked at them on a phone yet.
 - Check the live site after the 2026-10-23 deploys: Archive chip, 21+ line, teardrop pins, rainbow pin, Settings > Pin colors.
 - Set up the "Save to Dates" Shortcut on both phones (`docs/SHORTCUT.md`).
 - Try the video slow path once with a TikTok that has no captions (Whisper through the hub has never run on a real video).
