@@ -1,5 +1,6 @@
 # Status
 
+Facts about the project as of **2026-11-03** (v3.26 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-02** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 Facts about the project as of **2026-11-01** (v2.36 on `main`), from a sweep of the code, docs, branches and import reports. What to build next is in [Roadmap.md](Roadmap.md); this file is only what is true now. The auto task refreshes the sections it touched at the end of each run and changes the date above.
 
@@ -23,7 +24,7 @@ Where this file disagrees with `README.md` or `docs/PLAN.md`, this file wins (th
 
 | Area | State |
 |---|---|
-| iCal feeds | `discover/adapters/ical_feeds.py` (200 lines) exists but is **not in `ADAPTERS`**, and Settings has no place to add feeds. |
+| iCal feeds | Adapter is in `ADAPTERS` and the feed list is read and written with `GET/PUT /api/discover/feeds` (PR of 2026-11-03, open). Settings has no screen for it yet (`DS-10`), and nothing runs it on a schedule (`DS-03`). |
 | Discovery | Ticketmaster, Resident Advisor, Luma, Eventbrite web adapters merged. `discover/run.py` only has `--dry-run`: nothing writes events to the database, nothing schedules it. |
 | HA push | `notify/ha.py` has `push()`; nothing calls it. |
 | Interests and taste | Tables exist (`tags`, `interests`, `taste_profiles`, `discovery_runs`, `adapter_state`, `http_cache`); no code reads or writes them. `nomic-embed-text` is not pulled. |

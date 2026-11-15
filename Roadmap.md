@@ -81,7 +81,7 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 - [ ] `DS-07` Overpass new places in interest categories (cache 30 days, about 100 calls a day at most).
 - [ ] `DS-08` Adapter health shown in Settings (dot per source, last ok, last error).
 - [ ] `DS-09` Ticketmaster terms: purge Ticketmaster events 30 days after they end; link back to the ticket page; stay under 2 req/s. Deps: `DS-03`.
-- [ ] `DS-10` Settings screen to add iCal/RSS feeds. Deps: `DS-01`.
+- [ ] `DS-10` Settings screen to add iCal/RSS feeds (the `GET/PUT /api/discover/feeds` API exists since `DS-01`). Deps: `DS-01` done.
 
 ### Inbox and interests (IB)
 - [ ] `IB-02` Interests API (`GET/PUT /api/interests`) and a seed-tag picker in Settings; controlled tag vocabulary (category, vibe, setting, time of day, budget).
@@ -133,6 +133,10 @@ Goal: every 3 days find nearby events that match interests and land them in the 
 
 (newest first; format: `- 2026-10-23 (item) \`CODE\` what changed, PR #n`)
 
+- 2026-11-03 (item) `DS-01` iCal feed adapter wired in: registered in `ADAPTERS`, feed list kept in `adapter_state` and edited with `GET/PUT /api/discover/feeds`, the dry run builds it from the stored list; `icalendar` and `recurring-ical-events` added to requirements (they were missing); 7 tests from the saved sample feed
+- 2026-11-02 (check) `IM-00` Skull Canyon Ziplines: more site pages read (tours, packages, six instead of four, hours and price pages first), dropped price-card lines recovered, current-season hours preferred; card prices still missing (`IM-27`, `IM-28`)
+- 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
+- 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
 - 2026-11-02 (check) `IM-00` Skull Canyon Ziplines: more site pages read (tours, packages, six instead of four, hours and price pages first), dropped price-card lines recovered, current-season hours preferred; card prices still missing (`IM-27`, `IM-28`)
 - 2026-11-01 (item) `IM-01.2` Live recheck of the Hollywood Roosevelt link: the footer address and phone now reach all four events; two follow-ups added (`IM-25`, `IM-26`), no code change
 - 2026-10-31 (check) `IM-00` Activate Culver City: a branch name in the page data ("Culver City") now takes the full name from the page title ("Activate Culver City"); description, age 6+ and booking link still missed (`IM-24`)
