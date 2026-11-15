@@ -65,6 +65,7 @@ def make_scheduler() -> BackgroundScheduler:
     # Standing venues: the check runs daily; each venue is read once its own interval (weekly by default) is up
     sched.add_job(enqueue_once, "cron", hour=3, minute=40, args=["watch_scan"], id="watch_scan")
     sched.add_job(enqueue_once, "cron", hour=3, minute=55, args=["expand_occurrences"], id="expand_occurrences")
+    sched.add_job(enqueue_once, "cron", hour=2, minute=30, args=["backup"], id="backup")
     return sched
 
 
