@@ -12,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from geoalchemy2.shape import to_shape
 
 from app.config import get_settings
-from app.db.models import AppSettings
+from app.db.models import AdapterState, AppSettings
 from app.db.session import SessionLocal
 from app.discover.adapters import ADAPTERS
 from app.discover.base import Area
@@ -27,10 +27,21 @@ def home_area() -> Area:
         return Area(lat=p.y, lon=p.x, radius_km=s.radius_km)
 
 
-def build(name: str):
+def stored_config(name: str) -> dict:
+    with SessionLocal() as db:
+        row = db.get(AdapterState, name)
+        return dict(row.config or {}) if row else {}
+
+
+def build(name: str, config: dict | None = None):
+    """Adapter from its key setting plus the settings it keeps in adapter_state.config."""
     cls = ADAPTERS[name]
     key = getattr(get_settings(), cls.key_setting) if cls.key_setting else None
-    return cls(key=key)
+    kwargs = {}
+    if getattr(cls, "config_kwargs", None):
+        cfg = stored_config(name) if config is None else config
+        kwargs = {k: cfg[k] for k in cls.config_kwargs if k in cfg}
+    return cls(key=key, **kwargs)
 
 
 def dry_run(names: list[str], days: int) -> None:
@@ -41,7 +52,8 @@ def dry_run(names: list[str], days: int) -> None:
     for name in names:
         ad = build(name)
         if not ad.enabled():
-            print(f"{name}: skipped (no {ad.key_setting.upper()} in .env)")
+            what = f"no {ad.key_setting.upper()} in .env" if ad.key_setting else "nothing configured"
+            print(f"{name}: skipped ({what})")
             continue
         try:
             events = list(ad.fetch(area, start, end))

@@ -2,7 +2,7 @@
 concrete dates it produces. Only patterns that mean one thing are read; anything vaguer returns None."""
 import re
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from dateutil.rrule import rrulestr

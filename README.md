@@ -6,19 +6,21 @@ Runs on the Zephyrus as a Docker Compose stack, all AI local: the LLM (gemma4:e4
 
 ## Status
 
+Updated 2026-11-10. The current, detailed state is in [status.md](status.md) and what comes next in [Roadmap.md](Roadmap.md); this table is only a summary and those two files win when they differ.
+
 | Phase | State |
 |---|---|
 | 1 Foundation (stack, schema, API skeleton, deploy) | Done |
 | 2 Geo infra (Photon, OSRM car/foot, SearXNG, SoCal map tiles) | Done |
-| 3 Ingestion fast path (TikTok, maps links, web pages, text; resolver; review API) | Done |
-| 4 Map UI (SvelteKit + MapLibre) | Deployed 2026-10-10 (`acc5cca`), not yet checked in a browser |
-| 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Deployed 2026-10-10; Whisper now runs in the shared AI hub |
-| 6 Caddy + Authentik at dates.zkocr.com, iPhone Shortcut | Live 2026-10-11 (Caddy, Cloudflare, Authentik group `dates`: Zaher + Kathy); Shortcut not yet set up on the phones |
-| 7 Interests + discovery (Ticketmaster key set, dry run finds ~760 events / 21 days) | Started (Ticketmaster, RA, Luma, Eventbrite adapters merged; iCal, venue watch, scheduler, inbox, scoring still to do) |
-| 8 Date-night planner + calendar | Core merged (OSRM client, picker, opening hours); plan API, ICS feed and UI still to do |
-| 9 Lifecycle, backups, Homarr tile | Homarr tile done (2026-10-10, both boards); widget and the rest not started |
+| 3 Ingestion fast path (TikTok, YouTube, maps links, web pages, text, screenshots; resolver; review API) | Done, improved by the daily import check (`improvements/`) |
+| 4 Map UI (SvelteKit + MapLibre) | Live. Redesign (Filters drawer, floating details) merged 2026-10-31, not yet checked on a real phone |
+| 5 Video slow path (Whisper, frame OCR, media archive, screenshots) | Deployed; Whisper runs in the shared AI hub. Never run on a captionless TikTok yet |
+| 6 Caddy + Authentik at dates.zkocr.com, iPhone Shortcut | Live (group `dates`: Zaher and Kathy); Shortcut not yet set up on the phones |
+| 7 Interests + discovery | Started. Ticketmaster, RA, Luma, Eventbrite and iCal adapters exist; dry run only. Nothing writes discovered events, schedules discovery or scores them; no inbox |
+| 8 Date-night planner + calendar | Plan API live (suggest and plan CRUD); no Plan page, no `.ics` download or feed yet |
+| 9 Lifecycle, backups, Homarr tile | Homarr tile, past-event Archive, standing-venue weekly scan and repeating events (RRULE) are live. Nightly backup and weekly yt-dlp update are written but not merged yet; NAS backup pull, monthly re-verify and the Homarr widget not started |
 
-**Next step:** try the video slow path through the AI hub, then the remaining Phase 7/8 work (iCal feed adapter and plan API are in the tree but not wired up). See `docs/TODO-ZAHER.md`.
+**Next step:** follow the **Now** list in [Roadmap.md](Roadmap.md) (Plan page, per-item `.ics`, the discovery writer). Things only Zaher can do are under "Waiting on Zaher" in [status.md](status.md) and the `[Z]` items in the roadmap.
 
 Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expected places): 28/28 correct, 0 wrong auto-accepts.
 
@@ -38,21 +40,26 @@ Accuracy on the golden set (`backend/tests/golden.json`, 22 real links, 28 expec
 
 | Path | What |
 |---|---|
-| `backend/app/main.py` | FastAPI app (routers in `app/api/`: `add`, `health`, `review`, `auth`) |
+| `backend/app/main.py` | FastAPI app (routers in `app/api/`: `add`, `health`, `review`, `meta`, `map`, `items`, `media`, `google`, `verified`, `plans`, `static`; `auth` holds the identity check). Routes are listed in [docs/API.md](docs/API.md) |
 | `backend/app/worker.py`, `tasks.py`, `jobs.py` | Worker: Postgres job queue (SKIP LOCKED), one GPU lane + two CPU lanes, APScheduler |
 | `backend/app/ingest/` | `urls` (normalize/classify), `tiktok`, `maps_links`, `event_page`, `pipeline` (the ingest job), `store` (upsert/merge) |
 | `backend/app/llm/` | `ollama` client, `extract` (prompt + schema), `verify` (no invented numbers) |
 | `backend/app/browser.py` | Drives the `browser` container (Playwright) for pages that block plain fetching or show prices only after a click; every request is checked against private addresses. CAPTCHAs are reported as blocked, never solved |
 | `backend/app/resolve/` | `candidates` (Photon, Overpass, Nominatim, SearXNG), `scorer`, `resolver` |
-| `backend/app/discover/` | Adapter framework, Ticketmaster adapter, dry-run CLI |
+| `backend/app/discover/` | Adapter framework; Ticketmaster, Resident Advisor, Luma, Eventbrite and iCal adapters; dry-run CLI |
+| `backend/app/plan/`, `hours.py` | Date-night picker (OSRM travel times) and opening hours |
+| `backend/app/watch.py`, `recurrence.py`, `occurrences.py` | Standing-venue weekly scan, RRULE from explicit patterns, occurrences 120 days ahead |
 | `backend/app/llm/ollama.py`, `ingest/transcribe.py` | Clients for the AI hub (LLM and Whisper); they report where a call is in the hub's queue |
 | `backend/app/eval.py` | Golden-set accuracy check (writes nothing) |
 | `backend/migrations/` | Alembic migrations |
 | `backend/tests/` | pytest, offline fixtures (real TikTok/page responses, trimmed) |
 | `deploy/` | `compose.yaml`, Dockerfiles, SearXNG settings, `.env.example` |
 | `.github/workflows/` | `ci.yml` (tests, frontend build, compose check, image build) and `cd.yml` (publish to GHCR, deploy to the Zephyrus) |
-| `scripts/` | `deploy.bat`, `add-runner.sh`, `init-env.sh`, `photon_import.sh`, `fetch_tiles.sh`, `build_osrm.sh` |
-| `docs/` | `PLAN.md` (design + phases), `OPERATIONS.md` (running it) |
+| `scripts/` | `deploy.bat`, `add-runner.sh`, `init-env.sh`, `photon_import.sh`, `fetch_tiles.sh`, `fetch_map_assets.sh`, `install-tiles-cron.sh`, `build_osrm.sh`, `add-date.ps1`, one-off cleanup SQL |
+| `docs/` | `PLAN.md` (design + phases), `OPERATIONS.md` (running it), `API.md` (routes), `SHORTCUT.md` (phone Shortcut) |
+| `Roadmap.md`, `status.md` | What to build next, and what is true now |
+| `improvements/` | Daily import-check and roadmap-run reports |
+| `import-tester/` | Local tool that runs the import on a link without saving anything |
 | `frontend/` | SvelteKit app: map, filters, item list/detail/edit, Add box, settings, PWA shell |
 
 ## Where it fits
