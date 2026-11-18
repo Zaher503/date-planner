@@ -173,3 +173,13 @@ def test_reconcile_unlists_missing_relists_returned_and_respects_hand_set_status
     assert cancelled.listed is False and cancelled.status == "cancelled"
     assert back.listed is True and back.status == "scheduled" and back.last_seen_at == NOW
     assert kept.last_seen_at == NOW
+
+
+def test_backfill_gives_old_events_their_rule_but_not_hand_set_ones():
+    old = event(recurrence_text="third Friday of every month")
+    hand = event(recurrence_text="third Friday of every month", user_overrides={"rrule": "2026-11-01"})
+    vague = event(recurrence_text="ongoing until 2027-01-10")
+    db = SimpleNamespace(scalars=lambda q: SimpleNamespace(all=lambda: [old, hand, vague]))
+    assert occurrences.backfill_rules(db, NOW) == 1
+    assert old.rrule == "FREQ=MONTHLY;BYDAY=3FR" and old.starts_at.day == 20 and old.all_day  # 2026-11-20
+    assert hand.rrule is None and vague.rrule is None

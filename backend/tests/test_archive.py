@@ -85,3 +85,70 @@ def test_world_sized_bbox_skips_the_geography_prefilter():
 
     assert "&&" in where("-118.5,33.9,-118.1,34.2")
     assert "&&" not in where("-180,-85,180,85")
+
+
+# Runs that are on now (an exhibition that opened last year) sort and show as "on now", not by opening date
+
+def test_exhibition_that_opened_long_ago_is_on_now():
+    from app.lifecycle import event_ongoing
+    assert event_ongoing(start=datetime(2025, 3, 23, 7, tzinfo=timezone.utc),
+                         end=datetime(2027, 10, 25, 6, 59, tzinfo=timezone.utc), now=NOW)
+    assert event_ongoing(start=None, end=datetime(2027, 1, 10, tzinfo=timezone.utc), now=NOW)  # closing date only
+
+
+def test_short_running_closed_or_future_events_are_not_on_now():
+    from app.lifecycle import event_ongoing
+    # A concert that started an hour ago keeps its time
+    assert not event_ongoing(start=datetime(2026, 10, 23, 11, tzinfo=timezone.utc),
+                             end=datetime(2026, 10, 23, 14, tzinfo=timezone.utc), now=NOW)
+    assert not event_ongoing(start=datetime(2025, 3, 23, tzinfo=timezone.utc),
+                             end=datetime(2026, 10, 19, tzinfo=timezone.utc), now=NOW)  # closed
+    assert not event_ongoing(start=datetime(2026, 12, 1, tzinfo=timezone.utc),
+                             end=datetime(2027, 3, 1, tzinfo=timezone.utc), now=NOW)  # not open yet
+    assert not event_ongoing(start=datetime(2025, 3, 23, tzinfo=timezone.utc), end=None, now=NOW)
+
+
+def _row(title, start=None, ends=None, ongoing=False):
+    from types import SimpleNamespace
+    return ({"t": "event", "title": title, "start": start and start.isoformat(), "ongoing": ongoing},
+            SimpleNamespace(start=start, ends_at=ends, created_at=NOW))
+
+
+def test_date_sort_puts_upcoming_before_on_now_runs():
+    from app.api.map import sort_items
+    items = [
+        _row("Bong Joon Ho", datetime(2025, 3, 23, tzinfo=timezone.utc), datetime(2027, 10, 25, tzinfo=timezone.utc), True),
+        _row("Ponyo", datetime(2026, 2, 14, tzinfo=timezone.utc), datetime(2027, 3, 22, tzinfo=timezone.utc), True),
+        _row("Workshop"),
+        _row("Concert", datetime(2026, 11, 20, tzinfo=timezone.utc)),
+        ({"t": "place", "title": "Academy Museum", "start": None}, None),
+    ]
+    assert [p["title"] for p in sort_items(items, "date")] == ["Concert", "Ponyo", "Bong Joon Ho", "Workshop",
+                                                               "Academy Museum"]
+
+
+def test_venue_page_lists_coming_then_on_now_then_undated_then_past():
+    import uuid
+    from types import SimpleNamespace
+
+    from app.api.items import place_events
+
+    def ev(title, start=None, end=None, **kw):
+        base = dict(id=uuid.uuid4(), title=title, starts_at=start, ends_at=end, status="scheduled", duration_min=None,
+                    all_day=True, rrule=None, recurrence_text=None)
+        return SimpleNamespace(**{**base, **kw})
+
+    weekly = ev("Weekly talk", datetime(2025, 1, 7, tzinfo=timezone.utc), rrule="FREQ=WEEKLY;BYDAY=TU",
+                recurrence_text="every Tuesday")
+    events = [ev("Bong Joon Ho", datetime(2025, 3, 23, tzinfo=timezone.utc), datetime(2027, 10, 25, tzinfo=timezone.utc)),
+              ev("Ponyo", datetime(2026, 2, 14, tzinfo=timezone.utc), datetime(2027, 3, 22, tzinfo=timezone.utc)),
+              ev("Barbie", None, datetime(2026, 10, 19, tzinfo=timezone.utc)),
+              ev("Workshop", recurrence_text="third Friday of every month"),
+              ev("Film night", datetime(2026, 11, 1, 3, tzinfo=timezone.utc), all_day=False),
+              weekly]
+    upcoming = {weekly.id: (17, datetime(2026, 10, 27, tzinfo=timezone.utc))}
+    rows = place_events(events, upcoming, NOW)
+    assert [r[0].title for r in rows] == ["Weekly talk", "Film night", "Ponyo", "Bong Joon Ho", "Workshop", "Barbie"]
+    flags = {r[0].title: (r[2], r[3]) for r in rows}
+    assert flags["Bong Joon Ho"] == (True, False) and flags["Barbie"] == (False, True)
+    assert flags["Weekly talk"] == (False, False) and rows[0][1] == datetime(2026, 10, 27, tzinfo=timezone.utc)

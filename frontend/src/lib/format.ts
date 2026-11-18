@@ -57,6 +57,20 @@ export function when(startIso: string | null, opts: { allDay?: boolean; tz?: str
   return opts.allDay ? day : `${day} ${time}`;
 }
 
+/** "On now · until Oct 24, 2027" for a run that is on now (an exhibition). A closing time of midnight means
+ * the day before it. */
+export function onNow(endIso: string | null, opts: { tz?: string; now?: Date } = {}): string {
+  if (!endIso) return 'On now';
+  const tz = opts.tz ?? DEFAULT_TZ;
+  const now = opts.now ?? new Date();
+  let e = new Date(endIso);
+  const hm = new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(e);
+  if (hm === '00:00') e = new Date(e.getTime() - 60000);
+  const sameYear = dayKey(now, tz).slice(0, 4) === dayKey(e, tz).slice(0, 4);
+  const day = new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' }).format(e);
+  return `On now · until ${day}`;
+}
+
 /** Full date and time for the detail card. */
 export function longWhen(startIso: string, endIso: string | null, opts: { allDay?: boolean; tz?: string } = {}): string {
   const tz = opts.tz ?? DEFAULT_TZ;
@@ -80,7 +94,8 @@ export function duration(minutes: number | null | undefined): string {
 }
 
 /** Short text for the event pin badge: month and day of the next date, weekday for recurring, blank when unknown. */
-export function badge(p: { start: string | null; rec: string | null }, tz = DEFAULT_TZ): string {
+export function badge(p: { start: string | null; rec: string | null; ongoing?: boolean }, tz = DEFAULT_TZ): string {
+  if (p.ongoing) return 'Now';
   if (p.start) {
     return new Intl.DateTimeFormat('en-US', { timeZone: tz, month: 'short', day: 'numeric' }).format(new Date(p.start));
   }

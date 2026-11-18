@@ -31,7 +31,7 @@
   import Play from '@lucide/svelte/icons/play';
   import { api, type Item, type ItemType, type MyState, type MyStatus } from '$lib/api';
   import { colorOf, labelOf } from '$lib/categories';
-  import { duration, googleMapsUrl, hostOf, hoursTable, longWhen, relativeAgo, when } from '$lib/format';
+  import { duration, googleMapsUrl, hostOf, hoursTable, longWhen, onNow, relativeAgo, when } from '$lib/format';
   import { app } from '$lib/state.svelte';
   import ItemEdit from './ItemEdit.svelte';
   import OccurrenceCalendar from './OccurrenceCalendar.svelte';
@@ -90,6 +90,11 @@
   let calOpen = $state(true);
   let hoursOpen = $state(false);
   let descOpen = $state(true);
+  // A venue's events: what is on or coming, and the ones that are over under a folded Past events
+  type VenueEvent = NonNullable<Item['events']>[number];
+  const currentEvents = $derived((item?.events ?? []).filter((e) => !e.archived));
+  const pastEvents = $derived((item?.events ?? []).filter((e) => e.archived));
+  let showPast = $state(false);
   let tagsOpen = $state(false);
   const TAGS_SHOWN = 3;
   const hoursRows = $derived(hoursTable(item?.opening_hours));
@@ -571,7 +576,7 @@
 
         {#if item.standing || item.events?.length}
           <section>
-            <h3>Events here ({item.events?.length ?? 0})</h3>
+            <h3>Events here ({currentEvents.length})</h3>
             {#if item.standing}
               <p class="watch" class:bad={item.last_scan_status === 'failed'}>
                 <span>
@@ -583,39 +588,58 @@
                 <button class="btn small" disabled={!!busy} onclick={scanNow}><RefreshCw size={15} class={busy === 'scan' ? 'spin' : ''} /> Read now</button>
               </p>
             {/if}
-            <ul class="linked">
-              {#each item.events ?? [] as ev (ev.id)}
-                {@const bits = [
-                  ev.starts_at ? when(ev.starts_at, { tz: ev.tz ?? tz, allDay: ev.all_day }) : ev.recurrence_text,
-                  ev.dates > 1 ? `${ev.dates} dates` : '',
-                  ev.duration_min && !ev.all_day ? duration(ev.duration_min) : '',
-                  ev.price_label
-                ].filter(Boolean)}
-                <li class="ev-card" class:unlisted={!ev.listed}>
-                  <div class="ev-row">
-                    <button class="ev-open" aria-expanded={openEvent === ev.id} onclick={() => (openEvent = openEvent === ev.id ? null : ev.id)}>
-                      <span>{ev.title}</span>
-                      <span class="sub">{bits.join(' · ') || 'Date not known'}{ev.listed ? '' : ' · no longer listed'}</span>
-                    </button>
-                    <button class="ev-edit" aria-label="Edit {ev.title}" title="Edit" onclick={() => onselect('event', ev.id, true)}><Pencil size={15} /></button>
+            {#snippet evCard(ev: VenueEvent)}
+              {@const bits = [
+                ev.ongoing
+                  ? onNow(ev.ends_at, { tz: ev.tz ?? tz })
+                  : ev.next_at || ev.starts_at
+                    ? when((ev.next_at || ev.starts_at)!, { tz: ev.tz ?? tz, allDay: ev.all_day })
+                    : ev.recurrence_text,
+                ev.dates > 1 ? `${ev.dates} dates` : '',
+                ev.duration_min && !ev.all_day ? duration(ev.duration_min) : '',
+                ev.price_label
+              ].filter(Boolean)}
+              <li class="ev-card" class:unlisted={!ev.listed || ev.archived}>
+                <div class="ev-row">
+                  <button class="ev-open" aria-expanded={openEvent === ev.id} onclick={() => (openEvent = openEvent === ev.id ? null : ev.id)}>
+                    <span>{ev.title}</span>
+                    <span class="sub">{bits.join(' · ') || 'Date not known'}{ev.listed ? '' : ' · no longer listed'}</span>
+                  </button>
+                  <button class="ev-edit" aria-label="Edit {ev.title}" title="Edit" onclick={() => onselect('event', ev.id, true)}><Pencil size={15} /></button>
+                </div>
+                {#if openEvent === ev.id}
+                  <div class="ev-more">
+                    {#if ev.recurrence_text && ev.starts_at}<p class="sub">Repeats: {ev.recurrence_text}</p>{/if}
+                    {#if ev.description}<p>{ev.description}</p>{/if}
+                    <p class="sub">
+                      {#if ev.price_label}{ev.price_label}{/if}
+                      {#if ev.min_age}{ev.price_label ? ' · ' : ''}{ev.min_age}+{/if}
+                    </p>
+                    {#if ev.ticket_url}<a href={ev.ticket_url} target="_blank" rel="noopener noreferrer">Tickets on {hostOf(ev.ticket_url)}</a>{/if}
+                    <button class="btn small" onclick={() => onselect('event', ev.id)}>Open the event</button>
                   </div>
-                  {#if openEvent === ev.id}
-                    <div class="ev-more">
-                      {#if ev.recurrence_text && ev.starts_at}<p class="sub">Repeats: {ev.recurrence_text}</p>{/if}
-                      {#if ev.description}<p>{ev.description}</p>{/if}
-                      <p class="sub">
-                        {#if ev.price_label}{ev.price_label}{/if}
-                        {#if ev.min_age}{ev.price_label ? ' · ' : ''}{ev.min_age}+{/if}
-                      </p>
-                      {#if ev.ticket_url}<a href={ev.ticket_url} target="_blank" rel="noopener noreferrer">Tickets on {hostOf(ev.ticket_url)}</a>{/if}
-                      <button class="btn small" onclick={() => onselect('event', ev.id)}>Open the event</button>
-                    </div>
-                  {/if}
-                </li>
+                {/if}
+              </li>
+            {/snippet}
+            <ul class="linked">
+              {#each currentEvents as ev (ev.id)}
+                {@render evCard(ev)}
               {:else}
-                <li class="sub">No events found yet.</li>
+                <li class="sub">{pastEvents.length ? 'Nothing coming up.' : 'No events found yet.'}</li>
               {/each}
             </ul>
+            {#if pastEvents.length}
+              <button class="toggle" aria-expanded={showPast} onclick={() => (showPast = !showPast)}>
+                <ChevronDown size={16} class={showPast ? 'flip' : ''} /> Past events ({pastEvents.length})
+              </button>
+              {#if showPast}
+                <ul class="linked">
+                  {#each pastEvents as ev (ev.id)}
+                    {@render evCard(ev)}
+                  {/each}
+                </ul>
+              {/if}
+            {/if}
           </section>
         {/if}
 

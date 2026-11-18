@@ -7,7 +7,7 @@
   import Repeat from '@lucide/svelte/icons/repeat';
   import type { ItemType, ListItem as Row } from '$lib/api';
   import { colorOf, labelOf } from '$lib/categories';
-  import { distance, when } from '$lib/format';
+  import { distance, onNow, when } from '$lib/format';
 
   interface Props {
     items: Row[];
@@ -36,7 +36,8 @@
   function subline(p: Row): string {
     const bits: string[] = [];
     if (p.t === 'event') {
-      if (p.start) bits.push(when(p.start, { allDay: p.all_day, tz, now }) + (p.dates && p.dates > 1 ? ` +${p.dates - 1} more` : ''));
+      if (p.ongoing) bits.push(onNow(p.end, { tz, now }));
+      else if (p.start) bits.push(when(p.start, { allDay: p.all_day, tz, now }) + (p.dates && p.dates > 1 ? ` +${p.dates - 1} more` : ''));
       else if (p.rec) bits.push(p.rec.replace(/^\w/, (c) => c.toUpperCase()));
       if (p.venue && p.venue !== p.title) bits.push(p.venue);
     } else {

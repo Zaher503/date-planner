@@ -49,6 +49,8 @@ export interface ItemProps {
   tags: string[];
   place_id?: string | null;
   archived?: boolean;
+  /** An event on now that runs longer than a day (an exhibition): shown as "On now · until <end>" */
+  ongoing?: boolean;
   /** When the item was saved */
   added?: string | null;
 }
@@ -145,6 +147,12 @@ export interface Item {
     ends_at: string | null;
     all_day: boolean;
     duration_min: number | null;
+    /** The next date still to come (a repeating event's next one), null when none */
+    next_at?: string | null;
+    /** On now and longer than a day (an exhibition) */
+    ongoing?: boolean;
+    /** Over (or archived by hand): listed under Past events */
+    archived?: boolean;
     tz: string;
     dates: number;
     recurrence_text: string | null;
