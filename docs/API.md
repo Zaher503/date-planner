@@ -206,11 +206,7 @@ All of these need identity. `kind` is `place` or `event` (404 otherwise), `item_
 
 `GET /api/media/{source_id}/video` -> the archived video of a source (`video/mp4`, `video/webm` or `video/quicktime`) with Range support, same cache header. 404 when no video was archived.
 
-`GET /api/google-photos/{kind}/{item_id}` -> `{"photos": [{"url": "/api/google-photo/{kind}/{item_id}/0", "author": "..."}]}`, Google Places photos found for the item's place name and address (for an event, its place). 404 when there is no place.
-
-`GET /api/google-photo/{kind}/{item_id}/{index}` -> the photo (`Cache-Control: private, max-age=3600`). 404 for an index outside the list; 429 when the daily Google download cap (`google_photo_daily_cap`) is reached and 502 when Google gives nothing. Index 0 is also kept as the item's hero when it has no picture yet (if saving Google photos is switched on).
-
-`POST /api/google-photo/{kind}/{item_id}/{index}/use` -> `{"ok": true}`. Downloads that photo and makes it the item's hero, replacing an earlier Google photo and unchoosing the other pictures. Same 404, 429 and 502 as above; 409 when saving Google photos is switched off.
+`POST /api/google-photos/{kind}/{item_id}` -> `{"found": 5, "new": 3, "item": {...}}`. Finds the item's place on Google (name and address; for an event, its place), downloads every photo it gives (at most 5, each one counted against `google_photo_daily_cap`) and keeps them all as `google` pictures. They go to the top of the item's `images`, in Google's order; a photo already saved moves up instead of being saved twice. On an item with no picture at all the first one becomes the main picture. `item` is the item detail after the search. 404 when there is no place; 429 when the daily cap is reached before any photo came; 409 when saving Google photos is switched off (`google_save_hero`).
 
 ## Media and map files
 

@@ -68,30 +68,6 @@ class FakeDB:
         self.committed = True
 
 
-def test_first_google_photo_is_kept_as_the_hero(monkeypatch, tmp_path):
-    from app.api import google
-    from app.ingest import media
-    monkeypatch.setattr(media, "media_root", lambda: tmp_path)
-    import uuid
-    db = FakeDB()
-    assert google.save_hero(db, "place", uuid.uuid4(), b"img", "image/jpeg", "Sam")
-    row = db.added[0]
-    assert row.kind == "google" and row.chosen and row.attribution == "Sam" and row.source_id is None
-    assert (tmp_path / row.path).read_bytes() == b"img" and db.committed
-
-
-def test_hero_is_not_saved_when_the_item_has_a_picture_or_the_switch_is_off(monkeypatch, tmp_path):
-    import uuid
-
-    from app.api import google
-    from app.ingest import media
-    monkeypatch.setattr(media, "media_root", lambda: tmp_path)
-    busy = FakeDB(existing=1)
-    assert not google.save_hero(busy, "place", uuid.uuid4(), b"img", "image/jpeg", None) and not busy.added
-    monkeypatch.setattr(get_settings(), "google_save_hero", False)
-    assert not google.save_hero(FakeDB(), "place", uuid.uuid4(), b"img", "image/jpeg", None)
-
-
 def test_a_dead_picture_link_is_no_picture():
     import httpx as hx
 
@@ -108,30 +84,42 @@ def test_a_dead_picture_link_is_no_picture():
     assert not gone(page, hx.ReadTimeout("slow")) and not gone(Source(kind="tiktok", raw=raw), not_found)
 
 
-def test_a_picked_google_photo_replaces_the_hero(monkeypatch, tmp_path):
+def _search(monkeypatch, tmp_path, photos, existing=(), first_picture=False):
     import uuid
 
     from app.api import google
-    from app.db.models import ItemImage
     from app.ingest import media
     monkeypatch.setattr(media, "media_root", lambda: tmp_path)
-    old_file = tmp_path / "item-images" / "google-old.jpg"
-    old_file.parent.mkdir(parents=True)
-    old_file.write_bytes(b"old")
-    old_google = ItemImage(kind="google", path="item-images/google-old.jpg", chosen=True)
-    page = ItemImage(kind="page", url="http://x.test/a.jpg", chosen=False)
-    other = ItemImage(kind="page", url="http://x.test/b.jpg", chosen=True)
+    db = FakeDB()
+    new = google.save_search(db, "place", uuid.uuid4(), photos, list(existing), first_picture)
+    return new, db
 
-    class DB(FakeDB):
-        deleted = []
 
-        def all(self):
-            return [old_google, page, other]
+def test_every_photo_of_a_search_is_saved_in_googles_order(monkeypatch, tmp_path):
+    photos = [(b"a", "image/jpeg", "Sam"), (b"b", "image/png", None), (b"c", "image/webp", "Ana")]
+    new, db = _search(monkeypatch, tmp_path, photos, first_picture=True)
+    assert new == 3 and db.committed
+    assert [(r.kind, r.rank, r.attribution, r.source_id) for r in db.added] == [
+        ("google", 0, "Sam", None), ("google", 1, None, None), ("google", 2, "Ana", None)]
+    assert [(tmp_path / r.path).read_bytes() for r in db.added] == [b"a", b"b", b"c"]
+    assert [r.chosen for r in db.added] == [True, False, False]  # an item with no picture gets the first
 
-        def delete(self, row):
-            self.deleted.append(row)
 
-    db = DB(existing=1)
-    assert google.save_hero(db, "place", uuid.uuid4(), b"new", "image/jpeg", "Sam", replace=True)
-    assert db.deleted == [old_google] and not old_file.exists()
-    assert other.chosen is False and db.added[0].chosen and db.added[0].attribution == "Sam"
+def test_a_new_search_goes_on_top_and_known_photos_are_not_saved_twice(monkeypatch, tmp_path):
+    from app.db.models import ItemImage
+    (tmp_path / "item-images").mkdir()
+    for name, body in (("g1.jpg", b"old1"), ("g2.jpg", b"old2")):
+        (tmp_path / "item-images" / name).write_bytes(body)
+    old1 = ItemImage(kind="google", path="item-images/g1.jpg", rank=0, chosen=True)
+    old2 = ItemImage(kind="google", path="item-images/g2.jpg", rank=1, chosen=False)
+    new, db = _search(monkeypatch, tmp_path, [(b"fresh", "image/jpeg", None), (b"old2", "image/jpeg", None)],
+                      existing=[old1, old2])
+    assert new == 1 and len(db.added) == 1
+    fresh = db.added[0]
+    assert (fresh.rank, old2.rank, old1.rank) == (0, 1, 2)  # the search's photos first, in its order
+    assert old1.chosen and not fresh.chosen  # the main picture stays as it was
+
+
+def test_a_search_skips_files_that_are_not_pictures(monkeypatch, tmp_path):
+    new, db = _search(monkeypatch, tmp_path, [(b"<html>", "text/html", None), (b"a", "image/jpeg", None)])
+    assert new == 1 and db.added[0].rank == 0 and not db.added[0].chosen

@@ -28,6 +28,7 @@ seed.forEach(([p, lat, lon], i) => items.set(p.id, { p: { all_day: false, rec: n
 
 const jobs: Record<string, unknown>[] = [];
 let jobId = 100;
+let picId = 500;
 
 function dist(lat: number, lon: number) {
   const dx = (lon - HOME.lon) * 111320 * Math.cos((HOME.lat * Math.PI) / 180);
@@ -160,6 +161,19 @@ export function mockApi(): Plugin {
           return send(200, detail(m[2]));
         }
         if (m) return send(404, { detail: 'no such item' });
+        const g = path.match(/^\/api\/google-photos\/(place|event)\/([0-9a-f-]{36})$/);
+        if (g && req.method === 'POST') {
+          // Each search gives three sample photos; they go on top, the first becomes the hero of an item with none
+          const it = items.get(g[2]);
+          if (!it) return send(404, { detail: 'no such item' });
+          const had = (it.extra.images as Record<string, unknown>[] | undefined) ?? [];
+          const fresh = ['#c2410c', '#0f766e', '#7c3aed'].map((c, i) => ({
+            id: ++picId, kind: 'google', at: null, chosen: !had.length && i === 0, attribution: ['Sam', null, 'Ana'][i], video: null,
+            url: `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="200"><rect width="320" height="200" fill="${c}"/><text x="16" y="186" fill="#fff" font-family="sans-serif" font-size="22">Google ${picId}</text></svg>`)}`
+          }));
+          it.extra.images = [...fresh, ...had];
+          return send(200, { found: 3, new: 3, item: detail(g[2]) });
+        }
         const r = path.match(/^\/api\/places\/([0-9a-f-]{36})\/resolve$/);
         if (r && items.has(r[1])) {
           const it = items.get(r[1])!;

@@ -256,7 +256,7 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
         "submitted_by": names.get(s.submitted_by),
     } for s in sources]
     pics = db.scalars(select(ItemImage).where((ItemImage.place_id if is_place else ItemImage.event_id) == item.id)
-                      .order_by(ItemImage.source_id, ItemImage.rank)).all()
+                      .order_by(ItemImage.kind != "google", ItemImage.source_id, ItemImage.rank, ItemImage.id)).all()
     out["images"] = [{"id": p.id, "kind": p.kind, "at": p.at_seconds, "chosen": p.chosen,
                       "url": f"/api/item-image/{p.id}", "attribution": p.attribution,
                       "video": f"/api/media/{p.source_id}/video" if p.kind == "frame" else None} for p in pics]
