@@ -29,7 +29,7 @@
   import Link from '@lucide/svelte/icons/link';
   import LoaderCircle from '@lucide/svelte/icons/loader-circle';
   import Play from '@lucide/svelte/icons/play';
-  import { api, type Item, type ItemType, type MyState, type MyStatus } from '$lib/api';
+  import { api, ApiError, type Item, type ItemType, type MyState, type MyStatus } from '$lib/api';
   import { colorOf, labelOf } from '$lib/categories';
   import { duration, googleMapsUrl, hostOf, hoursTable, longWhen, onNow, relativeAgo, when } from '$lib/format';
   import { app } from '$lib/state.svelte';
@@ -110,62 +110,49 @@
   const hero = $derived(pics.find((i) => i.chosen) ?? null);
   // The link's own thumbnail is the default hero until a picture is picked; with none, the first picture is
   const linkThumb = $derived(thumbSource?.thumb ?? videoSource?.thumb ?? null);
-  // Google Maps photos are the last resort: asked for only when the item has no picture of its own. The first
-  // one is saved on the server as the hero (so the list shows it too); the rest load when "More photos" is tapped.
-  const savedGoogle = $derived(pics.find((p) => p.kind === 'google') ?? null);
-  const gActive = $derived(!!item && !pics.some((p) => p.kind !== 'google') && !linkThumb);
-  let gphotos = $state<{ url: string; author: string | null }[]>([]);
-  let gLoaded = $state(false);
-  let gAsked = $state(false); // "Find photos on Google" or "More photos" was tapped
-  const gKey = $derived(item && ((gActive && !savedGoogle) || gAsked) ? `${item.type}:${item.id}` : null);
+  // Google Maps photos: a search keeps every photo Google gives on the server, at the top of the pictures. An
+  // item with no picture of its own is searched once by itself, and the first photo becomes its main picture.
+  const gActive = $derived(!!item && !pics.length && !linkThumb);
+  let gNote = $state('');
+  let gTried = '';
+  async function searchGoogle() {
+    if (!item) return;
+    const it = item;
+    gNote = '';
+    busy = 'google';
+    actionError = '';
+    try {
+      const r = await api.searchGooglePhotos(it.type, it.id);
+      onchanged(r.item);
+      app.changed();
+      gNote = !r.found
+        ? 'No Google photos found for this place.'
+        : r.new
+          ? `Saved ${r.new} new photo${r.new === 1 ? '' : 's'} from Google Maps.`
+          : 'No new photos: these are already saved, now on top.';
+    } catch (e) {
+      gNote = e instanceof ApiError && e.status === 429 ? "Today's Google photo limit is reached." : e instanceof Error ? e.message : String(e);
+    } finally {
+      busy = '';
+    }
+  }
   $effect(() => {
-    const key = gKey;
-    gphotos = [];
-    gLoaded = false;
-    if (!key) return;
-    const [type, id] = key.split(':') as [ItemType, string];
-    api
-      .googlePhotos(type, id)
-      .then((r) => {
-        if (gKey === key) {
-          gphotos = r.photos;
-          gLoaded = true;
-        }
-      })
-      .catch(() => (gLoaded = gKey === key));
+    const key = gActive && item ? `${item.type}:${item.id}` : '';
+    if (!key || key === gTried) return;
+    gTried = key;
+    void searchGoogle();
   });
   // A new item starts over
   const itemId = $derived(item?.id);
   $effect(() => {
     void itemId;
-    gAsked = false;
-  });
-  // With no picture at all the first Google photo is the hero; its download saves it on the server, so refresh
-  const autoHero = $derived(gActive && !savedGoogle ? (gphotos[0]?.url ?? null) : null);
-  $effect(() => {
-    const first = autoHero;
-    if (!first) return;
-    const img = new Image();
-    img.onload = () => app.changed();
-    img.src = first;
+    gNote = '';
   });
   const linkIsHero = $derived(!hero && !!linkThumb);
   const heroPic = $derived(hero ?? (linkThumb ? null : (pics[0] ?? null)));
-  const heroSrc = $derived(autoHero ?? heroPic?.url ?? linkThumb);
-  const canChange = $derived(pics.filter((p) => p.kind !== 'google').length + (linkThumb ? 1 : 0) > 1);
-  const gCredit = $derived(autoHero ? (gphotos[0]?.author ?? null) : (savedGoogle?.attribution ?? null));
-
-  // Make one of the Google photos the hero (a counted download on the server)
-  async function useGoogle(i: number) {
-    if (!item) return;
-    const it = item;
-    const ok = await run('image', () => api.useGooglePhoto(it.type, it.id, i));
-    if (ok) {
-      const fresh = await run('reload', () => api.item(it.type, it.id));
-      if (fresh) onchanged(fresh);
-      app.changed();
-    }
-  }
+  const heroSrc = $derived(heroPic?.url ?? linkThumb);
+  const canChange = $derived(pics.length + (linkThumb ? 1 : 0) > 1);
+  const gCredit = $derived(heroPic?.kind === 'google' ? (heroPic.attribution ?? '') : null);
   const stamp = (s: number | null) => (s == null ? '' : `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`);
 
   async function pickImage(id: number | null) {
@@ -450,7 +437,7 @@
             {/if}
             {#each pics as p (p.id)}
               <button class="pic" class:on={heroPic?.id === p.id} disabled={busy === 'image'} onclick={() => pickImage(p.id)}
-                title={p.at != null ? `Video at ${stamp(p.at)}` : 'Photo from the page'}>
+                title={p.kind === 'google' ? `Google Maps photo${p.attribution ? ` by ${p.attribution}` : ''}` : p.at != null ? `Video at ${stamp(p.at)}` : 'Photo from the page'}>
                 <img src={p.url} alt="Option" loading="lazy" />
                 {#if p.at != null}<span class="pic-time">{stamp(p.at)}</span>{/if}
               </button>
@@ -738,23 +725,11 @@
 {#snippet googlePicker()}
   {#if item}
     <div class="gpick">
-      {#if !gAsked}
-        <button class="btn small" disabled={!!busy} onclick={() => (gAsked = true)}><Images size={15} /> {gActive && savedGoogle ? 'More photos' : 'Find photos on Google'}</button>
-      {:else if !gLoaded}
-        <p class="muted gcredit">Looking on Google Maps...</p>
-      {:else if gphotos.length}
-        <div class="pics" role="group" aria-label="Pick a Google Maps photo">
-          {#each gphotos as g, i (g.url)}
-            <button class="pic" disabled={!!busy} onclick={() => useGoogle(i)} title={g.author ? `Use this photo by ${g.author}` : 'Use this photo'}>
-              <img src={g.url} alt="Place on Google Maps" loading="lazy" />
-            </button>
-          {/each}
-        </div>
-        <p class="muted gcredit">Tap a photo to use it as the main picture.</p>
-      {:else}
-        <p class="muted gcredit">No Google photos found, or today's limit is reached.</p>
-      {/if}
-      {#if savedGoogle || autoHero}<p class="muted gcredit">Main photo from Google Maps{gCredit ? `, by ${gCredit}` : ''}</p>{/if}
+      <button class="btn small" disabled={!!busy} onclick={searchGoogle}>
+        <Images size={15} /> {busy === 'google' ? 'Looking on Google Maps...' : 'Find photos on Google'}
+      </button>
+      {#if gNote}<p class="muted gcredit">{gNote}</p>{/if}
+      {#if gCredit != null}<p class="muted gcredit">Main photo from Google Maps{gCredit ? `, by ${gCredit}` : ''}</p>{/if}
     </div>
   {/if}
 {/snippet}

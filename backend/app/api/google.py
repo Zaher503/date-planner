@@ -1,22 +1,22 @@
 """Google Places photos for a place, or for the venue of an event (needs GOOGLE_PLACES_KEY)."""
+import hashlib
 import os
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import google_places
 from app.api.auth import current_user
 from app.api.common import has_image
+from app.api.items import detail, load
 from app.config import get_settings
 from app.db.models import Event, ItemImage, ItemSource, Place, Source, User
 from app.db.session import get_db
 from app.ingest import media
 
 router = APIRouter()
-
-CACHE_CONTROL = "private, max-age=3600"
 
 
 def _query(db: Session, kind: str, item_id: uuid.UUID) -> str:
@@ -35,71 +35,82 @@ def _query(db: Session, kind: str, item_id: uuid.UUID) -> str:
 EXT = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 
 
-def save_hero(db: Session, kind: str, item_id: uuid.UUID, body: bytes, ctype: str, author: str | None,
-              *, replace: bool = False) -> bool:
-    """Keep a Google photo as the hero of an item. By default only an item with no picture at all gets one, so the
-    list can show it without asking Google again (a real picture from a later import replaces it). With `replace`
-    (the user picked it) it becomes the hero whatever else the item has, and the earlier Google photo goes."""
-    ext = EXT.get(ctype.split(";")[0].strip().lower())
-    if ext is None or not get_settings().google_save_hero:
-        return False
+def _has_picture(db: Session, kind: str, item_id: uuid.UUID) -> bool:
+    """The item already has a picture of its own: a saved one, or an image on one of its links."""
     col, link = (ItemImage.event_id, ItemSource.event_id) if kind == "event" else (ItemImage.place_id, ItemSource.place_id)
-    if not replace:
-        if db.scalars(select(ItemImage.id).where(col == item_id)).first() is not None:
-            return False
-        if db.scalars(select(Source.id).join(ItemSource, ItemSource.source_id == Source.id)
-                      .where(link == item_id, has_image())).first() is not None:
-            return False
-    folder = media.media_root() / "item-images"
-    folder.mkdir(parents=True, exist_ok=True)
-    name = f"google-{uuid.uuid4().hex}{ext}"
-    tmp = folder / f".{name}.tmp"
-    tmp.write_bytes(body)
-    os.replace(tmp, folder / name)
-    if replace:
-        for row in db.scalars(select(ItemImage).where(col == item_id)).all():
-            if row.kind == "google":
-                if row.path:
-                    (media.media_root() / row.path).unlink(missing_ok=True)
-                db.delete(row)
-            else:
-                row.chosen = False
-    db.add(ItemImage(kind="google", path=f"item-images/{name}", rank=0, chosen=True, attribution=author,
-                     **{col.key: item_id}))
+    if db.scalars(select(ItemImage.id).where(col == item_id)).first() is not None:
+        return True
+    return db.scalars(select(Source.id).join(ItemSource, ItemSource.source_id == Source.id)
+                      .where(link == item_id, has_image())).first() is not None
+
+
+def _digest(path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def save_search(db: Session, kind: str, item_id: uuid.UUID, photos: list[tuple[bytes, str, str | None]],
+                existing: list[ItemImage], first_picture: bool) -> int:
+    """Keep every photo of one Google search on disk and put them at the top of the item's Google photos, in
+    Google's order; a photo already saved (same bytes) moves up instead of being saved twice. On an item with no
+    picture at all the top one becomes the main picture. Returns how many new files were written."""
+    col = ItemImage.event_id if kind == "event" else ItemImage.place_id
+    root = media.media_root()
+    folder = root / "item-images"
+    by_hash = {h: row for row in existing if row.path and (h := _digest(root / row.path))}
+    top: list[ItemImage] = []
+    new = 0
+    for body, ctype, author in photos:
+        ext = EXT.get(ctype.split(";")[0].strip().lower())
+        if ext is None:
+            continue
+        h = hashlib.sha256(body).hexdigest()
+        row = by_hash.get(h)
+        if row is None:
+            folder.mkdir(parents=True, exist_ok=True)
+            name = f"google-{uuid.uuid4().hex}{ext}"
+            tmp = folder / f".{name}.tmp"
+            tmp.write_bytes(body)
+            os.replace(tmp, folder / name)
+            row = ItemImage(kind="google", path=f"item-images/{name}", chosen=False, attribution=author,
+                            **{col.key: item_id})
+            db.add(row)
+            by_hash[h] = row
+            new += 1
+        if row not in top:
+            top.append(row)
+    for rank, row in enumerate(top + [r for r in existing if r not in top]):
+        row.rank = rank
+    if first_picture and top:
+        top[0].chosen = True
     db.commit()
-    return True
+    return new
 
 
-@router.get("/api/google-photos/{kind}/{item_id}")
-def list_photos(kind: str, item_id: uuid.UUID, db: Session = Depends(get_db), _: User = Depends(current_user)):
-    photos = google_places.photos_for(_query(db, kind, item_id))
-    return {"photos": [{"url": f"/api/google-photo/{kind}/{item_id}/{i}", "author": p["author"]}
-                       for i, p in enumerate(photos)]}
-
-
-@router.get("/api/google-photo/{kind}/{item_id}/{index}")
-def photo(kind: str, item_id: uuid.UUID, index: int, db: Session = Depends(get_db), _: User = Depends(current_user)):
-    photos = google_places.photos_for(_query(db, kind, item_id))
-    if not 0 <= index < len(photos):
-        raise HTTPException(404)
-    got = google_places.fetch_photo(photos[index]["name"])
-    if got is None:
-        raise HTTPException(429 if google_places.capped() else 502, "No Google photo right now")
-    if index == 0:
-        save_hero(db, kind, item_id, got[0], got[1], photos[0]["author"])
-    return Response(got[0], media_type=got[1], headers={"Cache-Control": CACHE_CONTROL})
-
-
-@router.post("/api/google-photo/{kind}/{item_id}/{index}/use")
-def use_photo(kind: str, item_id: uuid.UUID, index: int, db: Session = Depends(get_db),
-              _: User = Depends(current_user)):
-    """Make this Google photo the item's hero (one counted download)."""
-    photos = google_places.photos_for(_query(db, kind, item_id))
-    if not 0 <= index < len(photos):
-        raise HTTPException(404)
-    got = google_places.fetch_photo(photos[index]["name"])
-    if got is None:
-        raise HTTPException(429 if google_places.capped() else 502, "No Google photo right now")
-    if not save_hero(db, kind, item_id, got[0], got[1], photos[index]["author"], replace=True):
+@router.post("/api/google-photos/{kind}/{item_id}")
+def search_photos(kind: str, item_id: uuid.UUID, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    """Find the place on Google, download every photo it gives (each one a counted download) and keep them all."""
+    if not get_settings().google_save_hero:
         raise HTTPException(409, "Saving Google photos is switched off")
-    return {"ok": True}
+    query = _query(db, kind, item_id)
+    item = load(db, kind, item_id)
+    photos = google_places.photos_for(query)
+    got = []
+    for p in photos:
+        one = google_places.fetch_photo(p["name"])
+        if one is None:
+            if google_places.capped():
+                break
+            continue
+        got.append((one[0], one[1], p["author"]))
+    if not got:
+        if google_places.capped():
+            raise HTTPException(429, "Today's Google photo limit is reached")
+        return {"found": 0, "new": 0, "item": detail(db, item, user)}
+    col = ItemImage.event_id if kind == "event" else ItemImage.place_id
+    existing = list(db.scalars(select(ItemImage).where(col == item_id, ItemImage.kind == "google")
+                               .order_by(ItemImage.rank, ItemImage.id)).all())
+    new = save_search(db, kind, item_id, got, existing, first_picture=not _has_picture(db, kind, item_id))
+    return {"found": len(got), "new": new, "item": detail(db, item, user)}

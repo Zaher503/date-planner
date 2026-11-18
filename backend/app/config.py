@@ -29,7 +29,7 @@ class Settings(BaseSettings):
 
     ticketmaster_key: str = ""
     google_places_key: str = ""  # photos of places from Google Places (New); empty turns it off
-    google_save_hero: bool = True  # keep the first Google photo as the item's hero so the list can show it
+    google_save_hero: bool = True  # keep the photos of a Google search on disk (the first is the hero of an item with none)
     google_photo_daily_cap: int = 30  # image downloads a day (the only billed request)
 
     photon_url: str = "http://photon:2322"
