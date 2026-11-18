@@ -34,7 +34,7 @@ from app.db.models import (
 from app.db.session import get_db
 from app.hours import is_open
 from app.ingest import completeness, media, provenance
-from app.lifecycle import event_ended
+from app.lifecycle import event_ended, event_ongoing
 from app.textclean import strip_emoji
 
 router = APIRouter()
@@ -147,6 +147,32 @@ EVENT_ONLY = {"removed unverified date", "removed unverified time", "event with 
               "recurring series, dates unclear", "start time has no time zone", "event already happened"}
 
 
+def place_events(events: list[Event], upcoming: dict, now: datetime) -> list[tuple]:
+    """A venue's events as (event, next date, on now, ended), in list order: coming dates first, then runs
+    that are on now by closing date, then undated or repeating ones, then the ones that ended (newest first)."""
+    rows = []
+    for e in events:
+        nxt = upcoming.get(e.id, (0, None))[1] or (e.starts_at if e.starts_at and e.starts_at >= now else None)
+        ended = event_ended(status=e.status, starts_at=e.starts_at, ends_at=e.ends_at, duration_min=e.duration_min,
+                            all_day=e.all_day, is_recurring=bool(e.rrule or e.recurrence_text), now=now,
+                            rrule=e.rrule)
+        ongoing = not ended and nxt is None and event_ongoing(start=e.starts_at, end=e.ends_at, now=now)
+        rows.append((e, nxt, ongoing, ended))
+
+    def key(row):
+        e, nxt, ongoing, ended = row
+        if ended:
+            last = e.ends_at or e.starts_at
+            return 3, -(last.timestamp() if last else 0), e.title.lower()
+        if nxt is not None:
+            return 0, nxt.timestamp(), e.title.lower()
+        if ongoing:
+            return 1, e.ends_at.timestamp(), e.title.lower()
+        return 2, 0, e.title.lower()
+
+    return sorted(rows, key=key)
+
+
 def detail(db: Session, item: Place | Event, user: User) -> dict:
     is_place = isinstance(item, Place)
     lat, lon = _latlon(item.geom)
@@ -163,12 +189,14 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
     }
     review_place = None
     if is_place:
+        now = datetime.now(_tz())
         events = db.scalars(select(Event).where(Event.place_id == item.id, Event.review_status != "dismissed")
                             .order_by(Event.starts_at.asc().nulls_last()).limit(50)).all()
-        dates = dict(db.execute(select(Occurrence.event_id, func.count(Occurrence.id))
-                                .where(Occurrence.event_id.in_([e.id for e in events]),
-                                       Occurrence.starts_at >= datetime.now(_tz()))
-                                .group_by(Occurrence.event_id)).all()) if events else {}
+        upcoming = {eid: (n, first) for eid, n, first in db.execute(
+            select(Occurrence.event_id, func.count(Occurrence.id), func.min(Occurrence.starts_at))
+            .where(Occurrence.event_id.in_([e.id for e in events]), Occurrence.starts_at >= now)
+            .group_by(Occurrence.event_id)).all()} if events else {}
+        events = place_events(events, upcoming, now)
         out.update({
             "price_label": place_price_label(item.price_level, item.price_tiers),
             "price_text": item.price_text, "price_tiers": item.price_tiers or [], "hours_text": item.hours_text,
@@ -181,12 +209,13 @@ def detail(db: Session, item: Place | Event, user: User) -> dict:
             "last_scan_note": item.last_scan_note,
             "events": [{"id": str(e.id), "title": e.title, "starts_at": _iso(e.starts_at),
                         "ends_at": _iso(e.ends_at), "all_day": e.all_day, "duration_min": e.duration_min,
-                        "tz": e.tz, "dates": dates.get(e.id, 0), "recurrence_text": e.recurrence_text,
+                        "next_at": _iso(nxt), "ongoing": ongoing, "archived": ended,
+                        "tz": e.tz, "dates": upcoming.get(e.id, (0, None))[0], "recurrence_text": e.recurrence_text,
                         "price_label": event_price_label(e.is_free, e.price_min, e.price_max, e.price_text,
                                                          e.currency),
                         "description": strip_emoji(e.description), "ticket_url": e.ticket_url,
                         "min_age": e.min_age, "listed": e.listed, "status": e.status,
-                        "review_status": e.review_status} for e in events],
+                        "review_status": e.review_status} for e, nxt, ongoing, ended in events],
         })
         if item.review_status == "needs_review":
             review_place = item

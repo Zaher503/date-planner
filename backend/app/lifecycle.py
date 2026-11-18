@@ -28,3 +28,18 @@ def event_ended(*, status: str | None, starts_at: datetime | None, ends_at: date
     else:
         end = starts_at + (timedelta(days=1) if all_day else timedelta(hours=DEFAULT_EVENT_HOURS))
     return end < now
+
+
+def event_ongoing(*, start: datetime | None, end: datetime | None, now: datetime) -> bool:
+    """A run that is on now and lasts longer than a day: an exhibition or a season that opened before now (or
+    has only a closing date) and closes later. Lists show it as "On now, until <end>" instead of its opening
+    date."""
+    if end is None:
+        return False
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=now.tzinfo)
+    if start is None:
+        return end > now
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=now.tzinfo)
+    return start <= now < end and end - start > timedelta(days=1)

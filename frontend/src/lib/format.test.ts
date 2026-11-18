@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { badge, hoursTable, relativeAgo, dayKey, distance, duration, fromLocalInput, longWhen, toLocalInput, when } from './format';
+import { badge, hoursTable, onNow, relativeAgo, dayKey, distance, duration, fromLocalInput, longWhen, toLocalInput, when } from './format';
 
 const tz = 'America/Los_Angeles';
 // Friday 2026-10-09 10:00 in Los Angeles
@@ -43,6 +43,16 @@ describe('format', () => {
     expect(badge({ start: null, rec: 'every Sunday' }, tz)).toBe('Su');
     expect(badge({ start: null, rec: 'monthly' }, tz)).toBe('R');
     expect(badge({ start: null, rec: null }, tz)).toBe('');
+    expect(badge({ start: '2025-03-23T07:00:00Z', rec: null, ongoing: true }, tz)).toBe('Now');
+  });
+
+  it('labels a run that is on now by its closing day', () => {
+    const now = new Date('2026-11-18T20:00:00Z');
+    // 11:59 pm on Oct 24 in Los Angeles
+    expect(onNow('2027-10-25T06:59:00Z', { tz, now })).toBe('On now · until Oct 24, 2027');
+    // Midnight closing means the day before
+    expect(onNow('2026-12-01T08:00:00Z', { tz, now })).toBe('On now · until Nov 30');
+    expect(onNow(null, { tz, now })).toBe('On now');
   });
 });
 

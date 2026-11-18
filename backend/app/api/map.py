@@ -23,6 +23,7 @@ from app.db.models import Event, ItemImage, ItemSource, Occurrence, Place, Sourc
 from app.db.session import get_db
 from app.hours import is_open
 from app.ingest.store import home_point
+from app.lifecycle import event_ongoing
 
 router = APIRouter()
 
@@ -140,6 +141,7 @@ def event_props(r, now: datetime) -> dict:
                                 duration_min=r.duration_min, all_day=r.all_day,
                                 is_recurring=r.rrule is not None or r.recurrence_text is not None, now=now,
                                 rrule=r.rrule),
+        "ongoing": event_ongoing(start=r.start, end=end, now=now),
     }
 
 
@@ -178,11 +180,19 @@ def sort_items(items: list[tuple[dict, object]], sort: str, newest_first: bool =
     elif sort == "name":
         items.sort(key=lambda it: (it[0]["title"] or "").lower())
     else:
-        # Dated events by next start, then undated events, then places, by name
+        # Dated events by next start, then runs that are on now (an exhibition) by closing date, then undated
+        # events, then places, by name. An exhibition that opened last year is not "next" just because its
+        # opening date is the oldest.
         def key(it):
             p = it[0]
-            group = 2 if p["t"] == "place" else (0 if p["start"] else 1)
-            return group, it[1].start if group == 0 else datetime.min, (p["title"] or "").lower()
+            if p["t"] == "place":
+                group = 3
+            elif p.get("ongoing"):
+                group = 1
+            else:
+                group = 0 if p["start"] else 2
+            when = it[1].start if group == 0 else it[1].ends_at if group == 1 else None
+            return group, when or datetime.min, (p["title"] or "").lower()
         items.sort(key=key, reverse=newest_first)
     return [p for p, _ in items]
 

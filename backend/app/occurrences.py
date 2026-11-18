@@ -53,9 +53,18 @@ def refresh(db: Session, event: Event, now: datetime | None = None) -> int:
     return len(wanted)
 
 
+def backfill_rules(db: Session, now: datetime | None = None) -> int:
+    """Give a rule to events that have repeat wording but none: saved before wording was read, or read by an
+    older parser. A rule set or cleared by hand is left alone."""
+    events = db.scalars(select(Event).where(Event.recurrence_text.is_not(None), Event.rrule.is_(None),
+                                            Event.listed.is_(True), Event.status == "scheduled")).all()
+    return sum(1 for e in events if "rrule" not in (e.user_overrides or {}) and apply_rule(e, now))
+
+
 def refresh_all(db: Session, now: datetime | None = None) -> dict:
+    backfilled = backfill_rules(db, now)
     events = db.scalars(select(Event).where(Event.rrule.is_not(None), Event.listed.is_(True),
                                             Event.status == "scheduled")).all()
     total = sum(refresh(db, e, now) for e in events)
     db.commit()
-    return {"events": len(events), "occurrences": total}
+    return {"events": len(events), "occurrences": total, "rules_backfilled": backfilled}
